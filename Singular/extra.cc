@@ -180,6 +180,9 @@ extern BOOLEAN jjJanetBasis(leftv res, leftv v);
 static int PyInitialized = 0;
 #endif
 
+//BOCO: added:
+#include <kernel/shiftDVec.h>
+
 /* expects a SINGULAR square matrix with number entries
    where currRing is expected to be over some field F_p;
    returns a long** matrix with the "same", i.e.,
@@ -765,6 +768,81 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
           Werror("expected two non-empty intvecs as arguments");
           return TRUE;
         }
+      }
+  /*===================freegb mit DVecs========================*/
+      if (strcmp(sys_cmd, "freegbdvc") == 0)
+      {
+        ideal I;
+        int uptodeg, lVblock;
+        if ((h!=NULL) && (h->Typ()==IDEAL_CMD))
+        {
+          I=(ideal)h->CopyD();
+          h=h->next;
+        }
+        else return TRUE;
+        if ((h!=NULL) && (h->Typ()==INT_CMD))
+        {
+          uptodeg=(int)((long)(h->Data()));
+          h=h->next;
+        }
+        else return TRUE;
+        if ((h!=NULL) && (h->Typ()==INT_CMD))
+        {
+          lVblock=(int)((long)(h->Data()));
+          res->data = ShiftDVec::freegbdvc(I,uptodeg,lVblock);
+          if (res->data == NULL)
+          {
+            /* that is there were input errors */
+            res->data = I;
+          }
+          res->rtyp = IDEAL_CMD;
+        }
+        else return TRUE;
+        return FALSE;
+      }
+  /*=================== Testfunktion for Gebauer Moeller ========================*/
+      /* May require Debug Mode ? */
+      if (strcmp(sys_cmd, "gebMoell") == 0)
+      {
+        ideal I; poly p;
+        int uptodeg, lVblock;
+
+        if ((h!=NULL) && (h->Typ()==IDEAL_CMD))
+        {
+          I=(ideal)h->CopyD();
+          h=h->next;
+        }
+        else return TRUE;
+
+        if ((h!=NULL) && (h->Typ()==POLY_CMD))
+        {
+          p=(poly)(h->CopyD());
+          h=h->next;
+        }
+        else return TRUE;
+
+        if ((h!=NULL) && (h->Typ()==INT_CMD))
+        {
+          uptodeg=(int)((long)(h->Data()));
+          h=h->next;
+        }
+        else return TRUE;
+
+        if ((h!=NULL) && (h->Typ()==INT_CMD))
+        {
+          lVblock=(int)((long)(h->Data()));
+          h=h->next;
+          res->data = ShiftDVec::initTestGM(I,p,uptodeg,lVblock);
+          if (res->data == NULL)
+          {
+            /* that is there were input errors */
+            res->data = I;
+          }
+          res->rtyp = IDEAL_CMD;
+        }
+        else return TRUE;
+
+        return FALSE;
       }
   /*==================== Hensel's lemma ======================*/
       if(strcmp(sys_cmd, "henselfactors")==0)
