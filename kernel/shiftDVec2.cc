@@ -876,6 +876,7 @@ void ShiftDVec::GebauerMoeller
     uint** leftOvls, uint* sizesLeftOvls, 
     LObject* H, int k, kStrategy strat      )
 {
+  //IDEA: Include a special Class for shifts!
   initDeBoGri
     ( ShiftDVec::indent, "Entering GebauerMoeller", 
       "Leaving GebauerMoeller", 128                 );
