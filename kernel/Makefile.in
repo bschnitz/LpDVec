@@ -167,10 +167,6 @@ HEADERS=hutil.h idrec.h stairc.h ideals.h \
 	kstdfac.h kmatrix.h\
 	kutil.h kutil2.h\
 	shiftDVec.h\
-<<<<<<< HEAD
-=======
-	kutil.h \
->>>>>>> bobox
 	dbm_sl.h polys-impl.h \
         GMPrat.h multicnt.h npolygon.h semic.h spectrum.h splist.h multicnt.h \
 	eigenval.h units.h mod_raw.h kbuckets.h sbuckets.h\

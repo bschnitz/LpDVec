@@ -399,15 +399,10 @@ void ShiftDVec::DeBoGriTestGM
   for( uint i = 0; i < s_ovl_size; ++i )
   {
     //self with self and self
-<<<<<<< HEAD
 
    Print("Testing selfoverlaps of ");
    pWrite(H->p);
    Print("with overlap %d \n",s_overlaps[i]);
-=======
-    //Print("Considered selfoverlap in GMTest is: %s_overlaps[i]\n");
-
->>>>>>> bobox
    if  (GMTest( 
         H, H, s_overlaps[i], H, s_overlaps,
         s_ovl_size, s_overlaps, s_ovl_size ))
@@ -418,15 +413,9 @@ void ShiftDVec::DeBoGriTestGM
    /* for(int l = 0; l <= k && s_overlaps[i]; ++l)
     {
       TObject* Right = tset[l];
-<<<<<<< HEAD
       Print("Consider selfoverlap %d with element ", s_overlaps[i]);
       pWrite(tset[l]->p);
       Print(with right and leftoverlap %d and %d./n",r_overlaps[l],l_overlaps[l]);
-=======
-      Print("Consider selfoverlap %s_overlaps[i] with element);
-      pWrite(tset[l]->p);
-      Print(with right and leftoverlap %r_overlaps[l] and %l_overlaps[l]/n");
->>>>>>> bobox
 
       if (GMTest
           ( H, H, s_overlaps[i], Right, r_overlaps[l],
@@ -447,7 +436,6 @@ void ShiftDVec::DeBoGriTestGM
     for(uint i = 0; i < sizesRightOvls[l]; ++i)
     {
       TObject* Right = tset[l];
-<<<<<<< HEAD
       Print("Consider rightoverlap %d with element",r_overlaps[l][i]);
       pWrite(tset[l]->p);
       Print(with self and right overlaps./n");
@@ -456,23 +444,12 @@ void ShiftDVec::DeBoGriTestGM
           s_ovl_size, r_overlaps[l], r_ovl_sizes[l] ))
       {Print("GMTest Case 3 will return true./n");}
       else (Print("GMTest Case 3 will return false./n");)
-=======
-      Print("Consider rightoverlap %r_overlaps[l][i] with element);
-      pWrite(tset[l]->p);
-      Print(with self and right overlaps/n");
-      if (GMTest
-        ( H, Right, r_overlaps[l][i], H, s_overlaps,
-          s_ovl_size, r_overlaps[l], r_ovl_sizes[l] ))
-      {Print("GMTest Case 3 will return true.");}
-      else (Print("GMTest Case 3 will return false.");)
->>>>>>> bobox
     }
 
     //left with left and self
     for(uint i = 0; i < sizesLeftOvls[l]; ++i)
     {
       TObject* Left = tset[l];
-<<<<<<< HEAD
       Print("Consider leftoverlap %d with element ",l_overlaps[l][i]);
       pWrite(tset[l]->p);
       Print(with left and self overlaps./n");
@@ -481,16 +458,6 @@ void ShiftDVec::DeBoGriTestGM
           s_ovl_size, l_overlaps[l], l_ovl_sizes[l] ))
        {Print("GMTest Case 5 will return true./n");}
       else {Print("GMTest Case 5 will return false./n");}
-=======
-      Print("Consider leftoverlap %l_overlaps[l][i] with element);
-      pWrite(tset[l]->p);
-      Print(with left and self overlaps/n");
-      if (GMTest
-        ( Left, H, l_overlaps[l][i], H, s_overlaps,
-          s_ovl_size, l_overlaps[l], l_ovl_sizes[l] ))
-       {PrintS("GMTest Case 5 will return true.");}
-      else {PrintS("GMTest Case 5 will return false");}
->>>>>>> bobox
     }
   }
 
@@ -512,29 +479,21 @@ void ShiftDVec::DeBoGriTestGM
           if( !shRight1 ) goto end_of_middle_loop_1;
           TObject* Right1 = tset[i];
           TObject* Right2 = tset[m];
-<<<<<<< HEAD
                 TObject* Left = tset[l];
           Print("Consider rightoverlap %d of element ",r_overlaps[m][l]);
           pWrite(tset[l]->p);
           Print(with rightoverlap %d of element ", r_overlaps[i][j]);
           pWrite(tset[m]->p);
           Print("./n");
-=======
->>>>>>> bobox
           if( shRight2 >= shRight1 ||
               shRight2 + Right2->GetDVsize() >
               shRight1 + Right1->GetDVsize()   ) break;
           if( GMTest(H,Right1,Right2, shRight1,shRight2, NULL) )
-<<<<<<< HEAD
             {
              Print("GMTest Case 4 will return true./n");
              rightOvls[i][j] = 0; goto end_of_middle_loop_1;
             }
            else {Print("GMTest Case 4 will return false./n");}
-=======
-            {rightOvls[i][j] = 0; goto end_of_middle_loop_1;}
-          //not working as of yet, have to check with Bo
->>>>>>> bobox
         }
       }
 
@@ -560,7 +519,6 @@ void ShiftDVec::DeBoGriTestGM
           if( !shLeft1 ) goto end_of_middle_loop_2;
           TObject* Left1 = tset[i];
           TObject* Left2 = tset[m];
-<<<<<<< HEAD
           Print("Consider leftoverlap %d of element ",l_overlaps[m][l]);
           pWrite(tset[l]->p);
           Print(with rightoverlap %d of element ",r_overlaps[i][j]);
@@ -581,16 +539,6 @@ void ShiftDVec::DeBoGriTestGM
              leftOvls[i][j] = 0; break;
             }
            else {Print("GMTest Case 4 will return false./n");}
-=======
-          if( shLeft2 > shLeft1 ||
-              shLeft1 - Left1->GetDVsize() <=
-              shLeft2 - Left1->GetDVsize()    ) break;
-
-          if( GMTest(Left1,H,Left2, shLeft1,shLeft2, NULL) )
-            {leftOvls[i][j] = 0; break;}
-
-          //not working yet
->>>>>>> bobox
         }
       }
 
@@ -951,10 +899,6 @@ void ShiftDVec::GebauerMoeller
     uint** leftOvls, uint* sizesLeftOvls, 
     LObject* H, int k, kStrategy strat      )
 {
-<<<<<<< HEAD
-=======
-  //IDEA: Include a special Class for shifts!
->>>>>>> bobox
   initDeBoGri
     ( ShiftDVec::indent, "Entering GebauerMoeller", 
       "Leaving GebauerMoeller", 128                 );
