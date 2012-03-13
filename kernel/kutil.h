@@ -3,7 +3,7 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
-/* $Id: kutil.h 14179 2011-04-25 06:25:05Z motsak $ */
+/* $Id:$ */
 /*
 * ABSTRACT: kernel: utils for kStd
 */
