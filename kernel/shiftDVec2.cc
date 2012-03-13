@@ -401,8 +401,8 @@ void ShiftDVec::DeBoGriTestGM
     //self with self and self
 
    Print("Testing selfoverlaps of ");
-   pwrite(H->p);
-   Print("with overlap %d \n",s_overlaps[i])
+   pWrite(H->p);
+   Print("with overlap %d \n",s_overlaps[i]);
    if  (GMTest( 
         H, H, s_overlaps[i], H, s_overlaps,
         s_ovl_size, s_overlaps, s_ovl_size ))
