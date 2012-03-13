@@ -3,7 +3,7 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
-/* $Id$ */
+/* $Id: kutil.h 14179 2011-04-25 06:25:05Z motsak $ */
 /*
 * ABSTRACT: kernel: utils for kStd
 */
@@ -49,11 +49,6 @@
 typedef int* intset;
 typedef int64  wlen_type;
 typedef wlen_type* wlen_set;
-
-typedef class sTObject TObject;
-typedef class sLObject LObject;
-typedef TObject * TSet;
-typedef LObject * LSet;
 
 typedef struct denominator_list_s denominator_list_s;
 typedef denominator_list_s *denominator_list;
@@ -159,7 +154,55 @@ extern int strat_nr;
 extern int strat_fac_debug;
 #endif
 
+//BOCO: added - defines HAVE_SHIFTBBADVEC 
+//#include <kernel/kutil2.h>
+#define HAVE_SHIFTBBADVEC
+#include <kernel/kutil2.h>
+//class ShiftDVec::sTObject;
+//delete do disable DVec related stuff
+
+
+//BOCO: Inheritance
+//case normal bba: sTObject <- sLObject
+//case shiftbba: sTObject <- ShiftDVec::sTObject <- sLObject
+#ifdef HAVE_SHIFTBBADVEC
+typedef class ShiftDVec::sTObject TObject;
+//typedef class sTObject TObject;
+#else
+typedef class sTObject TObject; //BOCO: moved
+#endif
+
+// BOCO: added
+#ifdef HAVE_SHIFTBBADVEC
+namespace ShiftDVec{
+  class sLObject;
+  uint lcmDivisibleBy
+    ( ShiftDVec::sLObject * lcm, 
+      ShiftDVec::sTObject * p, int numVars );
+
+  void lcmDvecWrite(sLObject* t);
+}
+#endif
+
+#ifdef HAVE_SHIFTBBADVEC
+typedef class ShiftDVec::sLObject sLObject;
+typedef class ShiftDVec::sLObject  LObject;
+#else
+typedef class sLObject LObject;
+#endif
+typedef TObject * TSet;
+typedef LObject * LSet;
+
+
+//BOCO: Inheritance
+//case normal bba: sTObject <- sLObject
+//case shiftbba: sTObject <- ShiftDVec::sTObject <- sLObject
+#ifdef HAVE_SHIFTBBADVEC
+class ShiftDVec::sLObject : public ShiftDVec::sTObject
+//Or should we better say ShiftDVec::sLObject, to make the idea clearer
+#else
 class sLObject : public sTObject
+#endif
 {
 
 public:
@@ -168,6 +211,50 @@ public:
                  lm(pi) in currRing, tail(pi) in tailring -*/
 
   poly  lcm;   /*- the lcm of p1,p2 -*/
+
+  /* BOCO: We need a dvec for the lcm in shiftbbadvec case */
+#ifdef HAVE_SHIFTBBADVEC
+  /* BOCO: Important
+   * The lcmDvec and lcmDvSize need to be set to NULL
+   * respectivly 0, every time, the lcm changes and at the
+   * creation of an LObject.
+   * See kutil2.cc for most definitions.
+   * TODO:
+   * Do the latter in the constructor.
+   */
+  uint*   lcmDvec;   /*- the corresponding dvec -*/
+  uint  lcmDvSize;
+
+  void SetLcmDVec
+    (poly p, uint numberOfVariables = 0, ring r = currRing)
+  { lcmDvSize = 
+      ShiftDVec::CreateDVec(p, numberOfVariables, r, lcmDvec); }
+
+  //uses the LObjects lcm or p1, p2 if USE_DVEC_LCM is set.
+  void SetLcmDVec(uint numberOfVariables = 0, ring r = currRing);
+
+  void SetLcmDvecIfNULL() {if(!lcmDvec) SetLcmDVec();}
+
+  void SetLcmDvecToNULL() {lcmDvec = NULL; lcmDvSize = 0;}
+
+  uint getLcmDvSize(ring r = currRing);
+
+  bool gm3LcmUnEqualToLcm
+    (poly p1, poly p2, int lV, ring r = currRing);
+
+  void freeLcmDVec();
+
+  uint lcmDivisibleBy( ShiftDVec::sTObject * T, int numVars );
+
+  uint lcmDivisibleBy
+    ( ShiftDVec::sTObject * T, 
+      uint minShift, uint maxShift, int numVars );
+
+  bool compareLcmTo( sLObject* other, ring r = currRing );
+
+  bool compareLcmTo( poly p1, poly p2, ring r = currRing );
+#endif
+
   poly last;   // pLast(p) during reductions
   kBucket_pt bucket;
   int   i_r1, i_r2;
@@ -238,6 +325,7 @@ public:
   KINLINE void Normalize();
   KINLINE void HeadNormalize();
 };
+
 
 
 extern int HCord;
@@ -313,8 +401,9 @@ public:
   int lastAxis;
   int newIdeal;
   int minim;
-  #ifdef HAVE_SHIFTBBA
+  #if defined(HAVE_SHIFTBBA) || defined(HAVE_SHIFTBBADVEC)
   int lV;
+  int uptodeg; //BOCO: added
   #endif
   BOOLEAN interpt;
   BOOLEAN homog;
@@ -463,6 +552,7 @@ void updateResult(ideal r,ideal Q,kStrategy strat);
 void completeReduce (kStrategy strat, BOOLEAN withT=FALSE);
 void kFreeStrat(kStrategy strat);
 void enterOnePairNormal (int i,poly p,int ecart, int isFromQ,kStrategy strat, int atR);
+void kMergeBintoL(kStrategy strat);
 void chainCritNormal (poly p,int ecart,kStrategy strat);
 BOOLEAN homogTest(polyset F, int Fmax);
 BOOLEAN newHEdge(polyset S, kStrategy strat);
@@ -692,4 +782,23 @@ ideal bbaShift(ideal F, ideal Q,intvec *w,intvec *hilb,kStrategy strat, int upto
 extern  int (*test_PosInT)(const TSet T,const int tl,LObject &h);
 extern  int (*test_PosInL)(const LSet set, const int length,
                 LObject* L,const kStrategy strat);
+
+
+/* shiftDVec stuff */
+ideal kStdShiftDVec
+  ( ideal F, ideal Q, tHomog h,intvec ** w, intvec *hilb,
+    int syzComp, int newIdeal, intvec *vw, int uptodeg, int lV );
+
+void initBuchMoraCritShiftDVec(kStrategy strat);
+
+ideal bbaShiftDVec
+  ( ideal F, ideal Q,intvec *w,intvec *hilb,kStrategy strat, 
+    int uptodeg, int lV                                      );
+
+void initBuchMoraCritShiftDVec(kStrategy strat);
+
+
+/* ShiftDVec stuff */
+ideal freegbdvc(ideal I, int uptodeg, int lVblock);
+
 #endif
