@@ -399,8 +399,10 @@ void ShiftDVec::DeBoGriTestGM
   for( uint i = 0; i < s_ovl_size; ++i )
   {
     //self with self and self
-    //Print("Considered selfoverlap in GMTest is: %s_overlaps[i]\n");
 
+   Print("Testing selfoverlaps of ");
+   pWrite(H->p);
+   Print("with overlap %d \n",s_overlaps[i]);
    if  (GMTest( 
         H, H, s_overlaps[i], H, s_overlaps,
         s_ovl_size, s_overlaps, s_ovl_size ))
@@ -411,9 +413,9 @@ void ShiftDVec::DeBoGriTestGM
    /* for(int l = 0; l <= k && s_overlaps[i]; ++l)
     {
       TObject* Right = tset[l];
-      Print("Consider selfoverlap %s_overlaps[i] with element);
+      Print("Consider selfoverlap %d with element ", s_overlaps[i]);
       pWrite(tset[l]->p);
-      Print(with right and leftoverlap %r_overlaps[l] and %l_overlaps[l]/n");
+      Print(with right and leftoverlap %d and %d./n",r_overlaps[l],l_overlaps[l]);
 
       if (GMTest
           ( H, H, s_overlaps[i], Right, r_overlaps[l],
@@ -434,28 +436,28 @@ void ShiftDVec::DeBoGriTestGM
     for(uint i = 0; i < sizesRightOvls[l]; ++i)
     {
       TObject* Right = tset[l];
-      Print("Consider rightoverlap %r_overlaps[l][i] with element);
+      Print("Consider rightoverlap %d with element",r_overlaps[l][i]);
       pWrite(tset[l]->p);
-      Print(with self and right overlaps/n");
+      Print(with self and right overlaps./n");
       if (GMTest
         ( H, Right, r_overlaps[l][i], H, s_overlaps,
           s_ovl_size, r_overlaps[l], r_ovl_sizes[l] ))
-      {Print("GMTest Case 3 will return true.");}
-      else (Print("GMTest Case 3 will return false.");)
+      {Print("GMTest Case 3 will return true./n");}
+      else (Print("GMTest Case 3 will return false./n");)
     }
 
     //left with left and self
     for(uint i = 0; i < sizesLeftOvls[l]; ++i)
     {
       TObject* Left = tset[l];
-      Print("Consider leftoverlap %l_overlaps[l][i] with element);
+      Print("Consider leftoverlap %d with element ",l_overlaps[l][i]);
       pWrite(tset[l]->p);
-      Print(with left and self overlaps/n");
+      Print(with left and self overlaps./n");
       if (GMTest
         ( Left, H, l_overlaps[l][i], H, s_overlaps,
           s_ovl_size, l_overlaps[l], l_ovl_sizes[l] ))
-       {PrintS("GMTest Case 5 will return true.");}
-      else {PrintS("GMTest Case 5 will return false");}
+       {Print("GMTest Case 5 will return true./n");}
+      else {Print("GMTest Case 5 will return false./n");}
     }
   }
 
