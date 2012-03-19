@@ -479,21 +479,12 @@ void ShiftDVec::DeBoGriTestGM
           if( !shRight1 ) goto end_of_middle_loop_1;
           TObject* Right1 = tset[i];
           TObject* Right2 = tset[m];
-                TObject* Left = tset[l];
-          Print("Consider rightoverlap %d of element ",r_overlaps[m][l]);
-          pWrite(tset[l]->p);
-          Print(with rightoverlap %d of element ", r_overlaps[i][j]);
-          pWrite(tset[m]->p);
-          Print("./n");
           if( shRight2 >= shRight1 ||
               shRight2 + Right2->GetDVsize() >
               shRight1 + Right1->GetDVsize()   ) break;
           if( GMTest(H,Right1,Right2, shRight1,shRight2, NULL) )
-            {
-             Print("GMTest Case 4 will return true./n");
-             rightOvls[i][j] = 0; goto end_of_middle_loop_1;
-            }
-           else {Print("GMTest Case 4 will return false./n");}
+            {rightOvls[i][j] = 0; goto end_of_middle_loop_1;}
+          //not working as of yet, have to check with Bo
         }
       }
 
@@ -519,26 +510,14 @@ void ShiftDVec::DeBoGriTestGM
           if( !shLeft1 ) goto end_of_middle_loop_2;
           TObject* Left1 = tset[i];
           TObject* Left2 = tset[m];
-          Print("Consider leftoverlap %d of element ",l_overlaps[m][l]);
-          pWrite(tset[l]->p);
-          Print(with rightoverlap %d of element ",r_overlaps[i][j]);
-          pWrite(tset[m]->p);
-          Print("./n");
-
           if( shLeft2 > shLeft1 ||
               shLeft1 - Left1->GetDVsize() <=
-              shLeft2 - Left1->GetDVsize()    ) 
-           {
-             Print("GM Case 6 breaks because of shift preconditions./n")
-             break;
-           }
+              shLeft2 - Left1->GetDVsize()    ) break;
 
           if( GMTest(Left1,H,Left2, shLeft1,shLeft2, NULL) )
-            {
-             Print("GMTest Case 6 will return true./n");
-             leftOvls[i][j] = 0; break;
-            }
-           else {Print("GMTest Case 4 will return false./n");}
+            {leftOvls[i][j] = 0; break;}
+
+          //not working yet
         }
       }
 
@@ -899,6 +878,7 @@ void ShiftDVec::GebauerMoeller
     uint** leftOvls, uint* sizesLeftOvls, 
     LObject* H, int k, kStrategy strat      )
 {
+  //IDEA: Include a special Class for shifts!
   initDeBoGri
     ( ShiftDVec::indent, "Entering GebauerMoeller", 
       "Leaving GebauerMoeller", 128                 );

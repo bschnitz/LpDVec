@@ -115,7 +115,7 @@ CXXSOURCES=clapconv.cc \
     pDebug.cc pInline2.cc pInline1.cc pInline0.cc \
     pShallowCopyDelete.cc fast_mult.cc digitech.cc \
     tgb.cc tgbgauss.cc ringgb.cc f5data.cc f5lists.cc f5gb.cc \
-    f5c.cc F5cLists.cc ratgring.cc shiftgb.cc gfan.cc \
+    f5c.cc F5cLists.cc ratgring.cc shiftgb.cc \
     linearAlgebra.cc longtrans.cc
 CXXSOURCES2	= SingularBuilder.cpp
 
@@ -167,6 +167,7 @@ HEADERS=hutil.h idrec.h stairc.h ideals.h \
 	kstdfac.h kmatrix.h\
 	kutil.h kutil2.h\
 	shiftDVec.h\
+	kutil.h \
 	dbm_sl.h polys-impl.h \
         GMPrat.h multicnt.h npolygon.h semic.h spectrum.h splist.h multicnt.h \
 	eigenval.h units.h mod_raw.h kbuckets.h sbuckets.h\
@@ -177,7 +178,7 @@ HEADERS=hutil.h idrec.h stairc.h ideals.h \
         pInline2.h pInline1.h pInline0.h mmalloc.h \
         pShallowCopyDelete.h \
 	p_Procs_Dynamic.h p_Procs_Impl.h p_Procs_Set.h \
-	p_Procs.h p_Procs_Static.h p_Mult_q.h gfan.h
+	p_Procs.h p_Procs_Static.h p_Mult_q.h
 
 DISTFILES=${SOURCES} ${HEADERS} ${ESOURCES} \
         Makefile.in \
@@ -214,9 +215,6 @@ endif
 p_Procs_Lib_%.dl_o : p_Procs_Lib.cc p_Procs_Dynamic.o 
 	${CXX} ${CXXFLAGS} ${CXXTEMPLFLAGS} ${CPPFLAGS} ${DEFS} ${SFLAGS} -Dp_Procs_$* -c $< -o $@
 
-%.dl_o : %.cc
-	${CXX} ${CXXFLAGS} ${CXXTEMPLFLAGS} ${CPPFLAGS} ${DEFS} ${SFLAGS} -c $< -o $@
-
 DL_TAILG=\"sog\"
 DL_TAILP=\"sop\"
 
@@ -245,7 +243,7 @@ p_Procs_Lib.o: p_Procs_Lib.inc
 
 # Hmm compiling with -fomit-frame-pointer resulted in access violation
 # under cygwin
-prCopy.o: prCopy.inc
+prCopy.o prCopy.og prCopy.op: prCopy.inc
 
 prCopy.inc : prCopyMacros.h prCopyTemplate.cc prCopy.pl
 	$(PERL) prCopy.pl > prCopy.xx && mv prCopy.xx prCopy.inc
@@ -384,9 +382,6 @@ p_Procs_%.sog: p_Procs_Lib_%.dl_og
 p_Procs_Lib_%.dl_og : p_Procs_Lib.cc  p_Procs_Dynamic.og
 	${CXXG} ${CXXFLAGSG} ${CXXTEMPLFLAGS} ${CPPFLAGS} ${DEFSG} ${SFLAGS} -Dp_Procs_$* -c $< -o $@
 
-%.dl_og: %.cc
-	${CXXG} ${CXXFLAGSG} ${CXXTEMPLFLAGS} ${CPPFLAGS} ${DEFSG} ${SFLAGS} -c $< -o $@
-
 %.og: %.cc
 	$(CXXG) ${CXXFLAGSG} ${CXXTEMPLFLAGS} ${CPPFLAGS} ${DEFSG} -c $< -o $@
 
@@ -432,9 +427,6 @@ p_Procs_%.sop: p_Procs_Lib_%.dl_op
 
 p_Procs_Lib_%.dl_op : p_Procs_Lib.cc  p_Procs_Dynamic.op
 	${CXXP} ${CXXFLAGSP} ${CXXTEMPLFLAGS} ${CPPFLAGS} ${DEFSP} ${SFLAGS} -Dp_Procs_$* -c $< -o $@
-
-%.dl_op: %.cc
-	${CXXP} ${CXXFLAGSP} ${CXXTEMPLFLAGS} ${CPPFLAGS} ${DEFSP} ${SFLAGS} -c $< -o $@
 
 %.op: %.cc
 	$(CXXP) ${CXXFLAGSP} ${CXXTEMPLFLAGS} ${CPPFLAGS} ${DEFSP} -c $< -o $@

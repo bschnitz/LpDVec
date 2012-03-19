@@ -1,7 +1,7 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
-/* $Id: shiftgb.cc 14249 2011-05-27 13:52:46Z hannes $ */
+/* $Id$ */
 /*
 * ABSTRACT: kernel: utils for shift GB and free GB
 */
