@@ -234,10 +234,13 @@ void ShiftDVec::initenterpairs
     //BOCO: Before entering new pairs, we want to use the
     //Gebauer-Moeller criterion, to filter some pairs, we do
     //not need to enter.
-    SD::GebauerMoeller
-      ( s_overlaps, s_ovl_size, 
-        r_overlaps, r_ovl_sizes, 
-        l_overlaps, l_ovl_sizes, H, k, strat );
+    if( TEST_OPT_LPDVGEBMOELL )
+    {
+      SD::GebauerMoeller
+        ( s_overlaps, s_ovl_size, 
+          r_overlaps, r_ovl_sizes, 
+          l_overlaps, l_ovl_sizes, H, k, strat );
+    }
 
     enterLeftOverlaps
       (H,strat,k, l_overlaps, l_ovl_sizes, isFromQ, ecart, atR);
