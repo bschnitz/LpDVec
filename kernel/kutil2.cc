@@ -20,7 +20,6 @@
 //ring.h
 #include <kernel/mod2.h>
 
-#define KDEBUG
 #include <kernel/kutil.h>
 #include <kernel/kutil2.h> //(already included in kutil.h)
 #include <kernel/p_polys.h> //For p_Totaldegree and the like
@@ -464,6 +463,7 @@ uint ShiftDVec::sLObject::lcmDivisibleBy
 //other functions, which do not have no counterpart in normal bba
 
 
+
 //This should get the shift of a letterplace polynomial.
 //numFirstVar should be the index of the variable in the first
 //visual block of p (first index should be 1!). TODO: It would
@@ -481,7 +481,8 @@ bool ShiftDVec::compareDVec
   ( const uint* dvec, poly p, uint offset, uint maxSize, ring r )
 {
 
-#if DEBOGRI & 4
+#if DEBOGRI > 0 
+if( deBoGri == 4 )
 {
   PrintS("\nIn compareDVec\nComparing\n");
   dvecWrite(dvec, maxSize);
@@ -501,7 +502,8 @@ bool ShiftDVec::compareDVec
     else{ ++j; }
   }
 
-#if DEBOGRI & 4
+#if DEBOGRI > 0
+if( deBoGri == 4 )
   PrintS("compareDVec returns true!\n");
 #endif
 
@@ -902,12 +904,15 @@ void ShiftDVec::lcmDvecWrite(const LObject* t)
 { dvecWrite(t->lcmDvec, t->lcmDvSize); }
 
 
+int ShiftDVec::lpDVCase = 0;
+
 
 //class deBoGriInitializer functions
 
 
 
 #if DEBOGRI > 0
+int ShiftDVec::deBoGri = 0;
 int ShiftDVec::indent = 0;
 int ShiftDVec::indentInc = 2;
 int ShiftDVec::isSilenced = false;
@@ -998,7 +1003,9 @@ bool ShiftDVec::deBoGriPrint
   ( const char* description, uint flag, bool assume, int indent )
 {
   if(indent < 0){ indent = ShiftDVec::indent; }
-  if(DEBOGRI & flag && !assume && !ShiftDVec::isSilenced){ 
+  if( ShiftDVec::deBoGri & flag && 
+      !assume && !ShiftDVec::isSilenced )
+  { 
     for(int i = indent; i; --i) PrintS(" ");
     PrintS(description); PrintLn();
   }
@@ -1012,7 +1019,9 @@ bool ShiftDVec::deBoGriPrint
     const char* description, uint flag, bool assume, int indent )
 {
   if(indent < 0){ indent = ShiftDVec::indent; }
-  if(DEBOGRI & flag && !assume && !ShiftDVec::isSilenced){
+  if( ShiftDVec::deBoGri & flag && 
+      !assume && !ShiftDVec::isSilenced )
+  {
     for(int i = indent; i; --i) PrintS(" ");
     PrintS(description); pWrite(p);
   }
@@ -1026,7 +1035,9 @@ bool ShiftDVec::deBoGriPrint
     const char* description, uint flag, bool assume, int indent )
 {
   if(indent < 0){ indent = ShiftDVec::indent; }
-  if(DEBOGRI & flag && !assume && !ShiftDVec::isSilenced){
+  if( ShiftDVec::deBoGri & flag && 
+      !assume && !ShiftDVec::isSilenced )
+  {
     poly pTemp = p;
     if( shiftViolatesDeg(p, shift, strat->uptodeg) )
     {
@@ -1058,7 +1069,9 @@ bool ShiftDVec::deBoGriPrint
     const char* description, uint flag, bool assume, int indent )
 {
   if(indent < 0){ indent = ShiftDVec::indent; }
-  if(DEBOGRI & flag && !assume && !ShiftDVec::isSilenced){
+  if( ShiftDVec::deBoGri & flag && 
+      !assume && !ShiftDVec::isSilenced )
+  {
     for(int i = indent; i; --i) PrintS(" ");
     PrintS(description); dvecWrite(dvec, size); PrintLn();
   }
@@ -1072,7 +1085,9 @@ bool ShiftDVec::deBoGriPrint
     const char* description, uint flag, bool assume, int indent )
 {
   if(indent < 0){ indent = ShiftDVec::indent; }
-  if(DEBOGRI & flag && !assume && !ShiftDVec::isSilenced){
+  if( ShiftDVec::deBoGri & flag && 
+      !assume && !ShiftDVec::isSilenced )
+  {
     for(int i = indent; i; --i) PrintS(" ");
     PrintS(description); Print("%d\n", number);
   }
@@ -1086,7 +1101,9 @@ bool ShiftDVec::deBoGriPrint
     const char* description, uint flag, bool assume, int indent )
 {
   if(indent < 0){ indent = ShiftDVec::indent; }
-  if(DEBOGRI & flag && !assume && !ShiftDVec::isSilenced){
+  if( ShiftDVec::deBoGri & flag && 
+      !assume && !ShiftDVec::isSilenced )
+  {
     for(int i = indent; i; --i) PrintS(" ");
     PrintS(description); Print("%p\n", address);
   }
@@ -1101,7 +1118,8 @@ bool ShiftDVec::loGriToFile
     const char* logfile, bool assume, int indent   )
 {
   if(indent < 0){ indent = ShiftDVec::indent; }
-  if(DEBOGRI & flag && !assume && !ShiftDVec::isSilenced)
+  if( ShiftDVec::deBoGri & flag 
+      && !assume && !ShiftDVec::isSilenced )
   {
     std::ofstream toFile;
     toFile.open(logfile, std::ios::out | std::ios::app);

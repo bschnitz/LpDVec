@@ -94,9 +94,16 @@ inline static int* initS_2_R (const int maxnr)
 ideal freegb(ideal I, int uptodeg, int lVblock)
 {
 #else //BOCO: replacement
-ideal ShiftDVec::freegbdvc(ideal I, int uptodeg, int lVblock)
+ideal ShiftDVec::freegbdvc
+  (ideal I, int uptodeg, int lVblock, long deBoGriFlags)
 {
   namespace SD = ShiftDVec;
+
+#if DEBOGRI > 0
+  SD::deBoGri = deBoGriFlags;
+  SD::lpDVCase = 1;
+#endif
+
 #endif
   /* todo main call */
 

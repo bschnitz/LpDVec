@@ -310,12 +310,17 @@ void ShiftDVec::initenterpairs
     }
   }
 
-#if DEBOGRI & 0 //1024
-  //BOCO: Watch new Elements of L
-  for(int i = 0; i <= strat->Bl; ++i)
+#if 0
+#if DEBOGRI > 0 
+  if( ShiftDVec::debogri == 1024 )
   {
-    deBoGriPrint(strat->B[i].p2, "B[i].p2 ", 1024);
+    //BOCO: Watch new Elements of L
+    for(int i = 0; i <= strat->Bl; ++i)
+    {
+      deBoGriPrint(strat->B[i].p2, "B[i].p2 ", 1024);
+    }
   }
+#endif
 #endif
 
 

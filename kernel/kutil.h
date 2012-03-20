@@ -156,7 +156,7 @@ extern int strat_fac_debug;
 
 //BOCO: added - defines HAVE_SHIFTBBADVEC 
 //#include <kernel/kutil2.h>
-#define HAVE_SHIFTBBADVEC
+//#define HAVE_SHIFTBBADVEC
 #include <kernel/kutil2.h>
 //class ShiftDVec::sTObject;
 //delete do disable DVec related stuff

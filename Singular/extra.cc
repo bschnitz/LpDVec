@@ -789,7 +789,16 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
         if ((h!=NULL) && (h->Typ()==INT_CMD))
         {
           lVblock=(int)((long)(h->Data()));
-          res->data = ShiftDVec::freegbdvc(I,uptodeg,lVblock);
+          h=h->next;
+
+          long deBoGriFlags = 0;
+          if (h!=NULL)
+            if( (h->Typ()) == INT_CMD )
+              deBoGriFlags= (long) (h->Data()) ;
+            else return TRUE;
+
+          res->data =
+            ShiftDVec::freegbdvc(I,uptodeg,lVblock,deBoGriFlags);
           if (res->data == NULL)
           {
             /* that is there were input errors */
@@ -798,6 +807,7 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
           res->rtyp = IDEAL_CMD;
         }
         else return TRUE;
+
         return FALSE;
       }
   /*=================== Testfunktion for Gebauer Moeller ========================*/

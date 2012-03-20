@@ -20,6 +20,9 @@
 #include <omalloc/omalloc.h>
 #include <kernel/options.h>
 
+//BOCO: added - defines HAVE_SHIFTBBADVEC
+#include <kernel/kutil.h>
+
 #define HAVE_TAIL_BIN
 // This doesn't really work, fixme, if necessary
 // #define HAVE_LM_BIN
@@ -873,7 +876,16 @@ KINLINE TObject* sLObject::T_2(const skStrategy* strat)
   if (i_r2 == -1) i_r2 = kFindInT(p2, strat->T, strat->tl);
   assume(i_r2 >= 0 && i_r2 <= strat->tl);
   TObject* T = strat->R[i_r2];
+
+#ifdef HAVE_SHIFTBBADVEC //small alternation
+  //BOCO/TODO: 
+  //In our case T->p might be a shift of p2; 
+  //TODO: we should test, if T->p is such a shift
+  assume(T->p == p2 || ShiftDVec::lpDVCase);
+#else //original code
   assume(T->p == p2);
+#endif
+
   return T;
 }
 

@@ -2,7 +2,8 @@
 
 namespace ShiftDVec
 {
-  ideal freegbdvc(ideal I, int uptodeg, int lVblock);
+  ideal freegbdvc
+    (ideal I, int uptodeg, int lVblock, long deBoGriFlags);
   ideal kStd
     ( ideal F, ideal Q, tHomog h, intvec ** w, intvec *hilb,
       int syzComp, int newIdeal, intvec *vw, int uptodeg, int lV );

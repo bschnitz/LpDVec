@@ -1,6 +1,6 @@
 /* Preamble
  * Definitions for the letterplace DVec implementations
- * Last Change: 2011-09-06 15:00
+ * Last Change: 2012-03-20 15:00
  * Maintainers: Grischa Studzinski and Benjamin Schnitzler 
  */
 
@@ -14,11 +14,17 @@
 #define HAVE_SHIFTBBADVEC
 
 //BOCO: Our personal debugging output
+//
+// Attention:
+// The usage of DEBOGRI as flag-variable became obsolete.
+// ShiftDVec::deBoGri is the successor.
+//
 //0 : RECOMMENDED for not-developers
 //    no debugging output; removes all in DEBOGRI defined debug
 //    functions from the code, which is recommended, if you do
 //    not want to debug the code.
 //1 : entering of pairs - check degree violation
+//2 : - ??? - (not used ?)
 //4 : debugging of Gebauer-Moeller
 //8 : debugging of the initialization of LObjects
 //16 : debugging of lcm related things
@@ -29,7 +35,9 @@
 //256 : debugging divisiblility/ reduction related things
 //512 : debugging Creation of DVecs
 //1024 : Debugging memory corruption
-#define DEBOGRI 0
+#ifdef KDEBUG
+#define DEBOGRI 1
+#endif
 //TODO: 
 // - Introduce a singular option for setting debogri whilst in
 //   debug mode.
@@ -94,12 +102,14 @@ namespace ShiftDVec{
   void dvecWrite(const sTObject* t);
 
   void lcmDvecWrite(const sLObject* t);
+
+  extern int lpDVCase; //defined in kutil2.cc
 };
 
 
 #if DEBOGRI > 0
 
-#if DEBOGRI & 1
+#if 0
 //This has to be changed to make it work again
 //void debugPrintDegViolation
 //  (const char* where, poly p1, uint shift, poly p2, kStrategy);
@@ -142,10 +152,19 @@ namespace ShiftDVec
   void deBoGriTTest(kStrategy strat);
 #endif
 
+#if DEBOGRI > 0
+
+  //This variable will now hold the flags for triggering certain
+  //debug output. (These are the flags formerly used for DEBOGRI; 
+  //see above.) The DEBOGRI variable will become obsolete for
+  //this purpose.
+  extern int deBoGri;
+
   extern int indent;
   extern int indentInc;
   extern int isSilenced;
   extern int debugCounter;
+#endif
 };
 
 class ShiftDVec::DeBoGri
