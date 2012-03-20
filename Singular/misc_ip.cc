@@ -508,7 +508,7 @@ struct soptionStruct optionStruct[]=
   /* 30: use not regularity for syz */
   {"notRegularity",Sy_bit(OPT_NOTREGULARITY),  ~Sy_bit(OPT_NOTREGULARITY)  },
   {"weightM",      Sy_bit(OPT_WEIGHTM),        ~Sy_bit(OPT_WEIGHTM)  },
-  {"lpGebMoell",   Sy_bit(OPT_LPGEBMOELL),     ~Sy_bit(OPT_LPGEBMOELL)  },
+  {"lpDVGebMoell", Sy_bit(OPT_LPDVGEBMOELL),   ~Sy_bit(OPT_LPDVGEBMOELL)  },
 /*special for "none" and also end marker for showOption:*/
   {"ne",           0,                          0 }
 };
