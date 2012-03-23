@@ -1250,9 +1250,6 @@ int ShiftDVec::redHomog (LObject* h,kStrategy strat)
   initDeBoGri
     ( ShiftDVec::indent, 
       "Entering redHomog", "Leaving redHomog", 1024 );
-  //BOCO: TODO: delete this counter
-  static int deBoGriCnt = 0;
-  ++deBoGriCnt;
 #ifdef HAVE_SHIFTBBADVEC //BOCO: added code
   namespace SD = ShiftDVec;
 #endif
@@ -1280,8 +1277,6 @@ int ShiftDVec::redHomog (LObject* h,kStrategy strat)
 #endif //#if (HAVE_SEV > 1)
   loop
   {
-    ++deBoGriCnt;
-    deBoGriPrint(deBoGriCnt, "deBoGriCnt: ", 1024);
 #ifdef HAVE_SHIFTBBADVEC //BOCO: added code
     uint shift = 0;
 #endif
@@ -2100,9 +2095,6 @@ poly ShiftDVec::redtailBba
     BOOLEAN normalize                                    )
 {
   namespace SD = ShiftDVec;
-  //BOCO: TODO: delete this counter
-  static uint deBoGriCnt = 0;
-  ++deBoGriCnt;
 
   initDeBoGri
     ( ShiftDVec::indent, 
@@ -2136,17 +2128,20 @@ poly ShiftDVec::redtailBba
 #endif
 
   //BOCO: TODO: remove all these tests
-  assume(pTotaldegree(Ln.p) < 1000); 
+  assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000); 
 
+  int deBoGriCnt2 = 0; //TODO: remove
   while(!Ln.IsNull())
   {
-    assume(pTotaldegree(Ln.p) < 1000);
+    assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
 #ifdef HAVE_SHIFTBBADVEC //BOCO: added code
     shift = 0;
 #endif
     loop
     {
-      assume(pTotaldegree(Ln.p) < 1000);
+      ++deBoGriCnt2; //TODO: remove
+      assume(deBoGriCnt2 < 1000);
+      assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
 /* BOCO: original code (deleted because of sev usage)
       Ln.SetShortExpVector();
 */
@@ -2167,7 +2162,7 @@ poly ShiftDVec::redtailBba
 #endif
         if (j < 0)
         {
-          assume(pTotaldegree(Ln.p) < 1000);
+          assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
           break;
         }
         assume(shift < UINT_MAX);
@@ -2198,13 +2193,17 @@ poly ShiftDVec::redtailBba
         With = kFindDivisibleByInS(strat, pos, &Ln, &With_s);
         if (With == NULL) break;
 #else //BOCO: replacement
-        assume(pTotaldegree(Ln.p) < 1000);
+        assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
         TObject * WithTmp = kFindDivisibleByInS
           ( strat, pos, &Ln, &With_s, shift, strat->lV );
-        assume(pTotaldegree(Ln.p) < 1000);
+        assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
 
         if (WithTmp == NULL) {
-          assume(pTotaldegree(Ln.p) < 1000);
+          assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
+          deBoGriPrint
+            (Ln.p, "The polynomial after break loop: ", 2048, h != NULL);
+          deBoGriPrint
+            (Ln.p->next, "Ln is NULL, printing its tail {at break}: ", 2048, h == NULL);
           break;
         }
 
@@ -2256,7 +2255,7 @@ poly ShiftDVec::redtailBba
       /* BOCO: do we need to test for violation of exp bound?
        * does an exp bound still make sense?
        */
-      assume(pTotaldegree(Ln.p) < 1000);
+      assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
       if (ksReducePolyTail(L, With, &Ln))
       {
         // reducing the tail would violate the exp bound
@@ -2269,7 +2268,7 @@ poly ShiftDVec::redtailBba
           pIter(h);
           L->pLength++;
         } while (!Ln.IsNull());
-        assume(pTotaldegree(Ln.p) < 1000);
+        assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
         goto all_done;
       }
       assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
@@ -2305,17 +2304,29 @@ poly ShiftDVec::redtailBba
         With->dvec = NULL;
         delete With;
       }
-      assume(pTotaldegree(Ln.p) < 1000);
+      assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
 #endif
       Ln.freeDVec();
+      deBoGriPrint
+        (Ln.p, "The polynomial after inner loop: ", 2048, h != NULL);
+      deBoGriPrint
+        (Ln.p->next, "h is NULL, printing its tail: ", 2048, h == NULL);
     }
 
     //BOCO: LmExtr. makes second monomial the lm of Ln
     pNext(h) = Ln.LmExtractAndIter(); 
 
+    deBoGriPrint
+      (h, "The polynomial after pNext(h) = ... : ", 2048);
+
     Ln.freeDVec();
 
     pIter(h); //BOCO: seems to be souperflous
+    deBoGriPrint
+      (deBoGriCnt2, "deBoGriCnt2 before pNormalize(h): ", 2048);
+    deBoGriPrint
+      (h, "The polynomial before pNormalize(h): ", 2048);
+    assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
     pNormalize(h); 
     /* BOCO: why do we have h? Can't we just use Ln.p?
      * This is confusing. */

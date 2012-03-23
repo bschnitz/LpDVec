@@ -59,9 +59,11 @@ extern "C"
 #endif
 #endif
 #endif
+#if 0 //BOCO: seems to disable readline...
 #if defined(ix86_Linux) || defined(x86_64_Linux)
   // FEREAD stuff does not work with glibc2
   #undef HAVE_FEREAD
+#endif
 #endif
 
 /*

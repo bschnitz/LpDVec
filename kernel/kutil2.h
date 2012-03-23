@@ -35,6 +35,7 @@
 //256 : debugging divisiblility/ reduction related things
 //512 : debugging Creation of DVecs
 //1024 : Debugging memory corruption
+//2048 : debugging redTail related things
 #ifdef KDEBUG
 #define DEBOGRI 1
 #endif
