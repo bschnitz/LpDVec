@@ -67,10 +67,12 @@ endif
 DOC_SUBDIR      = ./d2t_singular
 EX_SUBDIR       = ./examples
 CHKSUM_DB       = ${DOC_SUBDIR}/chksum
+DOC2TEX_EXAMPLE_EXCLUSIONS = @DOC2TEX_EXAMPLE_EXCLUSIONS@
 DOC2TEX         = ${PERL} ./doc2tex.pl -docdir ${DOC_SUBDIR} \
                   -Singular ${SINGULAR} -verbose ${VERBOSE} -make ${MAKE} \
-		  -exdir ${EX_SUBDIR} @DOC2TEX_EXAMPLE_EXCLUSIONS@
-PL2DOC		= ${PERL} ./pl2doc.pl -db ${CHKSUM_DB}
+		  -exdir ${EX_SUBDIR} ${DOC2TEX_EXAMPLE_EXCLUSIONS}
+TAG		=
+PL2DOC		= ${PERL} ./pl2doc.pl ${TAG} -db ${CHKSUM_DB}
 
 # t2h stuff
 TMP_DIR		= @TMP_DIR@
@@ -183,17 +185,17 @@ usercard.ps: usercard.dvi
 # texinfo targets
 #
 manual.tex:  ${MANUAL_FILES} doc2tex.pl ${SINGULAR} singular.doc $(STANDALONE_TEXI_FILES)
-	${DOC2TEX} -no_fun -o manual.tex singular.doc
+	+${DOC2TEX} -no_fun -o manual.tex singular.doc
 
 singular.tex: ${MANUAL_FILES} doc2tex.pl ${LIB_TEX_FILES} ${SINGULAR} ${LIBPARSE} singular.doc $(STANDALONE_TEXI_FILES)
-	${DOC2TEX} -o singular.tex singular.doc
+	+${DOC2TEX} -o singular.tex singular.doc
 
 #pattern rule for tex files
 %_noEx.tex : %.doc doc2tex.pl ${SINGULAR}
-	${DOC2TEX} -o $@ -no_ex $<
+	+${DOC2TEX} -o $@ -no_ex $<
 
 %.tex: %.doc doc2tex.pl ${SINGULAR}
-	${DOC2TEX} -o $@ $<
+	+${DOC2TEX} -o $@ $<
 
 # pattern rules for lib docus
 ${DOC_SUBDIR}/%_lib.pl : ${SINGULAR_LIB_DIR}/%.lib ${LIBPARSE}

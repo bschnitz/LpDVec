@@ -3614,7 +3614,7 @@ static BOOLEAN jjCOUNT_N(leftv res, leftv v)
 static BOOLEAN jjCOUNT_L(leftv res, leftv v)
 {
   lists l=(lists)v->Data();
-  res->data = (char *)(long)(l->nr+1);
+  res->data = (char *)(long)(lSize(l)+1);
   return FALSE;
 }
 static BOOLEAN jjCOUNT_M(leftv res, leftv v)
@@ -4975,6 +4975,8 @@ static BOOLEAN jjLOAD(leftv res, leftv v, BOOLEAN autoexport)
         IDPACKAGE(pl)->loaded=(!bo);
         return bo;
       }
+      case LT_BUILTIN:
+        return FALSE;
       case LT_MACH_O:
       case LT_ELF:
       case LT_HPUX:

@@ -453,7 +453,7 @@ static BOOLEAN jiA_PROC(leftv res, leftv a, Subexpr e)
     ((procinfo *)res->data)->data.s.body=(char *)a->CopyD(STRING_CMD);
   }
   else
-    res->data=(void *)a->CopyD(PROC_CMD);
+    res->data=(void *)a->CopyD();
   jiAssignAttr(res,a);
   return FALSE;
 }
@@ -608,10 +608,11 @@ static BOOLEAN jiA_QRING(leftv res, leftv a,Subexpr e)
 #ifdef HAVE_RINGS
   if (rField_is_Ring(currRing))
   {
-    int constIndex = idPosConstant(id);
-    if (constIndex != -1)
-    WerrorS("ideal contains constant; please modify ground field/ring instead");
-    return TRUE;
+    if (idPosConstant(id) != -1)
+    {
+      WerrorS("constant in q-ideal; please modify ground field/ring instead");
+      return TRUE;
+    }
   }
 #endif
 
@@ -1119,34 +1120,6 @@ static BOOLEAN jjA_L_STRING(leftv l,leftv r)
   IDDATA((idhdl)(l->data))=s;
   return FALSE;
 }
-static BOOLEAN jjA_LIST_L(leftv l,leftv r)
-{
-  /*left side are something, right side are lists*/
-  /*e.g. a,b,c=l */
-  //int ll=l->listLength();
-  if (l->listLength()==1) return jiAssign_1(l,r);
-  BOOLEAN nok;
-  sleftv t;
-  leftv h;
-  lists L=(lists)r->Data();
-  int rl=L->nr;
-  int i=0;
-
-  memset(&t,0,sizeof(sleftv));
-  while ((i<=rl)&&(l!=NULL))
-  {
-    memset(&t,0,sizeof(sleftv));
-    t.Copy(&L->m[i]);
-    h=l->next;
-    l->next=NULL;
-    nok=jiAssign_1(l,&t);
-    if (nok) return TRUE;
-    i++;
-    l=h;
-  }
-  r->CleanUp();
-  return FALSE;
-}
 static BOOLEAN jiA_MATRIX_L(leftv l,leftv r)
 {
   /* right side is matrix, left side is list (of poly)*/
@@ -1378,7 +1351,7 @@ BOOLEAN iiAssign(leftv l, leftv r)
       }
       if(like_lists)
       {
-        if (TEST_V_ALLWARN) PrintS("assign list[..]=...or similiar\n");
+        if (TEST_V_ALLWARN) PrintS("assign list[..]=...or similar\n");
         b=jiAssign_list(l,r);
         if((!b) && (like_lists==2))
         {
@@ -1406,7 +1379,7 @@ BOOLEAN iiAssign(leftv l, leftv r)
         return b;
       }
     }
-    // end of handling elems of list and similiar
+    // end of handling elems of list and similar
     rl=r->listLength();
     if (rl==1)
     {

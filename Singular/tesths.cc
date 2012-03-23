@@ -1,8 +1,6 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
-/* $Id$ */
-
 /*
 * ABSTRACT - initialize SINGULARs components, run Script and start SHELL
 */
@@ -45,6 +43,11 @@
 #define SI_DONT_HAVE_GLOBAL_VARS
 #include <factory/factory.h>
 #endif
+
+#ifdef HAVE_SIMPLEIPC
+#include <Singular/simpleipc.h>
+#endif
+
 
 extern int siInit(char *);
 
@@ -122,6 +125,13 @@ int main(          /* main entry to Singular */
     if (optc == 'h') exit(0);
   }
 
+// semaphore0: CPUs --------------------------------------------------
+#ifdef HAVE_SIMPLEIPC
+  feOptIndex cpu_opt = feGetOptIndex("cpus");
+  int cpus = (int)(long)feOptValue(FE_OPT_CPUS);
+  sipc_semaphore_init(0, cpus-1);
+#endif
+
   /* say hello */
   //for official version: not active
   //bigintm_setup();
@@ -161,6 +171,10 @@ int main(          /* main entry to Singular */
 #endif /* HAVE_FANS */
   errorreported = 0;
 
+  // -- example for "static" modules ------
+  //load_builtin("huhu.so",FALSE,(SModulFunc_t)huhu_mod_init);
+  //module_help_main("huhu.so","Help for huhu\nhaha\n");
+  //module_help_proc("huhu.so","p","Help for huhu::p\nhaha\n");
   setjmp(si_start_jmpbuf);
 
   // Now, put things on the stack of stuff to do

@@ -258,7 +258,7 @@ lists primeFactorisation(const number n, const number pBound)
               }
               p_ui +=add;
               //add += 2; if (add == 6) add = 2;
-	      add =2+2*(add==2);
+              add =2+2*(add==2);
             }
             mpz_set_ui(nn,nn_ui);
             break;
@@ -1129,7 +1129,7 @@ void siInit(char *name)
   siRandomStart=t;
   feOptSpec[FE_OPT_RANDOM].value = (void*) ((long)siRandomStart);
 
-// ressource table: ----------------------------------------------------
+// resource table: ----------------------------------------------------
   // Don't worry: ifdef OM_NDEBUG, then all these calls are undef'ed
   // hack such that all shared' libs in the bindir are loaded correctly
   feInitResources(name);
@@ -1137,6 +1137,15 @@ void siInit(char *name)
 // singular links: --------------------------------------------------
   slStandardInit();
   myynest=0;
+// semapohore 0 -----------------------------------------------------
+  int cpus=2;
+  int cpu_n;
+  #ifdef _SC_NPROCESSORS_ONLN
+  if ((cpu_n=sysconf(_SC_NPROCESSORS_ONLN))>cpus) cpus=cpu_n;
+  #elif defined(_SC_NPROCESSORS_CONF)
+  if ((cpu_n=sysconf(_SC_NPROCESSORS_CONF))>cpus) cpus=cpu_n;
+  #endif
+  feSetOptValue(FE_OPT_CPUS, cpus);
 
 // loading standard.lib -----------------------------------------------
   if (! feOptValue(FE_OPT_NO_STDLIB))

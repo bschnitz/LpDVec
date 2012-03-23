@@ -143,18 +143,7 @@ static void list1(const char* s, idhdl h,BOOLEAN c, BOOLEAN fullname)
                     );
                     break;
     case PACKAGE_CMD:
-                    PrintS(" (");
-                    switch (IDPACKAGE(h)->language)
-                    {
-                        case LANG_SINGULAR: PrintS("S"); break;
-                        case LANG_C:        PrintS("C"); break;
-                        case LANG_TOP:      PrintS("T"); break;
-                        case LANG_NONE:     PrintS("N"); break;
-                        default:            PrintS("U");
-                    }
-                    if(IDPACKAGE(h)->libname!=NULL)
-                      Print(",%s", IDPACKAGE(h)->libname);
-                    PrintS(")");
+                    paPrint(IDID(h),IDPACKAGE(h));
                     break;
     case PROC_CMD: if((IDPROC(h)->libname!=NULL) && (strlen(IDPROC(h)->libname)>0))
                      Print(" from %s",IDPROC(h)->libname);
@@ -1848,12 +1837,20 @@ lists rDecompose(const ring r)
     } else
     if (r->block1[i]-r->block0[i] >=0 )
     {
-      j=r->block1[i]-r->block0[i];
-      if (r->order[i]==ringorder_M)  j=(j+1)*(j+1)-1;
+      int bl=j=r->block1[i]-r->block0[i];
+      if (r->order[i]==ringorder_M)
+      {
+        j=(j+1)*(j+1)-1;
+        bl=j+1;
+      }
+      else if (r->order[i]==ringorder_am)
+      {
+        j+=r->wvhdl[i][bl+1];
+      }
       iv=new intvec(j+1);
       if ((r->wvhdl!=NULL) && (r->wvhdl[i]!=NULL))
       {
-        for(;j>=0; j--) (*iv)[j]=r->wvhdl[i][j];
+        for(;j>=0; j--) (*iv)[j]=r->wvhdl[i][j+(j>bl)];
       }
       else switch (r->order[i])
       {
@@ -2189,6 +2186,19 @@ ring rCompose(const lists  L)
            for (i=0; i<iv_len;i++)
            {
              R->wvhdl[j][i]=(*iv)[i];
+           }
+           break;
+         case ringorder_am:
+           R->wvhdl[j] =( int *)omAlloc((iv->length()+1)*sizeof(int));
+           for (i=0; i<iv_len;i++)
+           {
+             R->wvhdl[j][i]=(*iv)[i];
+           }
+           R->wvhdl[j][i]=iv->length() - iv_len;
+           //printf("ivlen:%d,iv->len:%d,mod:%d\n",iv_len,iv->length(),R->wvhdl[j][i]);
+           for (; i<iv->length(); i++)
+           {
+              R->wvhdl[j][i+1]=(*iv)[i];
            }
            break;
          case ringorder_M:
@@ -4547,7 +4557,8 @@ BOOLEAN rSleftvOrdering2Ordering(sleftv *ord, ring R)
       n--;
     }
     else if (((*iv)[1]!=ringorder_a)
-    && ((*iv)[1]!=ringorder_a64))
+    && ((*iv)[1]!=ringorder_a64)
+    && ((*iv)[1]!=ringorder_am))
       o++;
     n++;
     sl=sl->next;
@@ -4687,6 +4698,27 @@ BOOLEAN rSleftvOrdering2Ordering(sleftv *ord, ring R)
               R->wvhdl[n][i-2]=(*iv)[i];
               last++;
               if (weights[last]==0) weights[last]=(*iv)[i]*typ;
+            }
+            last=R->block0[n]-1;
+            break;
+          }
+          case ringorder_am:
+          {
+            R->block0[n] = last+1;
+            R->block1[n] = si_min(last+iv->length()-2 , rVar(R));
+            R->wvhdl[n] = (int*)omAlloc(iv->length()*sizeof(int));
+            if (R->block1[n]- R->block0[n]+2>=iv->length())
+              WarnS("missing module weights");
+            for (i=2; i<=(R->block1[n]-R->block0[n]+2); i++)
+            {
+              R->wvhdl[n][i-2]=(*iv)[i];
+              last++;
+              if (weights[last]==0) weights[last]=(*iv)[i]*typ;
+            }
+            R->wvhdl[n][i-2]=iv->length() -3 -(R->block1[n]- R->block0[n]);
+            for (; i<iv->length(); i++)
+            {
+              R->wvhdl[n][i-1]=(*iv)[i];
             }
             last=R->block0[n]-1;
             break;
@@ -5460,8 +5492,25 @@ BOOLEAN jjVARIABLES_ID(leftv res, leftv u)
   int n=0;
   for(i=I->nrows*I->ncols-1;i>=0;i--)
   {
-    n=pGetVariables(I->m[i],e);
+    int n0= pGetVariables(I->m[i],e);
+    if (n0>n) n=n0;
   }
   jjINT_S_TO_ID(n,e,res);
   return FALSE;
+}
+
+void paPrint(const char *n,package p)
+{
+  Print("%s (",n);
+  switch (p->language)
+  {
+    case LANG_SINGULAR: PrintS("S"); break;
+    case LANG_C:        PrintS("C"); break;
+    case LANG_TOP:      PrintS("T"); break;
+    case LANG_NONE:     PrintS("N"); break;
+    default:            PrintS("U");
+  }
+  if(p->libname!=NULL)
+  Print(",%s", p->libname);
+  PrintS(")");
 }

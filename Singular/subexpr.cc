@@ -102,9 +102,12 @@ void sleftv::Print(leftv store, int spaces)
       {
         case UNKNOWN:
         case DEF_CMD:
-        case PACKAGE_CMD:
           PrintNSpaces(spaces);
           PrintS("`");PrintS(n);PrintS("`");
+          break;
+        case PACKAGE_CMD:
+          PrintNSpaces(spaces);
+          paPrint(n,(package)d);
           break;
         case NONE:
           return;
@@ -215,7 +218,7 @@ void sleftv::Print(leftv store, int spaces)
         case LIST_CMD:
         {
           lists l=(lists)d;
-          if (l->nr<0)
+          if (lSize(l)<0)
           {
              PrintNSpaces(spaces);
              PrintS("empty list\n");
@@ -421,7 +424,7 @@ static inline void * s_internalCopy(const int t,  void *d)
         return NULL;
       }
       else
-      Warn("s_internalCopy: cannot copy type %s(%d)",
+        Warn("s_internalCopy: cannot copy type %s(%d)",
             Tok2Cmdname(t),t);
     }
   }
@@ -874,7 +877,6 @@ char *  sleftv::String(void *d, BOOLEAN typed, int dim)
   return omStrDup("");
 }
 
-
 int  sleftv::Typ()
 {
   if (e==NULL)
@@ -941,11 +943,11 @@ int  sleftv::Typ()
       {
         lists l;
         if (rtyp==IDHDL) l=IDLIST((idhdl)data);
-	else if (rtyp==ALIAS_CMD)
-	{
-	  idhdl h=(idhdl)data; 
-	  l=(lists)(((idhdl)h->data.ustring)->data.ustring);
-	}
+        else if (rtyp==ALIAS_CMD)
+        {
+          idhdl h=(idhdl)data;
+          l=(lists)(((idhdl)h->data.ustring)->data.ustring);
+        }
         else             l=(lists)data;
         if ((0<e->start)&&(e->start<=l->nr+1))
         {
