@@ -340,7 +340,6 @@ void ShiftDVec::DeBoGriTestGM
 {
  namespace SD = ShiftDVec;
 
-/*
 
     //BOCO: arrays for right-overlaps
     uint** r_overlaps =
@@ -386,15 +385,14 @@ void ShiftDVec::DeBoGriTestGM
     {
       r_ovl_sizes[i] =
         SD::findRightOverlaps
-          ( H, tset[i],
-            lVBlock, uptodeg, &(r_overlaps[i]) );
+          ( H, &tset[i],
+            lVblock, uptodeg, &(r_overlaps[i]) );
 
       l_ovl_sizes[i] =
         SD::findRightOverlaps
-          ( tset[i], H,
-            lVBlock, uptodeg, &(l_overlaps[i]) );
+          ( &tset[i], H,
+            lVblock, uptodeg, &(l_overlaps[i]) );
     }
-*/
 
     //thats the first test we do
     //BOCO: We are also interested in overlaps of H with itself.
@@ -418,49 +416,49 @@ void ShiftDVec::DeBoGriTestGM
    else {Print("GMTest Case 1 will return false.\n");}
 
     //self with right and left
-   /* for(int l = 0; l <= k && s_overlaps[i]; ++l)
+    for(int l = 0; l <= k && s_overlaps[i]; ++l)
     {
-      TObject* Right = tset[l];
+      TObject* Right = &tset[l];
       Print("Consider selfoverlap %d with element ", s_overlaps[i]);
-      pWrite(tset[l]->p);
-      Print(with right and leftoverlap %d and %d./n",r_overlaps[l],l_overlaps[l]);
+      pWrite(tset[l].p);
+      Print("with right and leftoverlap %d and %d./n",r_overlaps[l],l_overlaps[l]);
 
       if (GMTest
           ( H, H, s_overlaps[i], Right, r_overlaps[l],
             r_ovl_sizes[l], l_overlaps[l], l_ovl_sizes[l] ))
         {Print("GMTest Case 2 will return true.\n");}
    else {Print("GMTest Case 2 will return false.\n");}
-    }*/
+    }
    //later
   }
 
-/*
+
 //for later use the other cases
 //include computation of left and right overlaps
   // Case 3 & 5
   for(int l = 0; l <= k; ++l)
   {
     //right with self and right
-    for(uint i = 0; i < sizesRightOvls[l]; ++i)
+    for(uint i = 0; i < r_ovl_sizes[l]; ++i)
     {
-      TObject* Right = tset[l];
+      TObject* Right = &tset[l];
       Print("Consider rightoverlap %d with element",r_overlaps[l][i]);
-      pWrite(tset[l]->p);
-      Print(with self and right overlaps./n");
+      pWrite(tset[l].p);
+      Print("with self and right overlaps./n");
       if (GMTest
         ( H, Right, r_overlaps[l][i], H, s_overlaps,
           s_ovl_size, r_overlaps[l], r_ovl_sizes[l] ))
       {Print("GMTest Case 3 will return true./n");}
-      else (Print("GMTest Case 3 will return false./n");)
+      else {Print("GMTest Case 3 will return false./n");}
     }
 
     //left with left and self
-    for(uint i = 0; i < sizesLeftOvls[l]; ++i)
+    for(uint i = 0; i < l_ovl_sizes[l]; ++i)
     {
-      TObject* Left = tset[l];
+      TObject* Left = &tset[l];
       Print("Consider leftoverlap %d with element ",l_overlaps[l][i]);
-      pWrite(tset[l]->p);
-      Print(with left and self overlaps./n");
+      pWrite(tset[l].p);
+      Print("with left and self overlaps./n");
       if (GMTest
         ( Left, H, l_overlaps[l][i], H, s_overlaps,
           s_ovl_size, l_overlaps[l], l_ovl_sizes[l] ))
@@ -468,7 +466,6 @@ void ShiftDVec::DeBoGriTestGM
       else {Print("GMTest Case 5 will return false./n");}
     }
   }
-
  // Case 4: right with right and ?
  // xxxxxx
  //    yyyyyyyyy   Right1
@@ -485,14 +482,29 @@ void ShiftDVec::DeBoGriTestGM
           if( !shRight2 ) continue;
           uint shRight1 = r_overlaps[i][j];
           if( !shRight1 ) goto end_of_middle_loop_1;
-          TObject* Right1 = tset[i];
-          TObject* Right2 = tset[m];
+          TObject* Right1 = &tset[i];
+          TObject* Right2 = &tset[m];
+          TObject* Left = &tset[l];
+	  Print("Consider rightoverlap %d of element ",r_overlaps[m][l]);
+	  pWrite(tset[l].p);
+          Print("with rightoverlap %d of element ", r_overlaps[i][j]);
+          pWrite(tset[m].p);
+          Print("./n");
           if( shRight2 >= shRight1 ||
               shRight2 + Right2->GetDVsize() >
-              shRight1 + Right1->GetDVsize()   ) break;
-          if( GMTest(H,Right1,Right2, shRight1,shRight2, NULL) )
-            {rightOvls[i][j] = 0; goto end_of_middle_loop_1;}
-          //not working as of yet, have to check with Bo
+              shRight1 + Right1->GetDVsize()   ) 
+              {
+                Print("GM Case 4 breaks because of shift preconditions./n");
+                break;
+              }
+        /*  if( GMTest(H,Right1,shRight1, Right2,shRight2, NULL, NULL, NULL) )
+            //GriCo2BoCo: Hilfe, die NULL's da oben was tu ich da rein?
+            {
+             Print("GMTest Case 4 will return true./n");
+             r_overlaps[i][j] = 0; goto end_of_middle_loop_1;
+            }
+           else {Print("GMTest Case 4 will return false./n");} */
+           Print("GMTest Case 4 not ready!");
         }
       }
 
@@ -516,27 +528,39 @@ void ShiftDVec::DeBoGriTestGM
           uint shLeft1 = l_overlaps[i][j];
           if( !shLeft2 ) continue;
           if( !shLeft1 ) goto end_of_middle_loop_2;
-          TObject* Left1 = tset[i];
-          TObject* Left2 = tset[m];
+          TObject* Left1 = &tset[i];
+          TObject* Left2 = &tset[m];
+          Print("Consider leftoverlap %d of element ",l_overlaps[m][l]);
+          pWrite(tset[l].p);
+          Print("with rightoverlap %d of element ",r_overlaps[i][j]);
+          pWrite(tset[m].p);
+          Print("./n");
+
           if( shLeft2 > shLeft1 ||
               shLeft1 - Left1->GetDVsize() <=
-              shLeft2 - Left1->GetDVsize()    ) break;
+              shLeft2 - Left1->GetDVsize()    )
+           {
+             Print("GM Case 6 breaks because of shift preconditions./n");
+             break;
+           }
 
-          if( GMTest(Left1,H,Left2, shLeft1,shLeft2, NULL) )
-            {leftOvls[i][j] = 0; break;}
-
-          //not working yet
+        /*  if( GMTest(Left1,H,shLeft1,Left2, shLeft2,NULL, NULL,NULL) )
+            //GriCo2BoCo: Hilfe, die NULL's da oben was tu ich da rein?
+            {
+             Print("GMTest Case 6 will return true./n");
+             l_overlaps[i][j] = 0; break;
+            }
+           else {Print("GMTest Case 4 will return false./n");}*/
+           Print("GMTest Case 6 not ready!");
         }
       }
 
       end_of_middle_loop_2:;
     }
   }
-*/
 
-/*
       //BOCO: Free arrays with overlaps
-    for (int j = 0; i <= k; i++)
+    for (int j = 0; j <= k; j++)
     {
       if( r_ovl_sizes[j] )
       {
@@ -558,7 +582,6 @@ void ShiftDVec::DeBoGriTestGM
           ((ADDRESS)l_overlaps[j], sizeof(uint)*l_ovl_sizes[j]);
       }
     }
-*/
 
     if( s_ovl_size )
     {
