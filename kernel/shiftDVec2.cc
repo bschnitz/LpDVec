@@ -339,7 +339,9 @@ void ShiftDVec::DeBoGriTestGM
   (TSet tset, int k, TObject* H, int uptodeg, int lVblock)
 {
  namespace SD = ShiftDVec;
-
+ kStrategy strat=new skStrategy;
+ strat->lV = lVblock;
+ strat->uptodeg = uptodeg;
 
     //BOCO: arrays for right-overlaps
     uint** r_overlaps =
@@ -421,7 +423,9 @@ void ShiftDVec::DeBoGriTestGM
       TObject* Right = &tset[l];
       Print("Consider selfoverlap %d with element ", s_overlaps[i]);
       pWrite(tset[l].p);
-      Print("with right and leftoverlap %d and %d./n",r_overlaps[l],l_overlaps[l]);
+      //Print("with right and leftoverlap %u and %u./n",r_overlaps[l],l_overlaps[l]);
+      deBoGriPrint( r_overlaps[l], *r_ovl_sizes, "with right overlaps", 16384, 0, -1 );
+      deBoGriPrint( l_overlaps[l], *l_ovl_sizes, "and with left overlaps./n", 16384, 0, -1 );
 
       if (GMTest
           ( H, H, s_overlaps[i], Right, r_overlaps[l],
@@ -484,7 +488,6 @@ void ShiftDVec::DeBoGriTestGM
           if( !shRight1 ) goto end_of_middle_loop_1;
           TObject* Right1 = &tset[i];
           TObject* Right2 = &tset[m];
-          TObject* Left = &tset[l];
 	  Print("Consider rightoverlap %d of element ",r_overlaps[m][l]);
 	  pWrite(tset[l].p);
           Print("with rightoverlap %d of element ", r_overlaps[i][j]);
@@ -497,14 +500,12 @@ void ShiftDVec::DeBoGriTestGM
                 Print("GM Case 4 breaks because of shift preconditions./n");
                 break;
               }
-        /*  if( GMTest(H,Right1,shRight1, Right2,shRight2, NULL, NULL, NULL) )
-            //GriCo2BoCo: Hilfe, die NULL's da oben was tu ich da rein?
+          if( GMTestRight(H,Right1,Right2, shRight1,shRight2, strat) )
             {
              Print("GMTest Case 4 will return true./n");
              r_overlaps[i][j] = 0; goto end_of_middle_loop_1;
             }
-           else {Print("GMTest Case 4 will return false./n");} */
-           Print("GMTest Case 4 not ready!");
+           else {Print("GMTest Case 4 will return false./n");} 
         }
       }
 
@@ -544,14 +545,13 @@ void ShiftDVec::DeBoGriTestGM
              break;
            }
 
-        /*  if( GMTest(Left1,H,shLeft1,Left2, shLeft2,NULL, NULL,NULL) )
+          if( GMTestLeft(Left1,H,Left2, shLeft1,shLeft1-shLeft2,strat) )
             //GriCo2BoCo: Hilfe, die NULL's da oben was tu ich da rein?
             {
              Print("GMTest Case 6 will return true./n");
              l_overlaps[i][j] = 0; break;
             }
-           else {Print("GMTest Case 4 will return false./n");}*/
-           Print("GMTest Case 6 not ready!");
+           else {Print("GMTest Case 4 will return false./n");}
         }
       }
 
@@ -592,6 +592,8 @@ void ShiftDVec::DeBoGriTestGM
       omFreeSize
         ((ADDRESS)s_overlaps, sizeof(uint)*s_ovl_size);
     }
+  
+   delete(strat);
 }
 
 
@@ -659,10 +661,10 @@ bool ShiftDVec::GMTestRight
   deBoGriPrint
     ("The following pair will be considered for cancellation:", 128);
   deBoGriPrint(H1->p, "h1: ", 128);
-  deBoGriPrint(H2->p, shift2, strat, "shift2*h2 ", 128);
+  deBoGriPrint(H2->p, shift2, strat,"shift2*h2 ", 128,!strat);
   deBoGriPrint
     ("The pair might be cancelled because of: ", 128);
-  deBoGriPrint(H3->p, shift3, strat, "shift3*h3: ", 128);
+  deBoGriPrint(H3->p, shift3, strat, "shift3*h3: ", 128,!strat);
 
   int degH1 = H1->GetDVsize(); 
   int degH3 = H3->GetDVsize(); 
@@ -709,10 +711,10 @@ bool ShiftDVec::GMTestLeft
   deBoGriPrint
     ("The following pair will be considered for cancellation:", 128);
   deBoGriPrint(H1->p, "h1: ", 128);
-  deBoGriPrint(H2->p, shift2, strat, "shift2*h2 ", 128);
+  deBoGriPrint(H2->p, shift2, strat, "shift2*h2 ", 128,!strat);
   deBoGriPrint
     ("The pair might be cancelled because of: ", 128);
-  deBoGriPrint(H3->p, shift3, strat, "shift3*h3: ", 128);
+  deBoGriPrint(H3->p, shift3, strat, "shift3*h3: ", 128,!strat);
 
   int minCmpDV1 = shift3;
   int minCmpDV3 = 0;
