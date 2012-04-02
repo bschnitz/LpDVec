@@ -91,10 +91,17 @@ namespace ShiftDVec{
     ( ShiftDVec::sTObject * t1, ShiftDVec::sTObject * t2, 
       int numVars, int maxDeg, uint ** overlaps );
 
-  bool redViolatesDeg(poly a, poly b, int uptodeg);
+  bool redViolatesDeg
+    ( poly a, poly b, int uptodeg, 
+      ring aLmRing = currRing, 
+      ring bLmRing = currRing, ring bTailRing = currRing );
   bool createSPviolatesDeg
-    (poly a, poly b, uint shift, int uptodeg);
-  bool shiftViolatesDeg(poly p, uint shift, int uptodeg);
+    ( poly a, poly b, uint shift, int uptodeg, 
+      ring aLmRing = currRing, ring bLmRing = currRing, 
+      ring aTailRing = currRing, ring bTailRing = currRing );
+  bool shiftViolatesDeg
+    ( poly p, uint shift, int uptodeg, 
+      ring pLmRing = currRing, ring pTailRing = currRing );
 
   void dvecWrite(const poly p, ring r = currRing);
 
@@ -266,6 +273,8 @@ public:
   ~sTObject()
   { this->freeDVec(); }
 #endif
+
+  void dumbInit(poly p_){ p = p_; dvec = NULL; t_p = NULL; }
   
   // Initialize the distance vector of an ShiftDVec::sTObject
   void SetDVec

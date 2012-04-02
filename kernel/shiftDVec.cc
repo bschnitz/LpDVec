@@ -1,3 +1,6 @@
+// define to enable tailRings
+#define HAVE_TAIL_RING
+
 //Needed because fo include order; should rather be included in
 //ring.h
 #include <kernel/mod2.h>
@@ -46,7 +49,8 @@ namespace ShiftDVec{
       const ShiftDVec::sTObject * t2, 
       int numVars, int maxDeg, uint ** overlaps );
 
-  bool redViolatesDeg(poly a, poly b, int uptodeg);
+//  bool redViolatesDeg
+//    ( poly a, poly b, int uptodeg, ring ar, ring br );
   bool createSPviolatesDeg
     (poly a, poly b, uint shift, int uptodeg);
 };
@@ -1351,6 +1355,7 @@ int ShiftDVec::redHomog (LObject* h,kStrategy strat)
 #if 0 //BOCO: original code (replaced)
     ksReducePoly(h, &(strat->T[ii]), NULL, NULL, strat);
 #else //BOCO: replacement
+#if 0 //BOCO: old and bad idea (does not work with tailRing)
     poly pTemp;
     if(shift > 0){
       pTemp = p_LPshiftT
@@ -1385,6 +1390,37 @@ int ShiftDVec::redHomog (LObject* h,kStrategy strat)
       pDelete(&pTemp); 
       //deBoGriPrint(strat->T[0].p, "Printing strat->T[0]: ", 1024);
     }
+#else
+    poly pTemp = strat->T[ii].p;
+    if(shift > 0) //BOCO: is currRing correct here?
+      strat->T[ii].p = p_LPshiftT
+        ( strat->T[ii].p, shift, strat->uptodeg, strat->lV, 
+          strat, currRing                                   );
+    ksReducePoly(h, &(strat->T[ii]), NULL, NULL, strat);
+
+    //BOCO: why did i change it to that?:
+    //ksReducePoly(h,strat->T[ii],strat->kNoetherTail());
+
+    /* BOCO: We are in homogenous case, aren't we? So we do
+     * not have to shrink.
+     * BOCO: this was copied from redFirstShrink
+     * i only additionally test for strat->homog - why wasn't
+     * that done in redFirstShrink
+     * some other time, i should review redBbaShift
+    if (!h->IsNull() && !strat->homog ){
+      poly qq=p_Shrink(h->GetTP(),strat->lV,strat->tailRing);
+      h->p=NULL;
+      h->t_p=qq;
+      if (qq!=NULL) h->GetP(strat->lmBin);
+    }
+     */
+
+    if(shift > 0)
+    {
+      pDelete(&strat->T[ii].p); 
+      strat->T[ii].p = pTemp;
+    }
+#endif
 #endif
 
 #ifdef KDEBUG
@@ -1831,11 +1867,16 @@ int ShiftDVec::kFindDivisibleByInT
   if (p==NULL)  { r=L->tailRing; p=L->t_p; }
   L->GetLm(p, r);
 #else //BOCO: replacement
-  TObject t(L->p);
-  t.dvec = L->dvec;
+  TObject t;
+  t.dvec = NULL;
+  t.p = L->p;
   ring r=currRing;
+
+  //why is that useful, won't GetLm just overwrite it?
   if (t.p==NULL)  { r=L->tailRing; t.p=L->t_p; }
+
   L->GetLm(t.p, r);
+  if (t.p==L->p && t.p != NULL) t.dvec = L->dvec;
 #endif
 
 #if (HAVE_SEV > 2) //BOCO: comments/uncomments sev
@@ -1879,6 +1920,7 @@ int ShiftDVec::kFindDivisibleByInT
   }
   else //BOCO: could do both cases in one with function pointer
   {
+    t.SetDVec(0, L->tailRing);
     loop
     {
       if (j > tl) {ret = -1; break;}
@@ -1898,14 +1940,19 @@ int ShiftDVec::kFindDivisibleByInT
        * The original p_LmDivisibleBy checks if second arg
        * divides first arg, we check if first arg is divisibly
        * by second arg! */
-      TObject tTemp(T[j].t_p);
+      //TObject tTemp(T[j].t_p);
+      TObject tTemp;
+      tTemp.p = T[j].t_p;
+      tTemp.t_p = NULL;
+      tTemp.SetDVec(0, T[j].tailRing);
       shift = p_LmDivisibleBy(&t, &tTemp , r, lV);
       tTemp.freeDVec();
       if ( shift < UINT_MAX && 
 #if (HAVE_SEV > 3) //BOCO: comments/uncomments sev
            !(sevT[j] & not_sev) &&
 #endif //#if (HAVE_SEV > 3)
-           !redViolatesDeg(t.p, tTemp.p, uptodeg) )
+           !redViolatesDeg
+             (t.p,tTemp.p, uptodeg, L->tailRing,T[j].tailRing) )
       {ret = j; break;}
 #endif
 /* BOCO: we have no debug version at the moment
@@ -1913,15 +1960,20 @@ int ShiftDVec::kFindDivisibleByInT
 */
       j++;
     }
+    t.freeDVec();
   }
 
 #ifdef HAVE_SHIFTBBA //BOCO:added
-  if(t.p == L->p) 
-    { L->freeDVec(); L->dvec = t.dvec; L->dvSize = t.dvSize; }
-  else            
-    { assume(L->dvec != t.dvec); t.freeDVec(); }
-  return ret;
+  if( r != L->tailRing )
+  {
+    if(t.p == L->p) 
+      { L->freeDVec(); L->dvec = t.dvec; L->dvSize = t.dvSize; }
+    else            
+      { assume(L->dvec != t.dvec); t.freeDVec(); }
+  }
 #endif
+
+  return ret;
 }
 
 
@@ -2112,9 +2164,13 @@ poly ShiftDVec::redtailBba
   // placeholder in case strat->tl < 0
   TObject  With_s(strat->tailRing);
 
+  //BOCO: I think, this initializes Ln.t_p, but not Ln.p
   LObject Ln(pNext(h), strat->tailRing);
   Ln.dvec = NULL;
   Ln.pLength = L->GetpLength() - 1;
+  deBoGriPrint(h, "h at the Beginning: ", 2048);
+  deBoGriPrint(L->p, "L.p at the Beginning: ", 2048);
+  deBoGriPrint(Ln.p, "Ln.p at the Beginning: ", 2048);
 
   pNext(h) = NULL;
   if (L->p != NULL) pNext(L->p) = NULL;
@@ -2133,12 +2189,16 @@ poly ShiftDVec::redtailBba
   int deBoGriCnt2 = 0; //TODO: remove
   while(!Ln.IsNull())
   {
+    assume(h != NULL);
     assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
 #ifdef HAVE_SHIFTBBADVEC //BOCO: added code
     shift = 0;
 #endif
     loop
     {
+      deBoGriPrint
+        (h, "h at Beginning of 'loop' : ", 2048);
+      assume(h != NULL);
       ++deBoGriCnt2; //TODO: remove
       assume(deBoGriCnt2 < 1000);
       assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
@@ -2148,7 +2208,7 @@ poly ShiftDVec::redtailBba
       if (withT)
       {
         //BOCO: added debug output
-        deBoGriPrint( "Reducing with T", 256 );
+        deBoGriPrint( "Reducing with T", 2048 );
         int j;
 #if 0 //BOCO: original code (replaced)
         j = kFindDivisibleByInT
@@ -2157,12 +2217,17 @@ poly ShiftDVec::redtailBba
         j = kFindDivisibleByInT
           ( strat->T, strat->sevT, strat->tl, &Ln, shift, 
             strat->lV, strat->uptodeg                     );
+        deBoGriPrint(j, "j after kFindDivisibleByInT: ", 2048);
+        deBoGriPrint
+          ( strat->T[j].p, "strat->T[j]: ", 2048, j < 0 );
+        assume(h != NULL);
         //BOCO may not be needed, but want to be sure
         Ln.freeDVec(); 
 #endif
         if (j < 0)
         {
           assume(Ln.p == NULL || pTotaldegree(Ln.p) < 1000);
+          assume(h != NULL);
           break;
         }
         assume(shift < UINT_MAX);
@@ -2180,6 +2245,7 @@ poly ShiftDVec::redtailBba
           //BOCO: With->p has to be deleted later, see below
         }
 #endif
+        assume(h != NULL);
       }
       else
       {
@@ -2203,7 +2269,7 @@ poly ShiftDVec::redtailBba
           deBoGriPrint
             (Ln.p, "The polynomial after break loop: ", 2048, h != NULL);
           deBoGriPrint
-            (Ln.p->next, "Ln is NULL, printing its tail {at break}: ", 2048, h == NULL);
+            (Ln.t_p, "Ln is NULL, printing its tail {at break}: ", 2048, h == NULL);
           break;
         }
 
@@ -2310,8 +2376,10 @@ poly ShiftDVec::redtailBba
       deBoGriPrint
         (Ln.p, "The polynomial after inner loop: ", 2048, h != NULL);
       deBoGriPrint
-        (Ln.p->next, "h is NULL, printing its tail: ", 2048, h == NULL);
+        (Ln.p->next, "Ln.p->next is NULL, printing its tail: ", 2048, h == NULL);
     }
+    deBoGriPrint(Ln.p, "Ln.p reduced to: ", 2048);
+    assume(h != NULL);
 
     //BOCO: LmExtr. makes second monomial the lm of Ln
     pNext(h) = Ln.LmExtractAndIter(); 
@@ -2321,7 +2389,7 @@ poly ShiftDVec::redtailBba
 
     Ln.freeDVec();
 
-    pIter(h); //BOCO: seems to be souperflous
+    pIter(h);
     deBoGriPrint
       (deBoGriCnt2, "deBoGriCnt2 before pNormalize(h): ", 2048);
     deBoGriPrint

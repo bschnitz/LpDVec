@@ -2,7 +2,7 @@
 
 /* Preamble
  * See kutil2.h
- * Last Change: 2011-09-06 16:00
+ * Last Change: 2012-03-02 18:00
  * Maintainers: Grischa Studzinski and Benjamin Schnitzler 
  */
 
@@ -755,23 +755,27 @@ uint ShiftDVec::findRightOverlaps
  * the total degree of b*lm(a)/lm(b) is greater than uptodeg.)
  * Will always return false, if uptodeg == 0.
  * WARNING/TODO:
- * We should maybe care better about the ring!!
+ * Recently changed! Has to be tested again. Is it right, how we
+ * handle Rings?
  */
-bool ShiftDVec::redViolatesDeg(poly a, poly b, int uptodeg)
+bool ShiftDVec::redViolatesDeg
+  ( poly a, poly b, int uptodeg, 
+    ring aLmRing, ring bLmRing, ring bTailRing )
 {
   initDeBoGri
     ( ShiftDVec::indent, 
       "Entering redViolatesDeg.", "Leaving redViolatesDeg.", 1 );
   if(!uptodeg) return false;
   
-  int tg_lm_a = pTotaldegree(a);
-  int tg_lm_b = pTotaldegree(b);
+  int tg_lm_a = p_Totaldegree(a, aLmRing);
+  int tg_lm_b = p_Totaldegree(b, bLmRing);
   int tg_b    = 0;
 
+  int tg_lm_itb = tg_lm_b;
   while(b){
-    int tg_lm_b = pTotaldegree(b);
-    tg_b = tg_b > tg_lm_b ? tg_b : tg_lm_b;
+    tg_b = tg_b > tg_lm_itb ? tg_b : tg_lm_itb;
     pIter(b);
+    tg_lm_itb = p_Totaldegree(b, bTailRing);
   }
 
   deBoGriPrint
@@ -796,10 +800,12 @@ bool ShiftDVec::redViolatesDeg(poly a, poly b, int uptodeg)
  * yyyxx   | poly b
  * Will always return false, if uptodeg == 0.
  * WARNING/TODO:
- * We should maybe care better about the ring!!
+ * Recently changed! Has to be tested again. Is it right, how we
+ * handle Rings?
  */
 bool ShiftDVec::createSPviolatesDeg
-  (poly a, poly b, uint shifta, int uptodeg)
+  ( poly a, poly b, uint shifta, int uptodeg,
+    ring aLmRing, ring bLmRing, ring aTailRing, ring bTailRing )
 {
   initDeBoGri
     ( ShiftDVec::indent, 
@@ -807,7 +813,7 @@ bool ShiftDVec::createSPviolatesDeg
       "Leaving createSPviolatesDeg", 1 );
   if(!uptodeg) return false;
 
-  int tg_lm_b = pTotaldegree(b);
+  int tg_lm_b = p_Totaldegree(b, bLmRing);
   uint degOverlap = tg_lm_b - shifta + 1;
 
 #if 0 //replaced
@@ -817,7 +823,7 @@ bool ShiftDVec::createSPviolatesDeg
 #endif
 
   while(it_a){
-    int tg_lm_it_a = pTotaldegree(it_a);
+    int tg_lm_it_a = p_Totaldegree(it_a, aTailRing);
     if(tg_lm_b + tg_lm_it_a - degOverlap > uptodeg) 
     {
       deBoGriPrint("Creation of s-poly violates deg. bound.", 1);
@@ -833,7 +839,7 @@ bool ShiftDVec::createSPviolatesDeg
     pIter(it_a);
   }
 
-  int tg_lm_a = pTotaldegree(a);
+  int tg_lm_a = p_Totaldegree(a, aLmRing);
 
 #if 0 //replaced
   poly it_b = b;
@@ -842,7 +848,7 @@ bool ShiftDVec::createSPviolatesDeg
 #endif
 
   while(it_b){
-    int tg_lm_it_b = pTotaldegree(it_b);
+    int tg_lm_it_b = p_Totaldegree(it_b, bTailRing);
     if(tg_lm_a + tg_lm_it_b - degOverlap > uptodeg)
     {
       deBoGriPrint("Creation of s-poly violates deg. bound.", 1);
@@ -863,12 +869,14 @@ bool ShiftDVec::createSPviolatesDeg
 
 
 bool ShiftDVec::shiftViolatesDeg
-  (poly p, uint shift, int uptodeg)
+  (poly p, uint shift, int uptodeg, ring pLmRing, ring pTailRing)
 {
-  while(p){
-    int tg_lm_p = pTotaldegree(p);
+  assume(p != NULL);
+  int tg_lm_p = p_Totaldegree(p, pLmRing);
+  loop{
     if(tg_lm_p + shift > uptodeg) return true;
-    pIter(p);
+    if( pIter(p) == NULL ) break;
+    tg_lm_p = p_Totaldegree(p, pTailRing);
   }
 
   return false;

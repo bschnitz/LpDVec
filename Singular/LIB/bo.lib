@@ -1,0 +1,76 @@
+/////////////////////////////////////////////////////////////////////////////
+
+version="$Id$";
+category="Utilities";
+info="
+LIBRARY:  bo.lib      personal testing and other stuff
+
+PROCEDURES:
+";
+
+/////////////////////////////////////////////////////////////////////////////
+
+LIB "freegb.lib";
+
+proc test_tail_red
+  (ideal I, int degree, int numVar, string outFile)
+{
+  option(notBuckets);
+
+  option(redTail);
+  ideal J = system("freegbdvc",I,degree,numVar);
+
+  option(noredTail);
+  ideal K = system("freegbdvc",I,degree,numVar);
+
+  string wwrite = ":w ",outfile;
+  string awrite = ":a ",outfile;
+
+  string wstring = size(K), "  size without redTail";
+  write(awrite, wstring);
+
+  wstring = size(J), "  size with redTail";
+  write(wwrite, wstring);
+
+  write(awrite, "");
+  write( awrite, 
+    "elements which are in the
+     'tail reduced ideal' but not in the not reduced ideal" );
+  for(int j=1; j <= ncols(J); j=j+1)
+  {
+    int inK = 0;
+    for(int k=1; k <= ncols(K); k=k+1)
+    {
+      if(J[j] == K[k])
+      {
+        inK = 1;
+        break;
+      }
+    }
+    if(inK == 0)
+    {
+      write(awrite, J[j]);
+    }
+  }
+
+  write(awrite, "");
+  write( awrite, 
+    "elements which are in the
+     'not tail reduced ideal' but not in the other" );
+  for(int k=1; k <= ncols(K); k=k+1)
+  {
+    int inJ = 0;
+    for(int j=1; j <= ncols(J); j=j+1)
+    {
+      if(J[j] == K[k])
+      {
+        inJ = 1;
+        break;
+      }
+    }
+    if(inJ == 0)
+    {
+      write("awrite", K[k]);
+    }
+  }
+}

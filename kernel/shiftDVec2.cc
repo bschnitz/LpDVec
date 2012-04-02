@@ -135,7 +135,7 @@ void ShiftDVec::clearS
   if (!pLmShortDivisibleBy(p,p_sev, strat->S[*at], ~ strat->sevS[*at])) return;
 #else //replacement
 
-  TObject T(strat->S[*at]);  
+  TObject T(strat->S[*at], currRing, strat->tailRing);  
   /* BOCO: maybe dvec and TObject already exist
    * -> we should improve that! */
 
@@ -1067,9 +1067,12 @@ void ShiftDVec::enterRightOverlaps
       uint shiftSi = rightOvls[i][j];
       if( shiftSi &&
           !SD::createSPviolatesDeg
-            (strat->S[i], H->p, shiftSi, strat->uptodeg) &&
+            ( strat->S[i], H->p, shiftSi, strat->uptodeg, 
+              currRing, currRing, 
+              strat->tailRing, strat->tailRing            ) &&
           !shiftViolatesDeg
-            (strat->S[i], shiftSi, strat->uptodeg)          )
+            ( strat->S[i], shiftSi, strat->uptodeg, 
+              currRing, strat->tailRing             )          )
         //grico: checks if degbound is violated
       {
         deBoGriPrint("No degree Violation!", 1);
@@ -1107,8 +1110,12 @@ void ShiftDVec::enterLeftOverlaps
       uint shiftH = leftOvls[i][j];
       if( shiftH &&
           !SD::createSPviolatesDeg
-            (H->p, strat->S[i], shiftH, strat->uptodeg) && 
-          !shiftViolatesDeg(H->p, shiftH, strat->uptodeg)  )
+            ( H->p, strat->S[i], shiftH, strat->uptodeg, 
+              currRing, currRing, 
+              strat->tailRing, strat->tailRing           ) && 
+          !shiftViolatesDeg
+            ( H->p, shiftH, strat->uptodeg,
+              currRing, strat->tailRing     )                 )
         //grico: checks if degbound is violated
       {
         deBoGriPrint("No degree Violation!", 1);
@@ -1126,6 +1133,7 @@ void ShiftDVec::enterLeftOverlaps
   }
 
   //TODO: Gebauer Moeller on L
+  //No: I think we are finished with Gebauer Moeller already
 }
 
 
@@ -1155,8 +1163,12 @@ void ShiftDVec::enterSelfOverlaps
     uint shiftH = selfOvls[j];
     if( shiftH &&
         !SD::createSPviolatesDeg
-           (H->p, H->p, shiftH, strat->uptodeg) && 
-        !shiftViolatesDeg(H->p, shiftH, strat->uptodeg) )
+          ( H->p, H->p, shiftH, strat->uptodeg, 
+             currRing, currRing, 
+             strat->tailRing, strat->tailRing   ) &&
+        !shiftViolatesDeg
+          ( H->p, shiftH, strat->uptodeg,
+            currRing, strat->tailRing     )          )
       //grico: checks if degree bound is violated
     {
       deBoGriPrint("No degree Violation!", 1);
@@ -1177,7 +1189,11 @@ void ShiftDVec::enterSelfOverlaps
     }
   }
 
-#if 0 //Work in Progress
+#if 0 
+  //Work in Progress - 
+  //No: This is not nescessary any long, i think, but i'm all
+  //but sure; TODO: clear this!
+ 
   /* BOCO: This applies Gebauer-Moeller on strat->L .
    * Formerly, this was part of the chainCrit function.
    * However, we might have to move this later into the loop
