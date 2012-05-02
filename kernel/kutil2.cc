@@ -37,7 +37,7 @@
 
 
 uint ShiftDVec::CreateDVec
-  (poly p, uint numberOfVariables, ring r, uint*& dvec)
+  (poly p, ring r, uint*& dvec)
 {
   initDeBoGri
     ( ShiftDVec::indent, 
@@ -62,6 +62,8 @@ uint ShiftDVec::CreateDVec
    * representation of the letterplace monomial lm(p)   
    * "it" is a pointer to the next free entry in our distance
    * vector                                                   
+   * TODO: Do that by getting the exponent vector (see mail from
+   * H. Schoenemann)
    */
   for(int j=1, i=1, l=0; l < dvSize; ++i)
     if(p_GetExp(p,i,r)){*it=j;++it;j=1;++l;} else{++j;}
@@ -73,12 +75,6 @@ uint ShiftDVec::CreateDVec
 uint* ShiftDVec::sTObject::GetDVec()
 {
   return dvec;
-}
-
-
-void ShiftDVec::sTObject::SetDVecIfNULL()
-{
-  if(!dvec) SetDVec();
 }
 
 
@@ -212,8 +208,7 @@ uint ShiftDVec::sLObject::getLcmDvSize(ring r)
 }
 
 
-void ShiftDVec::sLObject::SetLcmDVec
-  (uint numberOfVariables, ring r)
+void ShiftDVec::sLObject::SetLcmDVec(ring r)
 {
   initDeBoGri
     ( ShiftDVec::indent, 
@@ -267,7 +262,7 @@ void ShiftDVec::sLObject::SetLcmDVec
     if(p_GetExp(shifted,i,r)){*it=j;++it;j=1;++l;} else{++j;}
 #else
   deBoGriPrint(lcm, "The lcm is: ", 16);
-  SetLcmDVec(lcm, numberOfVariables, r);
+  SetLcmDVec(lcm, r);
 #endif
 
   deBoGriPrint(lcmDvec, lcmDvSize, "New dvec is: ", 16);
@@ -755,27 +750,30 @@ uint ShiftDVec::findRightOverlaps
  * the total degree of b*lm(a)/lm(b) is greater than uptodeg.)
  * Will always return false, if uptodeg == 0.
  * WARNING/TODO:
- * Recently changed! Has to be tested again. Is it right, how we
- * handle Rings?
+ * - Recently changed! Has to be tested again. Is it right, how
+ *   we handle Rings?
+ * - This is not very perfect; Even if redViolatesDeg returns
+ *   true, the polynomial after reduction may not violate the
+ *   degree bound.
  */
-bool ShiftDVec::redViolatesDeg
-  ( poly a, poly b, int uptodeg, 
+BOOLEAN ShiftDVec::redViolatesDeg
+  ( poly a, poly b, int uptodeg,
     ring aLmRing, ring bLmRing, ring bTailRing )
 {
   initDeBoGri
     ( ShiftDVec::indent, 
       "Entering redViolatesDeg.", "Leaving redViolatesDeg.", 1 );
-  if(!uptodeg) return false;
+  if(!uptodeg || !b) return FALSE;
+  //or should we return true, if !b ?
   
   int tg_lm_a = p_Totaldegree(a, aLmRing);
   int tg_lm_b = p_Totaldegree(b, bLmRing);
-  int tg_b    = 0;
 
-  int tg_lm_itb = tg_lm_b;
-  while(b){
+  int tg_b    = tg_lm_b;
+  while(pIter(b))
+  {
+    int tg_lm_itb = p_Totaldegree(b, bTailRing);
     tg_b = tg_b > tg_lm_itb ? tg_b : tg_lm_itb;
-    pIter(b);
-    tg_lm_itb = p_Totaldegree(b, bTailRing);
   }
 
   deBoGriPrint
@@ -789,6 +787,61 @@ bool ShiftDVec::redViolatesDeg
       !(tg_b + tg_lm_a - tg_lm_b > uptodeg) );
 
   return tg_b + tg_lm_a - tg_lm_b > uptodeg;
+}
+
+
+/* Returns true, if reduction of poly a with poly b would
+ * violate the the degree bound. (to be more exact: We test, if
+ * the total degree of b*lm(a)/lm(b) is greater than uptodeg.)
+ * Will always return false, if uptodeg == 0.
+ * WARNING/TODO:
+ * - Recently changed! Has to be tested again. Is it right, how
+ *   we handle Rings?
+ * - This is not very perfect; Even if redViolatesDeg returns
+ *   true, the polynomial after reduction may not violate the
+ *   degree bound.
+ */
+BOOLEAN ShiftDVec::redViolatesDeg
+  ( TObject* a, TObject* b, int uptodeg, ring lmRing )
+{
+  initDeBoGri
+    ( ShiftDVec::indent, 
+      "Entering redViolatesDeg v2.", 
+      "Leaving redViolatesDeg v2.", 1 );
+
+  int tg_a, tg_b;
+  poly it_b;
+  ring r_a, r_b;
+
+  if( a->p == NULL )
+  {
+    if( a->t_p == NULL ) return FALSE;
+    tg_a = p_Totaldegree(a->t_p, a->tailRing);
+  }
+  else
+    tg_a = p_Totaldegree(a->p, lmRing);
+
+  if( b->p == NULL)
+  {
+    if( b->t_p == NULL ) return FALSE;
+    tg_b = p_Totaldegree(b->t_p, b->tailRing);
+    it_b = b->t_p;
+    r_b = b->tailRing;
+  }
+  else
+  {
+    tg_b = p_Totaldegree(b->p, lmRing);
+    it_b = b->p;
+    r_b = b->t_p == NULL ? lmRing : b->tailRing;
+  }
+
+  while(pIter(it_b))
+  {
+    int tg_lm_it_b = p_Totaldegree(it_b, r_b);
+    tg_b = tg_b > tg_lm_it_b ? tg_b : tg_lm_it_b;
+  }
+
+  return tg_b + tg_a - tg_b > uptodeg;
 }
 
 
@@ -920,6 +973,7 @@ int ShiftDVec::lpDVCase = 0;
 
 
 #if DEBOGRI > 0
+int ShiftDVec__deBoGriCnt = 0;
 int ShiftDVec::deBoGri = 0;
 int ShiftDVec::indent = 0;
 int ShiftDVec::indentInc = 2;
@@ -949,6 +1003,7 @@ ShiftDVec::DeBoGri::DeBoGri
     const char* startMsg, const char* leaveMsg_, uint flag_ ) : 
   indent(indent_), leaveMsg(leaveMsg_), flag(flag_)
 {
+  ShiftDVec__deBoGriCnt++;
   deBoGriPrint( startMsg, flag_ );
   ShiftDVec::indent = indent += ShiftDVec::indentInc;
 }
@@ -957,6 +1012,7 @@ ShiftDVec::DeBoGri::DeBoGri
 #if DEBOGRI > 0
 ShiftDVec::DeBoGri::~DeBoGri() 
 {
+  ShiftDVec__deBoGriCnt++;
   ShiftDVec::indent = indent - ShiftDVec::indentInc; 
   deBoGriPrint( leaveMsg, flag );
 }

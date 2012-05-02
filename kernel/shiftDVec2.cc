@@ -752,22 +752,25 @@ bool ShiftDVec::GMTest
   uint maxShiftOfH3;
   uint minShiftOfH3;
   if( H3->GetDVsize() > H2->GetDVsize() ) //TODO: case h2 | h3
-    maxShiftOfH3 = H2->GetDVsize() + sH2 - 1 - H3->GetDVsize();
+    maxShiftOfH3 = H2->GetDVsize() + sH2 - H3->GetDVsize();
   else
     maxShiftOfH3 = sH2 - 1;
 
+  int i = 0;
   if( H3->GetDVsize() > H1->GetDVsize() ) //TODO: case h1 | h3
     minShiftOfH3 = 0;
   else
-    minShiftOfH3 = 1;
+  {
+    minShiftOfH3 = H1->GetDVsize() - H3->GetDVsize() + 1;
+    for(; minShiftOfH3 > ovlH1H3[i]; ++i)
+      if(i >= numOvlH1H3)
+      {
+        loGriToFile("GMTest return 2 ", counter, 4, NULL);
+        return false;
+      }
+  }
 
-  int i; int j;
-  for(i = 0; minShiftOfH3 >= ovlH1H3[i++] || !ovlH1H3[i];)
-    if(i >= numOvlH1H3) {
-      loGriToFile("GMTest return 2 ", counter, 4, NULL);
-      return false;
-    }
-
+  int j;
   for( j = numOvlH3H2-1; j >= 0; --j )
     if( ovlH3H2[j] && ovlH3H2[j] + minShiftOfH3 <= sH2 ) break;
   if(j < 0) {

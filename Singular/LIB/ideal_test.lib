@@ -1,0 +1,81 @@
+//this will be the ideal test thingi
+
+proc compIds(ideal I1, ideal I2)
+"
+"
+{
+ int i1,i2,t;
+ poly p;
+ list R;
+ ideal It;
+ for (i1 = 1; i1 <= size(I1); i1++)
+ {
+  p = I1[i1];
+  for (i2 = 1; i2 <= size(I2); i2++)
+  {
+   if (p==I2[i2]) {t = 1; break;}
+  }
+  if (t == 0) {It[size(It)+1] = p;}
+  else {t = 0;}
+ }
+ R[1] = It;
+ kill It; ideal It;
+ 
+
+ 
+ for (i2 = 1; i2 <= size(I2); i2++)
+ {
+  p = I2[i2];
+  for (i1 = 1; i1 <= size(I1); i1++)
+  {
+   if (p==I1[i1]) {t = 1; break;}
+  }
+  if (t == 0) {It[size(It)+1] = p;}
+  else {t = 0;}
+ }
+ R[2] = It;
+ 
+
+ return(R);
+}
+
+proc lpGbVs(ideal I)
+"
+"
+{
+ ideal I1; ideal I2;
+ list R;
+ I1 = letplaceGBasis(I);
+ I2 = system("freegbdvc",I,attrib(basering,"uptodeg"), attrib(basering,"lV"));
+ R = compIds(I1,I2);
+ return(R);
+}
+
+proc itProc(list L)
+"
+"
+{
+ int i;
+ list R;
+ for (i=1; i <= size(L); i++)
+ {
+  R[size(R)+1] = lpGbVs(L[i]);
+ }
+
+ return(R);
+}
+
+
+/*
+test:
+
+LIB "freegb.lib";
+ring r = 0,(x,y),dp;
+def R = makeLetterplaceRing(10);
+setring R;
+ideal I = x(1)*x(2) + x(1)*y(2),y(1)*x(2);
+
+
+
+
+*/

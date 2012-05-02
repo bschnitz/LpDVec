@@ -25,9 +25,8 @@ namespace ShiftDVec
   static inline uint _p_LmDivisibleByNoComp
     (TObject * t1,TObject * t2, const ring r, int lV);
   int kFindDivisibleByInT
-    ( const TSet& T, const unsigned long* sevT, const int tl, 
-      LObject* L, uint& shift, int lV, int uptodeg=0, 
-      const int start=0                                       );
+    ( const TSet& T, const unsigned long* sevT, LObject* L, 
+      uint& shift, kStrategy strat, const int start=0       );
   TObject * kFindDivisibleByInS
     ( kStrategy strat, int pos, LObject* L, TObject* T, 
       uint & shift, int lV, int uptodeg=0, long ecart = LONG_MAX );

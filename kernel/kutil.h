@@ -225,13 +225,11 @@ public:
   uint*   lcmDvec;   /*- the corresponding dvec -*/
   uint  lcmDvSize;
 
-  void SetLcmDVec
-    (poly p, uint numberOfVariables = 0, ring r = currRing)
-  { lcmDvSize = 
-      ShiftDVec::CreateDVec(p, numberOfVariables, r, lcmDvec); }
+  void SetLcmDVec(poly p, ring r = currRing)
+  { lcmDvSize = ShiftDVec::CreateDVec(p, r, lcmDvec); }
 
   //uses the LObjects lcm or p1, p2 if USE_DVEC_LCM is set.
-  void SetLcmDVec(uint numberOfVariables = 0, ring r = currRing);
+  void SetLcmDVec(ring r = currRing);
 
   void SetLcmDvecIfNULL() {if(!lcmDvec) SetLcmDVec();}
 

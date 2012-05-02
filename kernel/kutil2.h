@@ -53,10 +53,8 @@
 
 #include <kernel/mod2.h> //Needed because of include order
 
-namespace ShiftDVec{
-  uint CreateDVec
-    (poly p, uint numberOfVariables, ring r, uint*& dvec);
-}
+namespace ShiftDVec
+{ uint CreateDVec(poly p, ring r, uint*& dvec); }
 
 #include <kernel/kutil.h>
 
@@ -66,6 +64,9 @@ typedef unsigned int uint;
 namespace ShiftDVec{
   class sLObject;
   class sTObject;
+
+  typedef class ShiftDVec::sLObject LObject;
+  typedef class ShiftDVec::sTObject TObject;
 
   uint getShift
     (poly p, uint numFirstVar, ring r = currRing );
@@ -91,10 +92,14 @@ namespace ShiftDVec{
     ( ShiftDVec::sTObject * t1, ShiftDVec::sTObject * t2, 
       int numVars, int maxDeg, uint ** overlaps );
 
-  bool redViolatesDeg
-    ( poly a, poly b, int uptodeg, 
+  BOOLEAN redViolatesDeg
+    ( poly a, poly b, int uptodeg,
       ring aLmRing = currRing, 
       ring bLmRing = currRing, ring bTailRing = currRing );
+  BOOLEAN redViolatesDeg
+    ( TObject* a, TObject* b, 
+      int uptodeg, ring lmRing = currRing );
+
   bool createSPviolatesDeg
     ( poly a, poly b, uint shift, int uptodeg, 
       ring aLmRing = currRing, ring bLmRing = currRing, 
@@ -168,12 +173,19 @@ namespace ShiftDVec
   //this purpose.
   extern int deBoGri;
 
+
   extern int indent;
   extern int indentInc;
   extern int isSilenced;
   extern int debugCounter;
 #endif
 };
+
+#if DEBOGRI > 0
+//Counts how many Objects of the deBoGri class are
+//instantiated (useful for breakpoints in the code)
+extern int ShiftDVec__deBoGriCnt;
+#endif
 
 class ShiftDVec::DeBoGri
 {
@@ -275,21 +287,28 @@ public:
 #endif
 
   void dumbInit(poly p_){ p = p_; dvec = NULL; t_p = NULL; }
+
+  void SetDVecIfNULL(poly p, ring r)
+  { if(!dvec) SetDVec(p, r); }
+
+  void SetDVecIfNULL()
+  { if(!dvec) SetDVec(); }
   
   // Initialize the distance vector of an ShiftDVec::sTObject
-  void SetDVec
-    (poly p, uint numberOfVariables = 0, ring r = currRing)
+  void SetDVec(poly p, ring r)
   { 
     freeDVec(); 
-    dvSize = CreateDVec(p, numberOfVariables, r, dvec); 
+    dvSize = CreateDVec(p, r, dvec); 
   }
 
-  //uses the TObjects polynomial; p has to be a valid polynomial!
-  void SetDVec
-    (uint numberOfVariables = 0, ring r=currRing)
+  // Initialize the distance vector of an ShiftDVec::sTObject
+  void SetDVec()
   { 
-    freeDVec();
-    dvSize = CreateDVec(this->p, numberOfVariables, r, dvec); 
+    freeDVec(); 
+    if(p == NULL)
+      dvSize = CreateDVec(t_p, tailRing, dvec); 
+    else
+      dvSize = CreateDVec(p, currRing, dvec); 
   }
 
   void SetDVec(uint* dv) {dvec = dv;}
@@ -297,7 +316,6 @@ public:
   uint*  GetDVec(); 
   uint  getDVecAtIndex(uint index) {return dvec[index];}
   uint GetDVsize(); 
-  void SetDVecIfNULL();
 
   int cmpDVec(ShiftDVec::sTObject* toCompare);
 
