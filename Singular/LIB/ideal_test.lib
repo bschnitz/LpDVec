@@ -79,3 +79,32 @@ ideal I = x(1)*x(2) + x(1)*y(2),y(1)*x(2);
 
 
 */
+
+proc deHomogLpIdeal(ideal I, int d, int i)
+"USAGE: deHomogLpIdeal(I, i); I a Letterplace ideal, d,i Integers
+RETURN:Ideal, where some Variables are replace by 1 (see PURPOSE)
+PURPOSE: Dehomogenize an Ideal. i should be the index, with 
+respect to the ordering of the current active ring, of the Variable 
+in the Base ring we want to replace by 1 in the Letterplace ring.
+d should be the number of variables in the base ring.
+"
+{
+  i = i % d;
+  list L=maxideal(1);
+  int j;
+  for(j=1; j<=size(L[1]); j=j+1){if(j % d == i) {L[1][j] = 1;}}
+  map f=basering,L[1];
+  return(simplify(f(I),2));
+}
+example
+{
+  "EXAMPLE:"; echo = 2;
+  LIB "freegb.lib";
+  ring r = 0,(a,x,y),dp;
+  def R = makeLetterplaceRing(10);
+  setring R;
+  ideal I =  x(1)*x(2) + x(1)*y(2),
+             x(1)*y(2)*y(3) + x(1)*x(2)*a(3),
+             a(1)*x(2) - x(2)*a(1);
+  deHomogLpIdeal(I,3,1);
+}
