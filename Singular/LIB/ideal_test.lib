@@ -80,7 +80,8 @@ ideal I = x(1)*x(2) + x(1)*y(2),y(1)*x(2);
 
 */
 
-proc makeLetterplaceIdeal(ring base, ring lpRing, ideal I, int d)
+/*
+proc makeLetterplaceIdeal(def base, def lpRing, ideal I, int d)
 "USAGE: makeLetterplaceIeal(r, R, I); r the base Ring, the letterplace
 ring R was created from. I an ideal in r.
 RETURN: a letterplace Ideal in R (corresponding to I)
@@ -89,27 +90,40 @@ to the ideal I from r. d should be the number of variables in the base
 ring.
 "
 {
-  setring lpRing;
-  ideal II;
-
-  " get list of variables in letterplac Ring
+  setring base;
+  // get list of variables in letterplac Ring
   list L = ringlist(lpRing)[2];
 
   int i,j,k,l;
+  list Il;
   for (i = 1; i <= size(I); i++)
   {
-    II[i] = 0;
+    Il[i] = list();
     for(j = 1; j <= size(I[i]); j++)
     {
+      Il[i][j] = leadexp(I[i][j]);
+    }
+  }
+
+  setring lpRing;
+  ideal II;
+  int expK;
+  poly m;
+  for (i = 1; i <= size(Il); i++)
+  {
+    II[i] = 0;
+    for(j = 1; j <= size(Il[i]); j++)
+    {
+      Il[i];
       l = 0;
-      poly m = 1;
-      def v = leadexp(I[i]);
-      for(k = 1; k <= size(v); k++)
+      m = 1;
+      for(k = 1; k <= size(Il[i][j]); k++)
       {
-        while(v[k] > 0)
+        expK = Il[i][j][k];
+        while(expK > 0)
         {
-          m = m * L[l*d+k];
-          v[k]--;
+          execute("m = m * "+L[l*d+k]);
+          expK--;
           l++;
         }
       }
@@ -117,12 +131,13 @@ ring.
     }
   }
 
-  return II;
+  return(II);
 }
 example
 {
   "EXAMPLE:"; echo = 2;
 }
+*/
 
 proc deHomogLpIdeal(ideal I, int d, int i)
 "USAGE: deHomogLpIdeal(I, i); I a Letterplace ideal, d,i Integers
@@ -144,6 +159,7 @@ example
 {
   "EXAMPLE:"; echo = 2;
   LIB "freegb.lib";
+  LIB "ideal_test.lib";
   ring r = 0,(a,x,y),dp;
   def R = makeLetterplaceRing(10);
   setring R;
@@ -153,58 +169,114 @@ example
   deHomogLpIdeal(I,3,1);
 }
 
-proc homogLpIdeal(ideal I, def r, int d, string vname, int uptodeg)
+proc homogLpIdeal(ideal I, def r, int d, int n, int uptodeg)
 "USAGE: homogLpIdeal(I, i); I a Letterplace ideal, d,i Integers
-RETURN: homogenized letterplace Ideal and the letterplace ring, in which
-this Ideal lives
-PURPOSE: Homogenize an Ideal. r should be the non-letterplace basering;
-vname should be the name of the new variable introduced to homogenize
-ring.  d should be the number of variables in the base ring. r should be
-the ring in which I lives. uptodeg should be the degree bound of the
-letterplace ring.
+RETURN: homogenized letterplace Ideal 
+PURPOSE: Homogenize an Ideal. r should be the letterplace ideal, in
+which the polys from I are defined, which contains an additional
+variable, which will be used to homogenize the ideal I. d should be the
+number of Variables in the base ring r, n the position of the additional
+variable in ringlist(r)[2];
 "
 {
-  " Only works in characteristic 0
-  " BOCO: to me: improve that (see my notes for how to do that)
-  execute("ring rr = 0,"+vname+",dp;");
-  def rrr = r+rr;
-  setring rrr;
-  def R = makeLetterplaceRing(d);
-  setring R;
-  kill rr;
 
-  int i, j, k, degP;
-  for (i = 1; i <= size(I); i++)
+  int i;
+  intvec equalWeights;
+  for(i = 1; i <= uptodeg*d; i++)
   {
-    degP = deg(I[i]);
-    for(j = 1; j <= size(I[i]); ++j)
+    equalWeights[i] = 1;
+  }
+
+  ideal H;
+  int j, k, degP; 
+  number coeff;
+  for(i = 1; i <= size(I); i++)
+  {
+    H[i] = 0;
+    for(j = 1; j <= size(I[i]); j++)
     {
-      for(k = deg(I[i]) + 1; k <= degP; ++k)
+      degP = deg(I[i], equalWeights);
+      coeff = leadcoef(I[i][j]);
+      intvec vExp = leadexp(I[i][j]);
+      for(k = deg(I[i][j]); k < degP; k++)
       {
-        "Multiply new variable to each monomial of 
-        "letterplace poly until it is homog
-        execute("I["+i+"]["+j+"] = "+I[i][j]+"*"+vname+"("+k+")");
+        vExp[k*d + n] = 1;
       }
+      H[i] = H[i] + coeff * monomial(vExp);
+      kill vExp;
     }
   }
 
-  " Add commutators (our new variables shall commutate with all other
-  " variables)
-  ideal K;
-  list L = ringlist(r);
-  list VARS = L[2];
-  setring rrr;
-  for(i = 1; i <= size(VARS); ++i)
-  {
-    execute("K["+i+"] = "+VARS[i]+"*"+vname+" - "+vname+"*"+VARS[i]);
-  }
-  setring R;
-  I = I,makeLetterplaceIdeal(rrr,R,I);
-
-
-  return (I,R);
+  return(H);
 }
 example
 {
   "EXAMPLE:"; echo = 2;
+}
+
+proc homogLpIdealInverse(ideal I, int d, int n)
+"USAGE: homogLpIdealInverse(I, d, n); I a Letterplace ideal, d,n Integers
+RETURN: homogenized letterplace Ideal 
+PURPOSE: Homogenize an Ideal by inserting an additional placeholder
+variable into it. It is assumend, that this variable already is present
+and has index n with respect to the ordering of the ring, the
+letterplace Ring was created from (see Example).
+"
+{
+  int i;
+  int uptodeg = attrib(basering,"uptodeg");
+  int lV = attrib(basering,"lV");
+  intvec equalWeights;
+  for(i = 1; i <= uptodeg*d; i++)
+  {
+    equalWeights[i] = 1;
+  }
+
+  ideal H;
+  poly Sij;
+  int j, k, degP, degM, shift; 
+  number coeff;
+  for(i = 1; i <= size(I); i++)
+  {
+    H[i] = 0;
+    degP = deg(I[i], equalWeights);
+    for(j = 1; j <= size(I[i]); j++)
+    {
+      degM = deg(I[i][j], equalWeights);
+      coeff = leadcoef(I[i][j]);
+      shift = degP - degM;
+      Sij = system("stest",I[i][j],shift,uptodeg,lV);
+      intvec vExp = leadexp(Sij);
+      for(k = 0; k < shift; k++)
+      {
+        vExp[k*d + n] = 1;
+      }
+      H[i] = H[i] + coeff * monomial(vExp);
+      kill vExp;
+    }
+  }
+
+  return(H);
+}
+example
+{
+  "EXAMPLE:"; echo = 2;
+  LIB "freegb.lib";
+  LIB "ideal_test.lib";
+  ring r = 0,(x,y,a),dp;
+
+  //This will tell us the index of a, which is 3 of course
+  ringlist(r)[2];
+
+  def R = makeLetterplaceRing(10);
+  setring R;
+  ideal I =  x(1)*x(2) + x(1)*y(2),
+             x(1)*y(2)*y(3) + x(1)*x(2);
+  ideal J = homogLpIdealInverse(I, 3, 3);
+}
+
+proc addCommutators(ideal I, int d, int n)
+"
+"
+{
 }
