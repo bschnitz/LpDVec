@@ -275,8 +275,50 @@ example
   ideal J = homogLpIdealInverse(I, 3, 3);
 }
 
-proc addCommutators(ideal I, int d, int n)
-"
+proc addCommutators(ideal I, int n, int d)
+"USAGE: addCommutators(I, d, n, u); I a Letterplace ideal, d,n Integers
+RETURN: I union C, where C contains all Commuators x*y - y*x, where x,y
+are variables in the current ring, with x having index n in the current
+ring
+PURPOSE: add the Commutators to i. d should be the number of variables
+in the non-commutative ring corresponding to the letterplace ring. Sorry
+for the bad description, this ist definitly not my best day.
 "
 {
+  int i, j;
+  for(i = 1; i <= d; i++)
+  {
+    intvec m;
+    poly cm;
+    if(i == n){ i++; continue; }
+    for(j = 1; j <= d; j++)
+    {
+      if(j == n){ m[j] = 1; }
+      else{ m[j] = 0; }
+    }
+    for(j = 1; j <= d; j++)
+    {
+      if(j == i){ m[j + d] = 1; }
+      else{ m[j + d] = 0; }
+    }
+    cm = monomial(m);
+    kill m;
+    intvec m;
+    for(j = 1; j <= d; j++)
+    {
+      if(j == i){ m[j] = 1; }
+      else{ m[j] = 0; }
+    }
+    for(j = 1; j <= d; j++)
+    {
+      if(j == n){ m[j + d] = 1; }
+      else{ m[j + d] = 0; }
+    }
+    cm = cm - monomial(m);
+    I = I,cm;
+    kill cm;
+    kill m;
+  }
+
+  return(I);
 }

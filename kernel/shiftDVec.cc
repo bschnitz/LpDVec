@@ -516,6 +516,7 @@ ideal ShiftDVec::bba
         strat->P.pCleardenom();
         if ((TEST_OPT_REDSB)||(TEST_OPT_REDTAIL))
         {
+          deBoGriPrint("Red Tail.\n", 2048);
 #if 0 //BOCO: original code (replaced)
           strat->P.p = 
             redtailBba(&(strat->P),pos-1,strat, withT);
@@ -530,6 +531,7 @@ ideal ShiftDVec::bba
       {
         strat->P.pNorm();
         if ((TEST_OPT_REDSB)||(TEST_OPT_REDTAIL))
+          deBoGriPrint("Red Tail.\n", 2048);
 #if 0 //BOCO: original code (replaced)
           strat->P.p = 
             redtailBba(&(strat->P),pos-1,strat, withT);

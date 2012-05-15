@@ -234,7 +234,9 @@ void ShiftDVec::initenterpairs
     //BOCO: Before entering new pairs, we want to use the
     //Gebauer-Moeller criterion, to filter some pairs, we do
     //not need to enter.
-    if( TEST_OPT_LPDVGEBMOELL )
+    //Why does that not work in debug Version???
+    //if( TEST_OPT_LPDVGEBMOELL )
+    if(1)
     {
       SD::GebauerMoeller
         ( s_overlaps, s_ovl_size, 
@@ -771,6 +773,7 @@ bool ShiftDVec::GMTest
   }
 
   int j;
+  deBoGriPrint("TestTest1", 2);
   for( j = numOvlH3H2-1; j >= 0; --j )
     if( ovlH3H2[j] && ovlH3H2[j] + minShiftOfH3 <= sH2 ) break;
   if(j < 0) {
@@ -779,25 +782,30 @@ bool ShiftDVec::GMTest
   }
 
 
+  deBoGriPrint("TestTest2", 2);
   if(ovlH1H3[i] > maxShiftOfH3) {
     loGriToFile("GMTest return 4 ", counter, 4, NULL);
     return false;
   }
 
   uint sH3;
+  deBoGriPrint("TestTest3", 2);
   while( sH3 = sH2 - ovlH3H2[j] != ovlH1H3[i] )
   {
     if(sH3 > maxShiftOfH3) {
       loGriToFile("GMTest return 5 ", counter, 4, NULL);
+      deBoGriPrint("TestTest4", 2);
       return false;
     }
 
     while(ovlH1H3[i++] < sH3 || (i < numOvlH3H2) && !ovlH1H3[i]);
     if(i >= numOvlH1H3) {
       loGriToFile("GMTest return 6 ", counter, 4, NULL);
+      deBoGriPrint("TestTest5", 2);
       return false;
     }
     if(ovlH1H3[i] > maxShiftOfH3) {
+      deBoGriPrint("TestTest6", 2);
       loGriToFile("GMTest return 7 ", counter, 4, NULL);
       return false;
     }
@@ -805,21 +813,24 @@ bool ShiftDVec::GMTest
     for(;j >= 0; --j)
       if(ovlH3H2[j] && sH2 - ovlH3H2[j] >= ovlH1H3[i]) break;
     if(j < 0){
+      deBoGriPrint("TestTest7", 2);
       loGriToFile("GMTest return 8 ", counter, 4, NULL);
       return false;
     }
   }
+  deBoGriPrint("TestTest8", 2);
 
   loGriToFile("GMTest return 9 ", counter, 4, NULL);
 
-  deBoGriPrint("May filter Pair H1, s2*H2.", 128);
-  deBoGriPrint("With Pair H1, s3*H3.", 128);
-  deBoGriPrint("And Pair s3*H3, s2*H2.", 128);
-  deBoGriPrint(H1->p, "H1: ", 128);
-  deBoGriPrint(H2->p, "H2: ", 128);
-  deBoGriPrint(H3->p, "H3: ", 128);
-  deBoGriPrint(sH2, "s2: ", 128);
-  deBoGriPrint(sH3, "s3: ", 128);
+  deBoGriPrint(counter, "Der Counter", 128+2);
+  deBoGriPrint("May filter Pair H1, s2*H2.", 128+2);
+  deBoGriPrint("With Pair H1, s3*H3.", 128+2);
+  deBoGriPrint("And Pair s3*H3, s2*H2.", 128+2);
+  deBoGriPrint(H1->p, "H1: ", 128+2);
+  deBoGriPrint(H2->p, "H2: ", 128+2);
+  deBoGriPrint(H3->p, "H3: ", 128+2);
+  deBoGriPrint(sH2, "s2: ", 128+2);
+  deBoGriPrint(sH3, "s3: ", 128+2);
 
   return true;
 }
@@ -950,7 +961,7 @@ void ShiftDVec::GebauerMoeller
           ( Left, H, leftOvls[l][i], H, selfOvls,
             sizeSelfOvls, leftOvls[l], sizesLeftOvls[l] ) )
       {
-        deBoGriPrint("Filtered left with left and self.", 128);
+        deBoGriPrint("Filtered left with left and self.", 2+128);
         leftOvls[l][i] = 0;
       }
     }

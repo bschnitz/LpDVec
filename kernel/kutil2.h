@@ -24,7 +24,7 @@
 //    functions from the code, which is recommended, if you do
 //    not want to debug the code.
 //1 : entering of pairs - check degree violation
-//2 : - ??? - (not used ?)
+//2 : Which pairs are sorted out by... some criterion?
 //4 : debugging of Gebauer-Moeller
 //8 : debugging of the initialization of LObjects
 //16 : debugging of lcm related things
@@ -36,9 +36,9 @@
 //512 : debugging Creation of DVecs
 //1024 : Debugging memory corruption
 //2048 : debugging redTail related things
-#ifdef KDEBUG
+//#ifdef KDEBUG
 #define DEBOGRI 1
-#endif
+//#endif
 //TODO: 
 // - Introduce a singular option for setting debogri whilst in
 //   debug mode.
