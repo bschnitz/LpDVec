@@ -36,9 +36,9 @@
 //512 : debugging Creation of DVecs
 //1024 : Debugging memory corruption
 //2048 : debugging redTail related things
-//#ifdef KDEBUG
+#ifdef KDEBUG
 #define DEBOGRI 1
-//#endif
+#endif
 //TODO: 
 // - Introduce a singular option for setting debogri whilst in
 //   debug mode.

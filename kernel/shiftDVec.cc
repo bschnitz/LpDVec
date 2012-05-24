@@ -521,6 +521,7 @@ ideal ShiftDVec::bba
           strat->P.p = 
             redtailBba(&(strat->P),pos-1,strat, withT);
 #else //replacement
+
           strat->P.p = 
             SD::redtailBba(&(strat->P),pos-1,strat, withT);
 #endif
@@ -946,6 +947,7 @@ void completeReduce (kStrategy strat, BOOLEAN withT)
 void ShiftDVec::completeReduce (kStrategy strat, BOOLEAN withT)
 {
   namespace SD = ShiftDVec;
+
 #endif
   int i;
   int low = (((pOrdSgn==1) && (strat->ak==0)) ? 1 : 0);

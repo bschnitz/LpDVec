@@ -148,12 +148,16 @@ in the Base ring we want to replace by 1 in the Letterplace ring.
 d should be the number of variables in the base ring.
 "
 {
-  i = i % d;
+  //i = i % d;
   list L=maxideal(1);
   int j;
-  for(j=1; j<=size(L[1]); j=j+1){if(j % d == i) {L[1][j] = 1;}}
+  for(j=1; j<=size(L[1]); j=j+1){if(j % i == 0) {L[1][j] = 1;}}
   map f=basering,L[1];
-  return(simplify(f(I),2));
+  ideal II = f(I);
+  ideal III;
+  for(j=1; j<=size(II); j++)
+    {III[j]=system("shrinktest",II[j],d);}
+  return(simplify(III,2));
 }
 example
 {
@@ -321,4 +325,70 @@ for the bad description, this ist definitly not my best day.
   }
 
   return(I);
+}
+
+proc letterplaceToMagmaIdeal(def I, int n)
+"USAGE: letterplaceToMagma(I, n); I a Letterplace ideal, n an Integer
+PURPOSE: Output same ideal formatted in Magma language. n should be the
+number of variables in the non-commutative ring
+{
+  int i, j, k, begin;
+
+  print("K := RationalField();");
+  print("F:=K;");
+  string vars = "A<";
+  for(i = 1; i <= n; i++)
+  {
+    vars = vars + "x" + print(i, "%d");
+    if(i < n){ vars = vars + ","; }
+    else
+    {vars = vars + "> := FreeAlgebra(F," + print(n,"%d") + ");";}
+  }
+  vars;
+
+  list L = ringlist(basering)[2];
+  number coeff;
+  string p, sgn;
+  for(i = 1; i <= size(I); i++)
+  {
+    if(i > 1) { p = p + print(",", "%2s"); }
+    for(j = 1; j <= size(I[i]); j++)
+    {
+      coeff = leadcoef(I[i][j]);
+      if(coeff < 0)
+      {
+        sgn = "-";
+        coeff = coeff * -1;
+      }
+      else{ sgn = "+"; }
+      if(j == 1)
+      {
+        if(sgn == "+"){ sgn = ""; }
+        p = p + sgn + print(coeff, "%d"); 
+      }
+      else{p = p + " " + sgn + " " + print(coeff, "%d");} 
+      intvec vExp = leadexp(I[i][j]);
+      begin = 1;
+      for(k = 1; k <= size(vExp); k++)
+      {
+        if(vExp[k] == 1)
+        {
+          p = p + print("*", "%s");
+          p = p + print("x", "%s");
+          p = p + print(k % n + 1, "%d");
+        }
+        if(vExp[k] > 1)
+        {
+          p = p + print("x", "%s");
+          p = p + print(k % n + 1", %d");
+          p = p + print("^", "%s");
+          p = p + print(vExp[k], "%d");
+        }
+      }
+      kill vExp;
+    }
+  }
+  print("B := [");
+  p;
+  print("];");
 }

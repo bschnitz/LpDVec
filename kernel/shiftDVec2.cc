@@ -235,8 +235,7 @@ void ShiftDVec::initenterpairs
     //Gebauer-Moeller criterion, to filter some pairs, we do
     //not need to enter.
     //Why does that not work in debug Version???
-    //if( TEST_OPT_LPDVGEBMOELL )
-    if(1)
+    if( TEST_OPT_LPDVGEBMOELL )
     {
       SD::GebauerMoeller
         ( s_overlaps, s_ovl_size, 
@@ -738,6 +737,7 @@ bool ShiftDVec::GMTest
 #if DEBOGRI > 0
   static int counter;
   ++counter;
+  deBoGriPrint(counter, "Der Counter", 128+2);
 #endif
 
   if( sH2 == 0 ) {
@@ -760,11 +760,11 @@ bool ShiftDVec::GMTest
 
   int i = 0;
   if( H3->GetDVsize() > H1->GetDVsize() ) //TODO: case h1 | h3
-    minShiftOfH3 = 0;
+    minShiftOfH3 = 1;
   else
   {
     minShiftOfH3 = H1->GetDVsize() - H3->GetDVsize() + 1;
-    for(; minShiftOfH3 > ovlH1H3[i]; ++i)
+    for(; ovlH1H3[i] && minShiftOfH3 > ovlH1H3[i]; ++i)
       if(i >= numOvlH1H3)
       {
         loGriToFile("GMTest return 2 ", counter, 4, NULL);
@@ -822,7 +822,6 @@ bool ShiftDVec::GMTest
 
   loGriToFile("GMTest return 9 ", counter, 4, NULL);
 
-  deBoGriPrint(counter, "Der Counter", 128+2);
   deBoGriPrint("May filter Pair H1, s2*H2.", 128+2);
   deBoGriPrint("With Pair H1, s3*H3.", 128+2);
   deBoGriPrint("And Pair s3*H3, s2*H2.", 128+2);
