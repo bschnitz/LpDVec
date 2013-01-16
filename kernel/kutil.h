@@ -242,6 +242,12 @@ public:
   poly  p1,p2; /*- the pair p comes from,
                  lm(pi) in currRing, tail(pi) in tailring -*/
 
+#ifdef HAVE_SHIFTBBADVEC
+  uint shift_p2; /* BOCO: This is the shift,  which must be *
+                  * applied to p2, such that p1,p2 have a   *
+                  * common divisor.                         */
+#endif
+
   poly  lcm;   /*- the lcm of p1,p2 -*/
 
   /* BOCO: We need a dvec for the lcm in shiftbbadvec case */
@@ -249,7 +255,9 @@ public:
   /* BOCO: Important
    * The lcmDvec and lcmDvSize need to be set to NULL
    * respectivly 0, every time, the lcm changes and at the
-   * creation of an LObject.
+   * creation of an LObject. 
+   * TODO: Do we still use lcmDvSize?
+   * TODO: clear this of functions, we do not use anymore
    * See kutil2.cc for most definitions.
    * TODO:
    * Do the latter in the constructor.

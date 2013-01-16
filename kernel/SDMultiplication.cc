@@ -339,7 +339,7 @@ return;
  * to on in p->exp . rt has to be a copy of p.                 *
  * p_AllocBin?).                                               */
 void ShiftDVec::p_ExpSum_dp
-(poly rt, poly p, poly q, ring r)
+  (poly rt, poly p, poly q, ring r)
 {
 //This represents the first index in the currently considered
 //block in rt->exp.

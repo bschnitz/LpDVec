@@ -176,7 +176,7 @@ void ShiftDVec::initenterpairs
     //grico: this doesn't seem to be a wrong assumpiton, so I
     //kept it
   { 
-    /* BOCO: 
+    /* BOCO: TODO:
      *  First we will find all overlaps of H with each
      *  element of S. We use very large arrays of arrays. This
      *  could be partially improved, by applying the
@@ -1478,6 +1478,48 @@ bool ShiftDVec::GM3(LObject* H, LObject* L, kStrategy strat)
 }
 #endif
 
+// BOCO: p_Lcm from libpolys/monomials/p_polys.cc
+// adapted to ShiftDVec case; returns LCM of the heads of a and
+// shift_b * b in *m.
+void ShiftDVec::p_Lcm
+  (const poly a, const poly b, shift_b, poly m, const ring r)
+{
+#if 0 //BOCO: replaced
+  for (int i=rVar(r); i; --i)
+    p_SetExp(m,i, si_max( p_GetExp(a,i,r), p_GetExp(b,i,r)),r);
+#else //BOCO: replacement
+  int lV = r->isLPring;
+  int im = 1; //this is the index currently considered in m and a
+  { // this is a loop which will set m := a
+    nextblock: ;
+    for(int i = 0; i < lV; ++i, ++im)
+    {
+      if( p_GetExp(a, im, r) )
+      {
+        p_SetExp(m, im, r);
+        goto nextblock;
+      }
+    } //found one empty block, stop loop (do not go to nextblock)
+  }
+
+  im -= lV; //previous block in a was empty, reset im
+  int ib = im - shift_b * lV; //first index in b to be considered
+  { // this is a loop which will set m := lcm(a,shift_b * b)
+    nextblock: ;
+    for(int i = 0; i < lV, im <= r->N; ++i, ++im, ++ib)
+    {
+      if( p_GetExp(b, ib, r) )
+      {
+        p_SetExp(m, im, r);
+        goto nextblock;
+      }
+    } //found one empty block, stop loop (do not go to nextblock)
+  }
+#fi
+  
+  p_SetComp(m, si_max(p_GetComp(a,r), p_GetComp(b,r)),r);
+  /* Don't do a pSetm here, otherwise hres/lres chockes */
+}
 
 /* BOCO: 
  * This is an adapted version of enterOnePairNormal. It will
@@ -1509,8 +1551,11 @@ LObject* ShiftDVec::enterOnePair
   int      l,j,compare;
   LObject  Lp;
   Lp.i_r = -1;
+  Lp.shift_p2 = shift;
 
-#ifdef HAVE_SHIFTBBADVEC //BOCO: added
+#if 0 
+//BOCO: removed that: we do not want to store shifts any longer
+//#ifdef HAVE_SHIFTBBADVEC //BOCO: added
   p2 = p_LPshiftT
     ( p2, shift, strat->uptodeg, strat->lV, strat, currRing );
   loGriToFile("p_LPshiftT in enterOnePair ",0 ,1024, (void*)p2);
@@ -1530,9 +1575,12 @@ LObject* ShiftDVec::enterOnePair
   pLcmRat(p,strat->S[i],Lp.lcm, currRing->real_var_start); // int rat_shift
 #endif
 #else //BOCO: replacement
+assume(0); //BOCO: TODO: we do not have a shift anylonger
+           //            so we have to adapt pLcm(Rat)
 #ifndef HAVE_RATGRING
-  pLcm(p2,p1,Lp.lcm);
+  SD::p_Lcm(p2, p1, Lp.lcm, currRing);
 #elif defined(HAVE_RATGRING)
+  assume(0); //BOCO: not yet considered case
   //  if (rIsRatGRing(currRing))
   pLcmRat(p2,p1,Lp.lcm, currRing->real_var_start); // int rat_shift
 #endif
@@ -1678,6 +1726,7 @@ LObject* ShiftDVec::enterOnePair
   if (strat->fromT && !TEST_OPT_INTSTRATEGY)
     pNorm(p);
 #else //BOCO: replacement
+  assume(0); //TODO
   if (strat->fromT && !TEST_OPT_INTSTRATEGY)
     pNorm(p2);
 #endif
@@ -1686,6 +1735,7 @@ LObject* ShiftDVec::enterOnePair
   if ((strat->S[i]==NULL) || (p==NULL))
     return;
 #else //BOCO: replacement
+  assume(0); //TODO
   if ((p1==NULL) || (p2==NULL))
     {if(p2) {loGriToFile("pDelete in enteronepair ",0 ,1024, (void*)p2);pDelete(&p2);} return NULL;}
 #endif
@@ -1707,6 +1757,7 @@ LObject* ShiftDVec::enterOnePair
 #if 0 //BOCO: replaced
       if(pHasNotCF(p, strat->S[i]))
 #else //BOCO: replacement
+      assume(0); //BOCO: TODO
       if(pHasNotCF(p2, p1))
 #endif
       {
@@ -1717,6 +1768,7 @@ LObject* ShiftDVec::enterOnePair
 #if 0 //BOCO: replaced
              Lp.p = nc_p_Bracket_qq(pCopy(p),strat->S[i]);
 #else //BOCO: replacement
+             assume(0); //BOCO: TODO
              Lp.p = nc_p_Bracket_qq(pCopy(p2),p1);
 #endif
          }
@@ -1735,6 +1787,7 @@ LObject* ShiftDVec::enterOnePair
           Lp.p = // nc_CreateSpoly(strat->S[i],p,currRing);
                 nc_CreateShortSpoly(strat->S[i], p, currRing);
 #else //BOCO: replacement
+          assume(0); //BOCO: TODO
           Lp.p = nc_CreateShortSpoly(p1, p2, currRing);
 #endif
 
@@ -1748,6 +1801,7 @@ LObject* ShiftDVec::enterOnePair
         Lp.p = // nc_CreateSpoly(strat->S[i],p,currRing);
               nc_CreateShortSpoly(strat->S[i], p, currRing);
 #else //BOCO: replacement
+        assume(0); //BOCO: TODO
         Lp.p = nc_CreateShortSpoly(p1, p2, currRing);
 #endif
 
@@ -1777,6 +1831,7 @@ LObject* ShiftDVec::enterOnePair
 #if 0 //BOCO: replaced
       Lp.p = ksCreateShortSpoly(strat->S[i], p, strat->tailRing);
 #else //BOCO: replacement
+      assume(0); //BOCO: TODO
       Lp.p = ksCreateShortSpoly(p1, p2, strat->tailRing);
 #endif
 
@@ -1811,6 +1866,7 @@ LObject* ShiftDVec::enterOnePair
     *the first case is handeled in chainCrit
     */
 #endif
+    assume(0); //BOCO: TODO
     if (Lp.lcm!=NULL) pLmFree(Lp.lcm);
     loGriToFile("pDelete in enteronepair",0 ,1024, (void*)p2);
     pDelete(&p2);
@@ -1822,6 +1878,7 @@ LObject* ShiftDVec::enterOnePair
     Lp.p1 = strat->S[i];
     Lp.p2 = p;
 #else //BOCO: replacement
+    assume(0); //BOCO: TODO
     Lp.p1 = p1;
     Lp.p2 = p2;
 #endif
@@ -1847,6 +1904,7 @@ LObject* ShiftDVec::enterOnePair
       Lp.i_r2 = -1;
     }
 #else //BOCO: replacement
+    assume(0); //TODO: unreplace the above
     Lp.i_r1 = atR1;
     Lp.i_r2 = atR2;
 #endif
@@ -1854,6 +1912,7 @@ LObject* ShiftDVec::enterOnePair
 #if 0 //BOCO: replaced
     strat->initEcartPair(&Lp,strat->S[i],p,strat->ecartS[i],ecart);
 #else //BOCO: replacement
+    assume(0); //BOCO: TODO
     strat->initEcartPair( &Lp, p1, p2, ecart1, ecart2 );
     //grico: still unsure about Ecart, since we do not use Mora, I think its not needed
 #endif
@@ -1872,6 +1931,7 @@ LObject* ShiftDVec::enterOnePair
     deBoGriPrint(atR1, "atR1: ", 8);
     deBoGriPrint(atR2, "atR2: ", 8);
     assume(strat->R[Lp.i_r1]->p == Lp.p1);
+    assume(strat->R[Lp.i_r2]->p == Lp.p2);
     return SD::enterL(&strat->B,&strat->Bl,&strat->Bmax,Lp,l);
     //grico: pair is first saved to B, will be merged into L at
     //the end
