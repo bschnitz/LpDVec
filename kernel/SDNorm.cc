@@ -23,6 +23,7 @@ namespace ShiftDVec
   typedef skStrategy* kStrategy;
 };
 
+//this is a comentary
 
 poly ShiftDVec::NormalForm(poly p, ideal I, int uptodeg, int nVars)
 {
