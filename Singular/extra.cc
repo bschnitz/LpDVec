@@ -200,6 +200,7 @@ static int PyInitialized = 0;
 
 //BOCO: added:
 #include <kernel/SDBase.h>
+#include <kernel/SDNorm.h>
 
 /* expects a SINGULAR square matrix with number entries
    where currRing is expected to be over some field F_p;
@@ -826,6 +827,48 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
         else return TRUE;
 
         return FALSE;
+      }
+  /*===================nf mit DVecs========================*/
+      if (strcmp(sys_cmd, "dvcnf") == 0)
+      {
+       ideal I;
+       poly p;
+       int uptodeg, lVblock;
+       if ((h!=NULL) && (h->Typ()==POLY_CMD))
+        {
+          p=(poly)h->CopyD();
+          h=h->next;
+        }
+        else return TRUE;
+       if ((h!=NULL) && (h->Typ()==IDEAL_CMD))
+        {
+          I=(ideal)h->CopyD();
+          h=h->next;
+        }
+        else return TRUE;
+       if ((h!=NULL) && (h->Typ()==INT_CMD))
+        {
+          uptodeg=(int)((long)(h->Data()));
+          h=h->next;
+        }
+        else return TRUE;
+        if ((h!=NULL) && (h->Typ()==INT_CMD))
+        {
+          lVblock=(int)((long)(h->Data()));
+        
+          res->data =
+            ShiftDVec::NormalForm(p,I,uptodeg,lVblock);
+          if (res->data == NULL)
+          {
+            /* that is there were input errors */
+            res->data = p;
+          }
+          res->rtyp = POLY_CMD;
+        }
+        else return TRUE;
+
+        return FALSE;
+
       }
   /*=================== Testfunktion for Gebauer Moeller ========================*/
       /* May require Debug Mode ? */
