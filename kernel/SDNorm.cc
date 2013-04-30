@@ -33,14 +33,14 @@ poly ShiftDVec::NormalForm(poly p, ideal I, int uptodeg, int nVars)
   
   poly n;
   
-  if (! ideal_isInV(I,lVblock) )
+  if (! ideal_isInV(I,nVars) )
   {
     WerrorS("The input ideal contains incorrectly encoded elements! ");
     return(NULL);
   }
 
   
-  n = SD::initNF(p,I,NULL, testHomog, NULL,NULL,0,0,NULL, uptodeg, lVblock);
+  n = SD::initNF(p,I,NULL, testHomog, NULL,NULL,0,0,NULL, uptodeg, nVars);
   
   n = p_Cleardenom(n,currRing);
   
