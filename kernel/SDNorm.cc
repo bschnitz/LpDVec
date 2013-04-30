@@ -1,29 +1,11 @@
 
 #include <kernel/SDNorm.h>
-#include <kernel/SDBase.cc>
+#include <kernel/SDBase.h>
 
-namespace ShiftDVec
-{
-  class sTObject;
 
-  uint divisibleBy
-    ( const ShiftDVec::sTObject * t1,
-      const ShiftDVec::sTObject * t2, int numVars );
-
-  uint findRightOverlaps
-    ( const ShiftDVec::sTObject * t1,
-      const ShiftDVec::sTObject * t2,
-      int numVars, int maxDeg, uint ** overlaps );
-
-//  bool redViolatesDeg
-//    ( poly a, poly b, int uptodeg, ring ar, ring br );
-  bool createSPviolatesDeg
-    (poly a, poly b, uint shift, int uptodeg);
 
   typedef skStrategy* kStrategy;
-};
 
-//this is a comentary
 
 poly ShiftDVec::NormalForm(poly p, ideal I, int uptodeg, int nVars)
 {
