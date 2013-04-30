@@ -18,6 +18,7 @@ namespace ShiftDVec
    (poly p, ideal F, ideal Q, tHomog h, intvec ** w, intvec *hilb, 
     int syzComp, int newIdeal, intvec *vw, int uptodeg, int lV );
 
+  typedef skStrategy* kStrategy;
 }
 
 #endif

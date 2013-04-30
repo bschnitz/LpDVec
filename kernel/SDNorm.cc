@@ -1,6 +1,26 @@
 
+#include <kernel/febase.h>
+#include <kernel/ideals.h>
+#include <misc/options.h>
+#include <kernel/kstd1.h>
+#include <kernel/khstd.h>
+#include <polys/weight.h>
+#include <kernel/timer.h>
+#include <kernel/polys.h>
+#include <misc/intvec.h>
+
+#include <kernel/shiftgb.h>
+
+#include <kernel/kutil.h>
+
+
+
+
 #include <kernel/SDNorm.h>
 #include <kernel/SDBase.h>
+#include <kernel/SDDebug.h>
+
+#include <kernel/SDMultiplication.h>
 
 
 
@@ -103,7 +123,7 @@ poly ShiftDVec::initNF(poly p, ideal F, ideal Q, tHomog h, intvec ** w, intvec *
 
   SD::LObject L(p, currRing);
   
-  int i = ShiftDVec::redHomog (@L, strat);
+  int i = ShiftDVec::redHomog (&L, strat);
   
   p = L.p;
 
