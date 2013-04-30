@@ -32,15 +32,13 @@ poly ShiftDVec::NormalForm(poly p, ideal I, int uptodeg, int nVars)
   namespace SD = ShiftDVec;
   
   poly n;
-  ideal pI = p,I;
   
-  if (! ideal_isInV(pI,lVblock) )
+  if (! ideal_isInV(I,lVblock) )
   {
     WerrorS("The input ideal contains incorrectly encoded elements! ");
     return(NULL);
   }
 
-  kill pI;
   
   n = SD::initNF(p,I,NULL, testHomog, NULL,NULL,0,0,NULL, uptodeg, lVblock);
   
