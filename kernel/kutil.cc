@@ -8248,6 +8248,7 @@ ring sbaRing (kStrategy strat, const ring r, BOOLEAN complete, int sgn)
   */
 }
 
+#if 0
 skStrategy::skStrategy()
 {
   memset(this, 0, sizeof(skStrategy));
@@ -8269,7 +8270,7 @@ skStrategy::skStrategy()
   pOrigFDeg = currRing->pFDeg;
   pOrigLDeg = currRing->pLDeg;
 }
-
+#endif
 
 skStrategy::~skStrategy()
 {
