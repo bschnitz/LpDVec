@@ -8248,10 +8248,9 @@ ring sbaRing (kStrategy strat, const ring r, BOOLEAN complete, int sgn)
   */
 }
 
-#if 0
 skStrategy::skStrategy()
 {
-  memset(this, 0, sizeof(skStrategy));
+/*  memset(this, 0, sizeof(skStrategy));
 #ifndef NDEBUG
   strat_nr++;
   nr=strat_nr;
@@ -8268,9 +8267,8 @@ skStrategy::skStrategy()
   tailBin = omGetStickyBinOfBin(currRing->PolyBin);
 #endif
   pOrigFDeg = currRing->pFDeg;
-  pOrigLDeg = currRing->pLDeg;
+  pOrigLDeg = currRing->pLDeg;*/
 }
-#endif
 
 skStrategy::~skStrategy()
 {
