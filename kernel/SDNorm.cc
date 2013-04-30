@@ -59,10 +59,12 @@ poly ShiftDVec::initNF(poly p, ideal F, ideal Q, tHomog h, intvec ** w, intvec *
   BOOLEAN delete_w=(w==NULL);
   kStrategy strat=new skStrategy;
 
-  #ifdef HAVE_SHIFTBBADVEC //BOCO: added code
+  //Grico: removed this assumption because maybe its not defined
+  //but we want it
+  //#ifdef HAVE_SHIFTBBADVEC //BOCO: added code
   strat->init_lV(lV);
   strat->init_uptodeg(uptodeg);
-  #endif
+  //#endif
 
   if(!TEST_OPT_RETURN_SB)
     strat->syzComp = syzComp;
