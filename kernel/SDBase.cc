@@ -209,7 +209,7 @@ ideal ShiftDVec::kStd
   ideal r;
   BOOLEAN b=currRing->pLexOrder,toReset=FALSE;
   BOOLEAN delete_w=(w==NULL);
-  kStrategy strat=new skStrategy;
+  SD::kStrategy strat=new SD::skStrategy;
 
 #ifdef HAVE_SHIFTBBADVEC //BOCO: added code
   strat->init_lV(lV);

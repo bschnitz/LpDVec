@@ -55,7 +55,7 @@ poly ShiftDVec::initNF(poly p, ideal F, ideal Q, tHomog h, intvec ** w, intvec *
   ideal r;
   BOOLEAN b=currRing->pLexOrder,toReset=FALSE;
   BOOLEAN delete_w=(w==NULL);
-  kStrategy strat=new skStrategy;
+  SD::kStrategy strat=new SD::skStrategy;
 
   //Grico: removed this assumption because maybe its not defined
   //but we want it
