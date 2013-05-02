@@ -507,6 +507,58 @@ void ShiftDVec::skStrategy::initR()
   R = (SD::TObject**)omAlloc0(setmaxT*sizeof(SD::TObject*));
 }
 
+void ShiftDVec::skStrategy::initLeftGB(ideal I)
+{
+  initI(I);
+}
+
+//BOCO:
+//Transform the ideal I into our Bba representation
+//(SD::TObject* strat->I)
+//
+//This was copied and adepted from the initSL function
+void ShiftDVec::skStrategy::initI(ideal I)
+{
+  assume(I!=NULL)
+  for (int i=0; i<IDELEMS(I); ++i)
+    if (I->m[i]!=NULL) this->size_of_I++;
+
+  this->I = new SD::TObject[size_of_I];
+
+  for (int i=0, j=0; i<IDELEMS(I); ++i)
+  {
+    if (I->m[i]!=NULL)
+    {
+      this->I[j].p = pCopy(I->m[i]);
+
+      if (TEST_OPT_INTSTRATEGY)
+      {
+        //pContent(h.p);
+        this->I[j].pCleardenom(); // also does a pContent
+      }
+      else
+        this->I[j].pNorm();
+
+      if (this->I[j].p!=NULL)
+      {
+        this->initEcart(&this->I[j]);
+        ++j;
+      }
+    }
+  }
+
+  //Can this happen at all?
+  if(j < this->size_of_I)
+  {
+    SD::TObject* Inew = new SD::TObject[j];
+    memcpy( Inew, this->I, j * sizeof(SD::TObject) );
+    this->size_of_I = j;
+    delete [] this->I;
+    this->I = Inew;
+  }
+}
+
+
 
 //other functions, which do not have no counterpart in normal bba
 

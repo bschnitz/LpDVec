@@ -313,6 +313,9 @@ class ShiftDVec::skStrategy : public ::skStrategy
     void initT();
     void initR();
 
+    void (*initenterpairs)
+      ( SD::LObject* H, int k, int ecart,
+        int isFromQ, SD::kStrategy strat, int atR );
 
     void init_lV(int lV){this->lV = lV;}
     int get_lV(){return lV;}
@@ -320,7 +323,7 @@ class ShiftDVec::skStrategy : public ::skStrategy
     void init_uptodeg(int uptodeg){this->uptodeg = uptodeg;}
     int get_uptodeg(){return uptodeg;}
 
-    void init_I(ideal I){/*TODO*/ assume(0);}
+    void initLeftGB(ideal I);
     uint get_size_of_I(){return size_of_I;}
     uint translate_index_I_to_R(uint i){/*TODO*/ assume(0);}
     SD::TObject* get_I_at(uint i){return &(I[i]);}

@@ -49,6 +49,7 @@
 
 #include <kernel/SDBase.h>
 #include <kernel/SDDebug.h>
+#include <kernel/SDLeftGB.h>
 
 //now our adapted multiplications for:
 //- ksCreateSpoly
@@ -389,7 +390,7 @@ ideal ShiftDVec::bba
   /*set enterS, spSpolyShort, reduce, red, initEcart, initEcartPair*/
   /*Shdl=*/initBuchMora(F, Q,strat);
 #else //BOCO: replacement
-  SD::initBba(F,strat);
+  SD::initBba(I, F, strat);
   /*set enterS, spSpolyShort, reduce, red, initEcart, initEcartPair*/
   /*Shdl=*/SD::initBuchMora(F, Q,strat);
 #endif
@@ -1328,21 +1329,25 @@ poly ShiftDVec::redtail(poly p, int pos, ShiftDVec::kStrategy strat)
 }
 
 
-#if 0 //BOCO: original header (replaced) from kstd1.cc
-      //TODO: CLEANUP: remove this
-void initBba(ideal F,kStrategy strat)
-#else
-void ShiftDVec::initBba(ideal F,ShiftDVec::kStrategy strat)
-#endif
+//original initBba resides in kstd1.cc
+void ShiftDVec::initBba(ideal I, ideal F, SD::kStrategy strat)
 {
-#ifdef HAVE_SHIFTBBADVEC //BOCO: added code
-  namespace SD = ShiftDVec;
-#endif
-
   int i;
   idhdl h;
   /* setting global variables ------------------- */
   strat->enterS = enterSBba;
+
+  /* BOCO:
+   * If I != NULL we want to calculate the GB of a left ideal
+   * in the factor algebra K<X>/I.
+   */
+  if( I != NULL )
+  {
+    strat->initenterpairs = SD::LeftGB::initenterpairs;
+    strat->initLeftGB(I);
+  }
+  else
+    strat->initenterpairs = SD::initenterpairs;
 
   //BOCO:
   //We do not use redHoney/redLazy/redRing at the moment;
@@ -1359,31 +1364,6 @@ void ShiftDVec::initBba(ideal F,ShiftDVec::kStrategy strat)
     strat->initEcartPair = initEcartPairMora;
   else
     strat->initEcartPair = initEcartPairBba;
-//  if ((TEST_OPT_WEIGHTM)&&(F!=NULL))
-//  {
-//    //interred  machen   Aenderung
-//    strat->pOrigFDeg=pFDeg;
-//    strat->pOrigLDeg=pLDeg;
-//    //h=ggetid("ecart");
-//    //if ((h!=NULL) /*&& (IDTYP(h)==INTVEC_CMD)*/)
-//    //{
-//    //  ecartWeights=iv2array(IDINTVEC(h));
-//    //}
-//    //else
-//    {
-//      ecartWeights=(short *)omAlloc(((currRing->N)+1)*sizeof(short));
-//      /*uses automatic computation of the ecartWeights to set them*/
-//      kEcartWeights(F->m,IDELEMS(F)-1,ecartWeights);
-//    }
-//    pRestoreDegProcs(currRing,totaldegreeWecart, maxdegreeWecart);
-//    if (TEST_OPT_PROT)
-//    {
-//      for(i=1; i<=(currRing->N); i++)
-//        Print(" %d",ecartWeights[i]);
-//      PrintLn();
-//      mflush();
-//    }
-//  }
 }
 
 

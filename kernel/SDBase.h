@@ -17,7 +17,7 @@ namespace ShiftDVec
   ideal bba
     ( ideal F, ideal Q, ideal I,
       intvec *w, intvec *hilb, SD::kStrategy strat );
-  void initBba( ideal F, SD::kStrategy strat );
+  void initBba( ideal I, ideal F, SD::kStrategy strat );
   poly redtailBba
     ( SD::LObject* L, int pos, SD::kStrategy strat,
       BOOLEAN withT=FALSE, BOOLEAN normalize=FALSE );

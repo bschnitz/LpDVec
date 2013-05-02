@@ -33,7 +33,7 @@
 typedef skStrategy* kStrategy;
 
 void ShiftDVec::LeftGB::initenterpairs
-  ( SD::LObject* J,
+  ( SD::LObject* J, int size_of_I,
     int ecart, int isFromQ, SD::kStrategy strat, int atR )
 {
   namespace SD = ShiftDVec;

@@ -1,0 +1,12 @@
+Von den vielen Makefiles müssen
+kernel/CMakeLists.txt
+kernel/Makefile.am
+editiert werden.
+
+Wenn an den Makefiles etwas geändert wurde, so muss die
+komplette Installationsroutine neu durchgeführt werden:
+Im Wurzelverzeichis:
+make clean
+./autogen.sh
+./configure
+make

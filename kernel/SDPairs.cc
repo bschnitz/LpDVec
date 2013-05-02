@@ -64,14 +64,9 @@
 typedef skStrategy* kStrategy;
 
 
-#if 0 //BOCO: original code and comment
-/*2
-*(s[0],h),...,(s[k],h) will be put to the pairset L(via initenterpairs)
-*superfluous elements in S will be deleted
-*/
-void enterpairs (poly h,int k,int ecart,int pos,kStrategy strat, int atR)
-#else //replacement
 /* BOCO: 
+ * originial enterpairs resides in kutil.cc
+ *
  * (s[0],s*h),...,(s[k],s*h) will be put to the pairset 
  * L(via initenterpairs) for every shift s, where s*h is not
  * menacing the uptodeg boundary. superfluous elements in S will
@@ -81,41 +76,32 @@ void enterpairs (poly h,int k,int ecart,int pos,kStrategy strat, int atR)
  * pos seems to be the position of h in S (see bba function)
  */
 void ShiftDVec::enterpairs 
-  (ShiftDVec::LObject* H,int k,int ecart,int pos,ShiftDVec::kStrategy strat, int atR)
+  ( SD::LObject* H, int k, int ecart,
+    int pos, SD::kStrategy strat, int atR )
 {
-  namespace SD = ShiftDVec;
-#endif
   int j=pos;
 
 #ifdef HAVE_RINGS
   assume (!rField_is_Ring(currRing));
 #endif
 
-#if 0 //BOCO: original code and comment
-  initenterpairs(h,k,ecart,0,strat, atR);
-#else //replacement
-  SD::initenterpairs(H,k,ecart,0,strat, atR);
-#endif
+  //BOCO:
+  //original initenterpairs was replaced
+  strat->initenterpairs(H,k,ecart,0,strat, atR);
 
   if ( (!strat->fromT)
   && ((strat->syzComp==0)
     ||(pGetComp(H->p)<=strat->syzComp)))
   {
-    //Print("start clearS k=%d, pos=%d, sl=%d\n",k,pos,strat->sl);
     unsigned long h_sev = pGetShortExpVector(H->p);
     loop
     {
       if (j > k) break;
-#if 0 //BOCO: original code and comment
-      clearS(h,h_sev, &j,&k,strat);
-#else //replacement
+      //BOCO: original clearS was replaced (TODO: LeftGB case)
       SD::clearS(H,h_sev, &j,&k,strat);
-#endif
       j++;
     }
-    //Print("end clearS sl=%d\n",strat->sl);
   }
- // PrintS("end enterpairs\n");
 }
 
 
@@ -171,7 +157,7 @@ void ShiftDVec::clearS
  * implementations */
 void ShiftDVec::initenterpairs
   ( ShiftDVec::LObject* H, int k, int ecart, 
-    int isFromQ, ShiftDVec::kStrategy strat, int atR )
+    int isFromQ, SD::kStrategy strat, int atR )
 {
   assume(strat->R[atR]->p == H->p);
   initDeBoGri
