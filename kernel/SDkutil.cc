@@ -46,9 +46,12 @@ typedef class ShiftDVec::sLObjectExtension LExt;
  */
 ShiftDVec::sTObjectExtension* sTObject::SD_Ext_Init()
 {
+  using namespace ShiftDVec;
+
   if( SD_Object_Extension ) SD_Ext_Delete();
 
   SD_Object_Extension = new ShiftDVec::sTObjectExtension(this);
+  loGriToFile("SD_Ext_Init",0 ,1024, (void*) SD_Object_Extension, "grifile.txt");
   SD_Ext()->Extension_Type = TExt::TObject_Extension;
   SD_Ext()->Set_Number_Of_Possesors(1);
 
@@ -90,6 +93,8 @@ sTObject::Own_Extension_From(sTObject* Other_Possesor)
  */
 void sTObject::SD_Ext_Delete()
 {
+  using namespace ShiftDVec;
+
   if( SD_Object_Extension == NULL ) return;
 
   SD_Ext()->number_of_possesors -= 1;
@@ -100,8 +105,10 @@ void sTObject::SD_Ext_Delete()
     switch( SD_Ext()->Extension_Type )
     {
       case TExt::TObject_Extension:
+        loGriToFile("Extention deleted",0 ,1024, (void*) SD_Object_Extension, "grifile.txt");
         delete SD_Object_Extension;  break;
       case TExt::LObject_Extension:
+        loGriToFile("Extention deleted with static_cast",0 ,1024, (void*) SD_Object_Extension, "grifile.txt");
         delete static_cast<ShiftDVec::sLObjectExtension*>
               (SD_Object_Extension); break;
       default:
@@ -128,9 +135,12 @@ ShiftDVec::sLObjectExtension* sTObject::SD_LExt() const
  */
 ShiftDVec::sLObjectExtension* sLObject::SD_LExt_Init()
 {
+  using namespace ShiftDVec;
+
   if( SD_Object_Extension ) { SD_Ext_Delete(); }
     
   LExt* ext = new LExt(this);
+  loGriToFile("new LExt",0 ,1024, (void*) ext, "grifile.txt");
   SD_Object_Extension = ext;
   SD_Ext()->Extension_Type = TExt::LObject_Extension;
   SD_Ext()->Set_Number_Of_Possesors(1);
