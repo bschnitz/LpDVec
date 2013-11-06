@@ -48,7 +48,10 @@
 //#include <kernel/SDkutil.h>//do this via kutil.h otherwise...
 
 #include <kernel/SDBase.h>
+#include <kernel/SDReduce.h>
 #include <kernel/SDDebug.h>
+
+#include <kernel/SDDebug/SDDebug.h>
 
 //now our adapted multiplications for:
 //- ksCreateSpoly
@@ -125,9 +128,6 @@ inline static unsigned long* initsevS (const int maxnr)
     (unsigned long*)omAlloc0(maxnr*sizeof(unsigned long)); }
 
 //BOCO: static function copied from kutil.cc
-inline static int* initS_2_R (const int maxnr)
-{ return (int*)omAlloc0(maxnr*sizeof(int)); }
-
 
 //the work begins
 
@@ -2096,172 +2096,6 @@ void ShiftDVec::updateS( BOOLEAN toT, SD::kStrategy strat )
 }
 
 
-void ShiftDVec::initBuchMoraCrit(ShiftDVec::kStrategy strat)
-{
-  namespace SD = ShiftDVec;
-
-  strat->enterOnePair=NULL;
-  strat->chainCrit=NULL;
-
-#ifdef HAVE_RINGS //BOCO: we dont have them
-  if (rField_is_Ring(currRing))
-  {
-    strat->enterOnePair=enterOnePairRing;
-    strat->chainCrit=chainCritRing;
-  }
-#endif
-#ifdef HAVE_RATGRING //BOCO: i think, we dont have that, too
-  if (rIsRatGRing(currRing))
-  {
-     strat->chainCrit=chainCritPart;
-     /* enterOnePairNormal get rational part in it */
-  }
-#endif
-
-  strat->sugarCrit =        TEST_OPT_SUGARCRIT;
-  strat->Gebauer =          strat->homog || strat->sugarCrit;
-  strat->honey =            !strat->homog || strat->sugarCrit || TEST_OPT_WEIGHTM;
-  if (TEST_OPT_NOT_SUGAR) strat->honey = FALSE;
-  strat->pairtest = NULL;
-  /* alway use tailreduction, except:
-  * - in local rings, - in lex order case, -in ring over extensions */
-  strat->noTailReduction = !TEST_OPT_REDTAIL;
-
-#ifdef HAVE_PLURAL
-  // and r is plural_ring
-  //  hence this holds for r a rational_plural_ring
-  if( rIsPluralRing(currRing) || (rIsSCA(currRing) && !strat->z2homog) )
-  {    //or it has non-quasi-comm type... later
-    strat->sugarCrit = FALSE;
-    strat->Gebauer = FALSE;
-    strat->honey = FALSE;
-  }
-#endif
-
-#ifdef HAVE_RINGS //BOCO: no, we don't
-  // Coefficient ring?
-  if (rField_is_Ring(currRing))
-  {
-    strat->sugarCrit = FALSE;
-    strat->Gebauer = FALSE ;
-    strat->honey = FALSE;
-  }
-#endif
-  #ifdef KDEBUG
-  if (TEST_OPT_DEBUG)
-  {
-    if (strat->homog) PrintS("ideal/module is homogeneous\n");
-    else              PrintS("ideal/module is not homogeneous\n");
-  }
-  #endif
-}
-
-
-/* BOCO: original comment from kutil.cc
- *  enters p at position at in L
- * BOCO:
- *  - We will return a pointer to the LObject in [[set]] .
- * WARNING (if an error occeurs: check):
- *  p is now is passed as a pointer instead of passing it by
- *  value (may save us one copy).
- */
-LObject* ShiftDVec::enterL
-  ( LSet *set,
-    int *length, int *LSetmax, LObject* p, int at )
-{
-  namespace SD = ShiftDVec;
-
-  int i;
-  // this should be corrected
-  assume(p->FDeg == p->pFDeg());
-
-  if ((*length)>=0)
-  {
-    if ( (*length) == (*LSetmax)-1 )
-      enlargeL(set,LSetmax,setmaxLinc);
-    if (at <= (*length))
-#ifdef ENTER_USE_MEMMOVE
-      memmove( &((*set)[at+1]), &((*set)[at]),
-               ((*length)-at+1)*sizeof(LObject) );
-#else
-    for (i=(*length)+1; i>=at+1; i--) (*set)[i] = (*set)[i-1];
-#endif
-  }
-  else at = 0;
-
-  (*length)++;
-  (*set)[at] = *p;
-
-  return &(*set)[at];
-}
-
-
-//functions with nearly no change
-
-
-void ShiftDVec::initSL( ideal F, ideal Q, SD::kStrategy strat )
-{
-  namespace SD = ShiftDVec;
-
-  int   i,pos;
-
-  if (Q!=NULL) i=((IDELEMS(Q)+(setmaxTinc-1))/setmaxTinc)*setmaxTinc;
-  else i=setmaxT;
-  strat->ecartS=initec(i);
-  strat->sevS=initsevS(i);
-  strat->S_2_R=initS_2_R(i);
-  strat->fromQ=NULL;
-  strat->Shdl=idInit(i,F->rank);
-  strat->S=strat->Shdl->m;
-  /*- put polys into S -*/
-  if (Q!=NULL)
-  {
-    strat->fromQ=initec(i);
-    memset(strat->fromQ,0,i*sizeof(int));
-    for (i=0; i<IDELEMS(Q); i++)
-    {
-      if (Q->m[i]!=NULL)
-      {
-        LObject h;
-        h.p = pCopy(Q->m[i]);
-        if (currRing->OrdSgn==-1)
-        {
-          deleteHC(&h,strat);
-        }
-        if (TEST_OPT_INTSTRATEGY)
-        {
-          //pContent(h.p);
-          h.pCleardenom(); // also does a pContent
-        }
-        else
-        {
-          h.pNorm();
-        }
-        if (h.p!=NULL)
-        {
-          strat->initEcart(&h);
-          if (strat->sl==-1)
-            pos =0;
-          else
-          {
-            pos = posInS(strat,strat->sl,h.p,h.ecart);
-          }
-          h.sev = pGetShortExpVector(h.p);
-          strat->enterS(h,pos,strat,-1);
-          strat->fromQ[pos]=1;
-        }
-      }
-    }
-  }
-  for (i=0; i<IDELEMS(F); i++)
-  {
-    if (F->m[i]!=NULL)
-    {
-      LObject h;
-
-      h.p = pCopy(F->m[i]);
-      if (h.p!=NULL)
-      {
         if (currRing->OrdSgn==-1)
         {
           cancelunit(&h);  /*- tries to cancel a unit -*/
