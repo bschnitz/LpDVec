@@ -128,3 +128,5 @@ class ShiftDVec::sTObjectExtension
 };
 
 #endif //ifndef SDEXTENSIONS_H
+
+// vim: set foldmethod=syntax :
