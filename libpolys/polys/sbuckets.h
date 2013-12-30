@@ -13,11 +13,11 @@
 #ifndef S_BUCKETS_H
 #define S_BUCKETS_H
 
-#include <polys/monomials/ring.h>
+class sBucket; typedef sBucket*           sBucket_pt;
+struct  spolyrec; typedef struct spolyrec polyrec; typedef polyrec* poly;
+struct ip_sring; typedef struct ip_sring* ring; typedef struct ip_sring const* const_ring;
 
 
-class sBucket;
-typedef sBucket*           sBucket_pt;
 //////////////////////////////////////////////////////////////////////////
 // Creation/Destruction of buckets
 //
@@ -73,11 +73,13 @@ inline void sBucketDestroyAdd(sBucket_pt bucket, poly *p, int *length)
 void sBucketDeleteAndDestroy(sBucket_pt *bucket_pt);
 
 //////////////////////////////////////////////////////////////////////////
-///
+
 /// Merges p into Spoly: assumes Bpoly and p have no common monoms
-///
+/// destroys p!
 void sBucket_Merge_p(sBucket_pt bucket, poly p, int lp);
-// adds poly p to bucket
+
+/// adds poly p to bucket
+/// destroys p!
 void sBucket_Add_p(sBucket_pt bucket, poly p, int lp);
 
 

@@ -29,8 +29,8 @@ AC_ARG_WITH(flint,
 			FLINT_HOME_PATH="${DEFAULT_CHECKING_PATH}"
 	      elif test "$withval" != no ; then
 			FLINT_HOME_PATH="$withval"
-	     fi], )
-#	     [FLINT_HOME_PATH="${DEFAULT_CHECKING_PATH}"])
+	     fi],
+	     [FLINT_HOME_PATH="${DEFAULT_CHECKING_PATH}"])
 
 min_flint_version=ifelse([$1], ,2.3,$1)
 
@@ -39,32 +39,36 @@ dnl Check for existence
 BACKUP_CFLAGS=${CFLAGS}
 BACKUP_LIBS=${LIBS}
 
-AC_LANG_PUSH(C)
-
 if test -n "$FLINT_HOME_PATH"; then
 AC_MSG_CHECKING(for FLINT >= $min_flint_version)
 fi
 
+AC_LANG_PUSH([C])
+
 for FLINT_HOME in ${FLINT_HOME_PATH} 
  do	
-if test -r "$FLINT_HOME/include/fmpz.h"; then
+## if test -r "$FLINT_HOME/include/flint/fmpz.h"; then
 
 	if test "x$FLINT_HOME" != "x/usr"; then
-		FLINT_CFLAGS="-I${FLINT_HOME}/include"
-		FLINT_LIBS="-L${FLINT_HOME}/lib -lflint -lmpfr -lmpir"
+		FLINT_CFLAGS="-I${FLINT_HOME}/include/"
+		FLINT_LIBS="-L${FLINT_HOME}/lib"
 	else
-		FLINT_CFLAGS=
-		FLINT_LIBS="-lflint"		
-	fi	
-	CFLAGS="${BACKUP_CFLAGS} ${FLINT_CFLAGS}" 
-	LIBS="${BACKUP_LIBS} ${FLINT_LIBS}"
+		FLINT_CFLAGS=""
+		FLINT_LIBS=""		
+	fi
+	
+	# we suppose that mpfr and mpir to be in the same place or available by default
+	FLINT_LIBS="$FLINT_LIBS -lflint -lmpfr"
+	
+	CFLAGS="${BACKUP_CFLAGS} ${FLINT_CFLAGS} ${GMP_CFLAGS}" 
+	LIBS="${BACKUP_LIBS} ${FLINT_LIBS} ${GMP_LIBS}"
 
 	AC_TRY_LINK(
-	[#include <fmpz.h>],
+	[#include <flint/fmpz.h>],
 	[fmpz_t a; fmpz_init (a);],
 	[
 	AC_TRY_RUN(
-	[#include <flint.h>
+	[#include <flint/flint.h>
 	int main () { if ((int) version[0] < 2) return -1; else return 0; }	
 	],[
 	flint_found="yes"	
@@ -85,10 +89,16 @@ if test -r "$FLINT_HOME/include/fmpz.h"; then
 	unset FLINT_CFLAGS
 	unset FLINT_LIBS	
 	])
-else
-	flint_found="no"
-fi
+#else
+#	flint_found="no"
+#fi
 done
+AC_LANG_POP([C])
+
+CFLAGS=${BACKUP_CFLAGS}
+LIBS=${BACKUP_LIBS}
+#unset LD_LIBRARY_PATH
+
 
 if test "x$flint_found" = "xyes" ; then		
 	AC_SUBST(FLINT_CFLAGS)
@@ -113,13 +123,6 @@ elif test   "x$flint_found" = "xno";  then
 	ifelse([$3], , :, [$3])	
 fi	
 
-AC_LANG_POP
-
 AM_CONDITIONAL(SING_HAVE_FLINT, test "x$HAVE_FLINT" = "xyes")
-
-CFLAGS=${BACKUP_CFLAGS}
-LIBS=${BACKUP_LIBS}
-#unset LD_LIBRARY_PATH
-
 ])
 

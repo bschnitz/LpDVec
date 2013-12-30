@@ -1,5 +1,5 @@
-///////////////////////////////////////////////////////////////////////////////
-version="$Id$";
+//////////////////////////////////////////////////////////////////////////////
+version="version normal.lib 4.0.0.0 Jun_2013 "; // $Id$
 category="Commutative Algebra";
 info="
 LIBRARY:  normal.lib     Normalization of Affine Rings
@@ -24,6 +24,8 @@ PROCEDURES:
  getSmallest(J);     computes the polynomial of smallest degree of J
  getOneVar(J, vari); computes a polynomial of J in the variable vari
  changeDenominator(U1, c1, c2, I); computes ideal U2 such that 1/c1*U1=1/c2*U2
+
+SEE ALSO: locnormal_lib;modnormal_lib
 ";
 
 LIB "general.lib";
@@ -244,7 +246,7 @@ EXAMPLE: example normal; shows an example
 // If the ordering is global, but not dp, and useRing = 0, we also change to
 // dp ordering.
 
-  int isGlobal = ord_test(basering);      // Checks if the original ring has
+  int isGlobal = attrib(basering,"global");// Checks if the original ring has
                                           // global ordering.
 
   def origR = basering;   // origR is the original ring
@@ -377,11 +379,11 @@ EXAMPLE: example normal; shows an example
       for(j = 1; j <= size(norComp); j++)
       {
         newR = norComp[j][3];
-	if(!defined(savebasering)) { def savebasering;}
+        if(!defined(savebasering)) { def savebasering;}
         savebasering=basering;
         setring newR; // must be in a compatible ring to newR
                       // as ringlist may produce ring-dep. stuff
-	if(!defined(newRList)) { list newRList;}
+        if(!defined(newRList)) { list newRList;}
         newRList = ringlist(newR);
         setring savebasering;
         U = norComp[j][1];
@@ -2153,23 +2155,34 @@ static proc deltaP(ideal I)
 }
 
 proc genus(ideal I,list #)
-"USAGE:   genus(i) or genus(i,1); I a 1-dimensional ideal
+"USAGE:   genus(I) or genus(I,<option>); I a 1-dimensional ideal
 RETURN:  an integer, the geometric genus p_g = p_a - delta of the projective
          curve defined by i, where p_a is the arithmetic genus.
 NOTE:    delta is the sum of all local delta-invariants of the singularities,
          i.e. dim(R'/R), R' the normalization of the local ring R of the
          singularity. @*
-         genus(i,1) uses the normalization to compute delta. Usually genus(i,1)
-         is slower than genus(i) but sometimes not.
+         genus(I,"nor") uses the normalization to compute delta. Usually genus(I,"nor")
+         is slower than genus(I) but sometimes not. @*
+         genus(I,"pri") starts with a primary decompsition.
 EXAMPLE: example genus; shows an example
 "
 {
    int w = printlevel-voice+2;  // w=printlevel (default: w=0)
 
-   def R0=basering;
-   if(char(basering)>0)
+   int ono,rpr,ll;
+   if(size(#)>0)
    {
-     def R1=changeord("dp");
+     if(typeof(#[1])=="string")
+     {
+        if(#[1]=="nor"){ono=1;}
+        if(#[1]=="pri"){rpr=1;}
+     }
+     else { ERROR("invalid option for genus");}
+   }
+   def R0=basering;
+   if((char(basering)>0)||(ono))
+   {
+     def R1=changeord(list(list("dp",1:nvars(basering))));
      setring R1;
      ideal I=imap(R0,I);
      I=radical(I);
@@ -2195,10 +2208,37 @@ EXAMPLE: example genus; shows an example
        J=homog(J,@t);
        J=std(J);
      }
-     int pa=1-hilbPoly(J)[1];
-     pa=pa-deltaP(J);
+
+     list LL=normal(J,"prim");
+     int pa,i;
+     for(i=1;i<=size(LL[1]);i++)
+     {
+        def T=LL[1][i];
+        setring T;
+        pa=pa-hilbPoly(std(norid))[1];
+        setring S;
+        kill T;
+     }
+     pa=pa+1;
      setring R0;
      return(pa);
+   }
+   if(!rpr)
+   {
+      list LZ=minAssGTZ(I);
+      if(size(LZ)>1)
+      {
+         int p_g;
+         for(ll=1;ll<=size(LZ);ll++)
+         {
+            p_g=p_g+genus(LZ[ll],"pri")-1;
+         }
+         return(p_g+1);
+      }
+      else
+      {
+         I=LZ[1];
+      }
    }
    I=std(I);
    if(dim(I)!=1)
@@ -2429,15 +2469,6 @@ EXAMPLE: example genus; shows an example
    //the singularities at the affine part
    map sigma=S,var(1),var(2),1;
    ideal I=sigma(F);
-
-   if(size(#)!=0)
-   {                              //uses the normalization to compute delta
-      list nor=normal(I);
-      delt=nor[size(nor)][2];
-      genus=genus-delt-deltainf;
-      setring R0;
-      return(genus);
-   }
 
    ideal I1=jacob(I);
    matrix Hess[2][2]=jacob(I1);
@@ -2703,6 +2734,7 @@ EXAMPLE: example deltaLoc;  shows an example
       }
 
       int mu=vdim(std(jacob(f)));
+
       poly g=f+var(1)^mu+var(2)^mu;  //to obtain a convenient Newton-polygon
 
       list NP=newtonpoly(g);
@@ -2731,7 +2763,8 @@ EXAMPLE: example deltaLoc;  shows an example
          if(w>=1){"Newton polygon can be used for splitting";"";}
          intvec v=NP[1][2]-NP[2][2],NP[2][1];
          int de=w_deg(g,v);
-         int st=w_deg(hc,v)+v[1]+v[2];
+         //int st=w_deg(hc,v)+v[1]+v[2];
+         int st=w_deg(var(1)^NP[size(NP)][1],v)+1;
          poly f1=var(2)^NP[2][2];
          poly f2=jet(g,de,v)/var(2)^NP[2][2];
          poly h=g-f1*f2;
@@ -2749,6 +2782,7 @@ EXAMPLE: example deltaLoc;  shows an example
            de=w_deg(h,v);
          }
          nb=deltaLoc(f1,maxideal(1))[3]+deltaLoc(f2,maxideal(1))[3];
+
          setring R;
          option(set,save_opt);
          return(list(d*(mu+nb-1) div 2,d*tau,d*nb));
@@ -3538,7 +3572,7 @@ EXAMPLE: example normalP; shows an example
 
    y = printlevel-voice+2;
 
-   if ( ord_test(basering) != 1)
+   if ( attrib(basering,"global") != 1)
    {
      "";
      "// Not implemented for this ordering,";
@@ -4160,7 +4194,8 @@ static proc computeRing(ideal J, ideal I, list #)
     {
       ff = NF(f[ii]*f[jj],std(0));     // this makes lift much faster
       // For non-global orderings, we have to take care of the units.
-      if(ord_test(basering) != 1){
+      if(attrib(basering,"global") != 1)
+      {
         A = lift(pf, ff, u);
         Quad = Quad,ideal(newT[jj-1]*newT[ii-1] * u[1, 1]- T*A);
       }
@@ -4275,7 +4310,7 @@ static proc normalM(ideal I, int decomp, int withDelta, int denomOption, ideal i
   int step = 0;                       // Number of steps. (for debugging)
   int dbg = printlevel - voice + 2;   // dbg = printlevel (default: dbg = 0)
   int i;                              // counter
-  int isGlobal = ord_test(basering);
+  int isGlobal = attrib(basering,"global");
 
   poly c;                     // The common denominator.
 
@@ -4321,7 +4356,17 @@ static proc normalM(ideal I, int decomp, int withDelta, int denomOption, ideal i
 
     // If a given conductor ideal is given, we use it.
     // If a given test ideal is given, we don't need to compute the jacobian
-    ideal J = minor(jacob(IMin), nvars(basering) - d, I);
+
+    // reduction mod I in 'minor' is not working for local orderings!
+    if(attrib(basering,"global"))
+    {
+      ideal J = minor(jacob(IMin), nvars(basering) - d, I);
+    }
+    else
+    {
+      ideal J = minor(jacob(IMin), nvars(basering) - d);
+      J = reduce(J, groebner(I));
+    }
     J = groebner(J);
   }
   else
@@ -4399,11 +4444,12 @@ static proc normalM(ideal I, int decomp, int withDelta, int denomOption, ideal i
         // I = I1 \cap I2
         printlevel = printlevel + 1;
         ideal JDefault = 0; // Now it uses the default J;
-        list nor1 = normalM(Id1, decomp, withDelta, denomOption, JDefault, JDefault)[1];
-        list nor2 = normalM(Id2, decomp, withDelta, denomOption, JDefault, JDefault)[1];
+        list nor1 = normalM(Id1, decomp, withDelta, denomOption, JDefault, JDefault);
+        list nor2 = normalM(Id2, decomp, withDelta, denomOption, JDefault, JDefault);
         printlevel = printlevel - 1;
         option(set,save_opt);
-        return(list(nor1, nor2));
+        list res = nor1 + nor2;
+        return(res);
       }
     }
   }
@@ -4522,11 +4568,12 @@ static proc normalM(ideal I, int decomp, int withDelta, int denomOption, ideal i
       printlevel = printlevel + 1;
 
       ideal JDefault = 0;  // Now it uses the default J;
-      list nor1 = normalM(Id1, decomp, withDelta, denomOption, JDefault, JDefault)[1];
-      list nor2 = normalM(Id2, decomp, withDelta, denomOption, JDefault, JDefault)[1];
+      list nor1 = normalM(Id1, decomp, withDelta, denomOption, JDefault, JDefault);
+      list nor2 = normalM(Id2, decomp, withDelta, denomOption, JDefault, JDefault);
       printlevel = printlevel - 1;
       option(set,save_opt);
-      return(list(nor1, nor2));
+      list res = nor1 + nor2;
+      return(res);
     }
   }
 
@@ -4559,7 +4606,7 @@ static proc normalMEqui(ideal I, ideal origJ, poly condu, poly D, int withDelta)
   int dbg = printlevel - voice + 2;   // dbg = printlevel (default: dbg = 0)
   int i;                              // counter
   int isNormal = 0;                   // check for exiting the loop
-  int isGlobal = ord_test(basering);
+  int isGlobal = attrib(basering,"global");
   int delt;
 
   def R = basering;
@@ -4928,7 +4975,7 @@ static proc testIdeal(ideal I, ideal U, ideal origJ, poly c, poly D)
   if(dbg > 1){"The relations are"; norid;}
 
   // ---------------- setting the ring to work in  --------------------------
-  int isGlobal = ord_test(origEre);      // Checks if the original ring has
+  int isGlobal = attrib(origEre,"global");      // Checks if the original ring has
                                          // global ordering.
   if(isGlobal != 1)
   {
@@ -5574,7 +5621,7 @@ EXAMPLE: example normalC; shows an example
    if (nvar <= 2)
    { decomp = 3; }    // Compute minimal associated primes if nvar <= 2
 
-   if ( ord_test(basering) != 1 )
+   if ( attrib(basering,"global") != 1 )
    {
      "";
      "// Not implemented for this ordering,";
@@ -7283,4 +7330,3 @@ genus(i);             //sollte 0+0-2+1= -1 sein
 genus(i,1);           //beides ist korrekt in Singular
 
 */
-

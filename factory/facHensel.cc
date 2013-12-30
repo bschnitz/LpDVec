@@ -6,17 +6,17 @@
  * This file implements functions to lift factors via Hensel lifting.
  *
  * ABSTRACT: Hensel lifting is described in "Efficient Multivariate
- * Factorization over Finite Fields" by L. Bernardin & M. Monagon. Division with
- * remainder is described in "Fast Recursive Division" by C. Burnikel and
- * J. Ziegler. Karatsuba multiplication is described in "Modern Computer
- * Algebra" by J. von zur Gathen and J. Gerhard.
+ * Factorization over Finite Fields" by L. Bernardin & M. Monagon and 
+ * "Algorithms for Computer Algebra" by Geddes, Czapor, Labahn
  *
  * @author Martin Lee
  *
  **/
 /*****************************************************************************/
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include "cf_assert.h"
 #include "debug.h"
@@ -29,15 +29,26 @@
 #include "cf_algorithm.h"
 #include "cf_primes.h"
 #include "facBivar.h"
+#include "facNTLzzpEXGCD.h"
 
 #ifdef HAVE_NTL
 #include <NTL/lzz_pEX.h>
 #include "NTLconvert.h"
 
+TIMING_DEFINE_PRINT (diotime)
+TIMING_DEFINE_PRINT (product1)
+TIMING_DEFINE_PRINT (product2)
+TIMING_DEFINE_PRINT (hensel23)
+TIMING_DEFINE_PRINT (hensel)
+
 static
 CFList productsNTL (const CFList& factors, const CanonicalForm& M)
 {
-  zz_p::init (getCharacteristic());
+  if (fac_NTL_char != getCharacteristic())
+  {
+    fac_NTL_char= getCharacteristic();
+    zz_p::init (getCharacteristic());
+  }
   zz_pX NTLMipo= convertFacCF2NTLzzpX (M);
   zz_pE::init (NTLMipo);
   zz_pEX prod;
@@ -99,19 +110,47 @@ void tryDiophantine (CFList& result, const CanonicalForm& F,
     i++;
   buf1= bufFactors.getFirst();
   buf2= i.getItem();
+#ifdef HAVE_NTL
+  Variable x= Variable (1);
+  if (fac_NTL_char != getCharacteristic())
+  {
+    fac_NTL_char= getCharacteristic();
+    zz_p::init (getCharacteristic());
+  }
+  zz_pX NTLMipo= convertFacCF2NTLzzpX (M);
+  zz_pE::init (NTLMipo);
+  zz_pEX NTLbuf1, NTLbuf2, NTLbuf3, NTLS, NTLT;
+  NTLbuf1= convertFacCF2NTLzz_pEX (buf1, NTLMipo);
+  NTLbuf2= convertFacCF2NTLzz_pEX (buf2, NTLMipo);
+  tryNTLXGCD (NTLbuf3, NTLS, NTLT, NTLbuf1, NTLbuf2, fail);
+  if (fail)
+    return;
+  S= convertNTLzz_pEX2CF (NTLS, x, M.mvar());
+  T= convertNTLzz_pEX2CF (NTLT, x, M.mvar());
+#else
   tryExtgcd (buf1, buf2, M, buf3, S, T, fail);
   if (fail)
     return;
+#endif
   result.append (S);
   result.append (T);
   if (i.hasItem())
     i++;
   for (; i.hasItem(); i++)
   {
+#ifdef HAVE_NTL
+    NTLbuf1= convertFacCF2NTLzz_pEX (i.getItem(), NTLMipo);
+    tryNTLXGCD (NTLbuf3, NTLS, NTLT, NTLbuf3, NTLbuf1, fail);
+    if (fail)
+      return;
+    S= convertNTLzz_pEX2CF (NTLS, x, M.mvar());
+    T= convertNTLzz_pEX2CF (NTLT, x, M.mvar());
+#else
     buf1= i.getItem();
     tryExtgcd (buf3, buf1, M, buf3, S, T, fail);
     if (fail)
       return;
+#endif
     CFListIterator k= factors;
     for (CFListIterator j= result; j.hasItem(); j++, k++)
     {
@@ -416,12 +455,14 @@ diophantineHensel (const CanonicalForm & F, const CFList& factors,
   CanonicalForm g;
   CanonicalForm modulus= p;
   int d= b.getk();
+  modpk b2;
   for (int i= 1; i < d; i++)
   {
     coeffE= div (e, modulus);
     setCharacteristic (p);
     coeffE= coeffE.mapinto();
     setCharacteristic (0);
+    b2= modpk (p, d - i);
     if (!coeffE.isZero())
     {
       CFListIterator k= result;
@@ -431,11 +472,12 @@ diophantineHensel (const CanonicalForm & F, const CFList& factors,
       for (; j.hasItem(); j++, k++, l++, ii++)
       {
         setCharacteristic (p);
-        g= mulNTL (coeffE, j.getItem());
+        g= modNTL (coeffE, bufFactors[ii]);
+        g= mulNTL (g, j.getItem());
         g= modNTL (g, bufFactors[ii]);
         setCharacteristic (0);
         k.getItem() += g.mapinto()*modulus;
-        e -= mulNTL (g.mapinto()*modulus, l.getItem(), b);
+        e -= mulNTL (g.mapinto(), b2 (l.getItem()), b2)*modulus;
         e= b(e);
       }
     }
@@ -447,6 +489,8 @@ diophantineHensel (const CanonicalForm & F, const CFList& factors,
   return result;
 }
 
+/// solve \f$ 1=\sum_{i=1}^n{\delta_{i} \prod_{j\neq i}{f_j}} \f$ mod \f$p^k\f$
+/// over Q(alpha) by p-adic lifting
 CFList
 diophantineHenselQa (const CanonicalForm & F, const CanonicalForm& G,
                      const CFList& factors, modpk& b, const Variable& alpha)
@@ -534,25 +578,19 @@ diophantineHenselQa (const CanonicalForm & F, const CanonicalForm& G,
   setCharacteristic (p);
   Variable beta;
   Off (SW_RATIONAL);
-  if (mipoHasDen)
-  {
-    setReduce (alpha, false);
-    modMipo= modMipo.mapinto();
-    modMipo /= lc (modMipo);
-    beta= rootOf (modMipo);
-    setReduce (alpha, true);
-  }
+  setReduce (alpha, false);
+  modMipo= modMipo.mapinto();
+  modMipo /= lc (modMipo);
+  beta= rootOf (modMipo);
+  setReduce (alpha, true);
 
+  setReduce (alpha, false);
   for (k= 0; k < factors.length(); k++)
   {
-    if (!mipoHasDen)
-      bufFactors [k]= bufFactors[k].mapinto();
-    else
-    {
-      bufFactors [k]= bufFactors[k].mapinto();
-      bufFactors [k]= replacevar (bufFactors[k], alpha, beta);
-    }
+    bufFactors [k]= bufFactors[k].mapinto();
+    bufFactors [k]= replacevar (bufFactors[k], alpha, beta);
   }
+  setReduce (alpha, true);
   setCharacteristic(0);
 
   CFListIterator j= L;
@@ -590,25 +628,37 @@ diophantineHenselQa (const CanonicalForm & F, const CanonicalForm& G,
       i.getItem()= replacevar (i.getItem(), alpha, gamma);
   }
   setCharacteristic (p);
+  setReduce (alpha, false);
   recResult= mapinto (recResult);
-  if (mipoHasDen)
-  {
-    for (CFListIterator i= recResult; i.hasItem(); i++)
-      i.getItem()= replacevar (i.getItem(), alpha, beta);
-  }
+  setReduce (alpha, true);
+
+  for (CFListIterator i= recResult; i.hasItem(); i++)
+    i.getItem()= replacevar (i.getItem(), alpha, beta);
 
   setCharacteristic (0);
   CanonicalForm g;
   CanonicalForm modulus= p;
   int d= b.getk();
+  modpk b2;
   for (int i= 1; i < d; i++)
   {
     coeffE= div (e, modulus);
     setCharacteristic (p);
+    if (mipoHasDen)
+      setReduce (gamma, false);
+    else
+      setReduce (alpha, false);
     coeffE= coeffE.mapinto();
     if (mipoHasDen)
+      setReduce (gamma, true);
+    else
+      setReduce (alpha, true);
+    if (mipoHasDen)
       coeffE= replacevar (coeffE, gamma, beta);
+    else
+      coeffE= replacevar (coeffE, alpha, beta);
     setCharacteristic (0);
+    b2= modpk (p, d - i);
     if (!coeffE.isZero())
     {
       CFListIterator k= result;
@@ -618,19 +668,25 @@ diophantineHenselQa (const CanonicalForm & F, const CanonicalForm& G,
       for (; j.hasItem(); j++, k++, l++, ii++)
       {
         setCharacteristic (p);
-        g= mulNTL (coeffE, j.getItem());
+        g= modNTL (coeffE, bufFactors[ii]);
+        g= mulNTL (g, j.getItem());
         g= modNTL (g, bufFactors[ii]);
         setCharacteristic (0);
         if (mipoHasDen)
         {
+          setReduce (beta, false);
           k.getItem() += replacevar (g.mapinto()*modulus, beta, gamma);
-          e -= mulNTL (replacevar (g.mapinto(), beta, gamma)*modulus,
-                                   l.getItem(), b);
+          e -= mulNTL (replacevar (g.mapinto(), beta, gamma),
+                       b2 (l.getItem()), b2)*modulus;
+          setReduce (beta, true);
         }
         else
         {
-          k.getItem() += g.mapinto()*modulus;
-          e -= mulNTL (g.mapinto()*modulus, l.getItem(), b);
+          setReduce (beta, false);
+          k.getItem() += replacevar (g.mapinto()*modulus, beta, alpha);
+          e -= mulNTL (replacevar (g.mapinto(), beta, alpha),
+                       b2 (l.getItem()), b2)*modulus;
+          setReduce (beta, true);
         }
         e= b(e);
       }
@@ -640,6 +696,121 @@ diophantineHenselQa (const CanonicalForm & F, const CanonicalForm& G,
       break;
   }
 
+  return result;
+}
+
+
+/// solve \f$ 1=\sum_{i=1}^n{\delta_{i} \prod_{j\neq i}{f_j}} \f$ mod \f$p^k\f$
+/// over Q(alpha) by first computing mod \f$p\f$ and if no zero divisor occured
+/// compute it mod \f$p^k\f$
+CFList
+diophantineQa (const CanonicalForm& F, const CanonicalForm& G,
+               const CFList& factors, modpk& b, const Variable& alpha)
+{
+  bool fail= false;
+  CFList recResult;
+  CanonicalForm modMipo, mipo;
+  //here SW_RATIONAL is off
+  On (SW_RATIONAL);
+  mipo= getMipo (alpha);
+  bool mipoHasDen= false;
+  if (!bCommonDen (mipo).isOne())
+  {
+    mipo *= bCommonDen (mipo);
+    mipoHasDen= true;
+  }
+  Off (SW_RATIONAL);
+  int p= b.getp();
+  setCharacteristic (p);
+  setReduce (alpha, false);
+  while (1)
+  {
+    setCharacteristic (p);
+    modMipo= mapinto (mipo);
+    modMipo /= lc (modMipo);
+    tryDiophantine (recResult, mapinto (F), mapinto (factors), modMipo, fail);
+    if (fail)
+    {
+      int i= 0;
+      while (cf_getBigPrime (i) < p)
+        i++;
+      findGoodPrime (F, i);
+      findGoodPrime (G, i);
+      p=cf_getBigPrime(i);
+      b = coeffBound( G, p, mipo );
+      modpk bb= coeffBound (F, p, mipo );
+      if (bb.getk() > b.getk() ) b=bb;
+      fail= false;
+    }
+    else
+      break;
+  }
+  setReduce (alpha, true);
+  setCharacteristic (0);
+
+  Variable gamma= alpha;
+  CanonicalForm den;
+  if (mipoHasDen)
+  {
+    On (SW_RATIONAL);
+    modMipo= getMipo (alpha);
+    den= bCommonDen (modMipo);
+    modMipo *= den;
+    Off (SW_RATIONAL);
+    setReduce (alpha, false);
+    gamma= rootOf (b (modMipo*b.inverse (den)));
+    setReduce (alpha, true);
+  }
+
+  Variable x= Variable (1);
+  CanonicalForm buf1, buf2, buf3, S;
+  CFList bufFactors= factors;
+  CFListIterator i= bufFactors;
+  if (mipoHasDen)
+  {
+    for (; i.hasItem(); i++)
+      i.getItem()= replacevar (i.getItem(), alpha, gamma);
+  }
+  i= bufFactors;
+  CFList result;
+  if (i.hasItem())
+    i++;
+  buf1= 0;
+  CanonicalForm Freplaced;
+  if (mipoHasDen)
+  {
+    Freplaced= replacevar (F, alpha, gamma);
+    buf2= divNTL (Freplaced, replacevar (i.getItem(), alpha, gamma), b);
+  }
+  else
+    buf2= divNTL (F, i.getItem(), b);
+  ZZ_p::init (convertFacCF2NTLZZ (b.getpk()));
+  ZZ_pX NTLmipo= to_ZZ_pX (convertFacCF2NTLZZX (getMipo (gamma)));
+  ZZ_pE::init (NTLmipo);
+  ZZ_pEX NTLS, NTLT, NTLbuf3;
+  ZZ_pEX NTLbuf1= convertFacCF2NTLZZ_pEX (buf1, NTLmipo);
+  ZZ_pEX NTLbuf2= convertFacCF2NTLZZ_pEX (buf2, NTLmipo);
+  XGCD (NTLbuf3, NTLS, NTLT, NTLbuf1, NTLbuf2);
+  result.append (b (convertNTLZZ_pEX2CF (NTLS, x, gamma)));
+  result.append (b (convertNTLZZ_pEX2CF (NTLT, x, gamma)));
+  if (i.hasItem())
+    i++;
+  for (; i.hasItem(); i++)
+  {
+    if (mipoHasDen)
+      buf1= divNTL (Freplaced, i.getItem(), b);
+    else
+      buf1= divNTL (F, i.getItem(), b);
+    XGCD (NTLbuf3, NTLS, NTLT, NTLbuf3, convertFacCF2NTLZZ_pEX (buf1, NTLmipo));
+    CFListIterator k= bufFactors;
+    S= convertNTLZZ_pEX2CF (NTLS, x, gamma);
+    for (CFListIterator j= result; j.hasItem(); j++, k++)
+    {
+      j.getItem()= mulNTL (j.getItem(), S, b);
+      j.getItem()= modNTL (j.getItem(), k.getItem(), b);
+    }
+    result.append (b (convertNTLZZ_pEX2CF (NTLT, x, gamma)));
+  }
   return result;
 }
 
@@ -657,7 +828,7 @@ diophantine (const CanonicalForm& F, const CanonicalForm& G,
     {
       if (b.getp() != 0)
       {
-        CFList result= diophantineHenselQa (F, G, factors, b, v);
+        CFList result= diophantineQa (F, G, factors, b, v);
         return result;
       }
       CFList result= modularDiophant (F, factors, getMipo (v));
@@ -732,7 +903,7 @@ henselStep12 (const CanonicalForm& F, const CFList& factors,
     if (degree (bufFactors[k], x) > 0)
     {
       if (k > 0)
-        remainder= modNTL (E, bufFactors[k] [0], b);
+        remainder= modNTL (E, bufFactors[k] [0], b); //TODO precompute inverses of bufFactors[k][0]
       else
         remainder= E;
     }
@@ -758,40 +929,22 @@ henselStep12 (const CanonicalForm& F, const CFList& factors,
   if (degBuf0 > 0 && degBuf1 > 0)
     M (j + 1, 1)= mulNTL (bufFactors[0] [j], bufFactors[1] [j], b);
   CanonicalForm uIZeroJ;
-  if (j == 1)
-  {
-    if (degBuf0 > 0 && degBuf1 > 0)
-      uIZeroJ= mulNTL ((bufFactors[0] [0] + bufFactors[0] [j]),
-                  (bufFactors[1] [0] + buf[1]), b) - M(1, 1) - M(j + 1, 1);
-    else if (degBuf0 > 0)
-      uIZeroJ= mulNTL (bufFactors[0] [j], bufFactors[1], b);
-    else if (degBuf1 > 0)
-      uIZeroJ= mulNTL (bufFactors[0], buf[1], b);
-    else
-      uIZeroJ= 0;
-    if (b.getp() != 0)
-      uIZeroJ= b (uIZeroJ);
-    Pi [0] += xToJ*uIZeroJ;
-    if (b.getp() != 0)
-      Pi [0]= b (Pi[0]);
-  }
+
+  if (degBuf0 > 0 && degBuf1 > 0)
+    uIZeroJ= mulNTL ((bufFactors[0] [0] + bufFactors[0] [j]),
+                    (bufFactors[1] [0] + buf[1]), b) - M(1, 1) - M(j + 1, 1);
+  else if (degBuf0 > 0)
+    uIZeroJ= mulNTL (bufFactors[0] [j], bufFactors[1], b);
+  else if (degBuf1 > 0)
+    uIZeroJ= mulNTL (bufFactors[0], buf[1], b);
   else
-  {
-    if (degBuf0 > 0 && degBuf1 > 0)
-      uIZeroJ= mulNTL ((bufFactors[0] [0] + bufFactors[0] [j]),
-                  (bufFactors[1] [0] + buf[1]), b) - M(1, 1) - M(j + 1, 1);
-    else if (degBuf0 > 0)
-      uIZeroJ= mulNTL (bufFactors[0] [j], bufFactors[1], b);
-    else if (degBuf1 > 0)
-      uIZeroJ= mulNTL (bufFactors[0], buf[1], b);
-    else
-      uIZeroJ= 0;
-    if (b.getp() != 0)
-      uIZeroJ= b (uIZeroJ);
-    Pi [0] += xToJ*uIZeroJ;
-    if (b.getp() != 0)
-      Pi [0]= b (Pi[0]);
-  }
+    uIZeroJ= 0;
+  if (b.getp() != 0)
+    uIZeroJ= b (uIZeroJ);
+  Pi [0] += xToJ*uIZeroJ;
+  if (b.getp() != 0)
+    Pi [0]= b (Pi[0]);
+
   CFArray tmp= CFArray (factors.length() - 1);
   for (k= 0; k < factors.length() - 1; k++)
     tmp[k]= 0;
@@ -1285,32 +1438,17 @@ henselStep (const CanonicalForm& F, const CFList& factors, CFArray& bufFactors,
   if (degBuf0 > 0 && degBuf1 > 0)
     M (j + 1, 1)= mulMod (bufFactors[0] [j], bufFactors[1] [j], MOD);
   CanonicalForm uIZeroJ;
-  if (j == 1)
-  {
-    if (degBuf0 > 0 && degBuf1 > 0)
-      uIZeroJ= mulMod ((bufFactors[0] [0] + bufFactors[0] [j]),
+
+  if (degBuf0 > 0 && degBuf1 > 0)
+    uIZeroJ= mulMod ((bufFactors[0] [0] + bufFactors[0] [j]),
                   (bufFactors[1] [0] + buf[1]), MOD) - M(1, 1) - M(j + 1, 1);
-    else if (degBuf0 > 0)
-      uIZeroJ= mulMod (bufFactors[0] [j], bufFactors[1], MOD);
-    else if (degBuf1 > 0)
-      uIZeroJ= mulMod (bufFactors[0], buf[1], MOD);
-    else
-      uIZeroJ= 0;
-    Pi [0] += xToJ*uIZeroJ;
-  }
+  else if (degBuf0 > 0)
+    uIZeroJ= mulMod (bufFactors[0] [j], bufFactors[1], MOD);
+  else if (degBuf1 > 0)
+    uIZeroJ= mulMod (bufFactors[0], buf[1], MOD);
   else
-  {
-    if (degBuf0 > 0 && degBuf1 > 0)
-      uIZeroJ= mulMod ((bufFactors[0] [0] + bufFactors[0] [j]),
-                  (bufFactors[1] [0] + buf[1]), MOD) - M(1, 1) - M(j + 1, 1);
-    else if (degBuf0 > 0)
-      uIZeroJ= mulMod (bufFactors[0] [j], bufFactors[1], MOD);
-    else if (degBuf1 > 0)
-      uIZeroJ= mulMod (bufFactors[0], buf[1], MOD);
-    else
-      uIZeroJ= 0;
-    Pi [0] += xToJ*uIZeroJ;
-  }
+    uIZeroJ= 0;
+  Pi [0] += xToJ*uIZeroJ;
 
   CFArray tmp= CFArray (factors.length() - 1);
   for (k= 0; k < factors.length() - 1; k++)
@@ -1631,15 +1769,23 @@ nonMonicHenselStep12 (const CanonicalForm& F, const CFList& factors,
     if (j + 2 <= M.rows())
       M (j + 2, 1)= mulNTL (bufFactors[0] [j + 1], bufFactors[1] [j + 1]);
   }
+  else
+    M (j + 1, 1)= 0;
+
   CanonicalForm uIZeroJ;
   if (degBuf0 > 0 && degBuf1 > 0)
-    uIZeroJ= mulNTL(bufFactors[0][0],buf[1])+mulNTL (bufFactors[1][0], buf[0]);
+    uIZeroJ= mulNTL(bufFactors[0][0], buf[1]) +
+             mulNTL (bufFactors[1][0], buf[0]);
   else if (degBuf0 > 0)
-    uIZeroJ= mulNTL (buf[0], bufFactors[1]);
+    uIZeroJ= mulNTL (buf[0], bufFactors[1]) +
+             mulNTL (buf[1], bufFactors[0][0]);
   else if (degBuf1 > 0)
-    uIZeroJ= mulNTL (bufFactors[0], buf [1]);
+    uIZeroJ= mulNTL (bufFactors[0], buf[1]) +
+             mulNTL (buf[0], bufFactors[1][0]);
   else
-    uIZeroJ= 0;
+    uIZeroJ= mulNTL (bufFactors[0], buf[1]) +
+             mulNTL (buf[0], bufFactors[1]);
+
   Pi [0] += xToJ*uIZeroJ;
 
   CFArray tmp= CFArray (factors.length() - 1);
@@ -1654,22 +1800,20 @@ nonMonicHenselStep12 (const CanonicalForm& F, const CFList& factors,
     while (two.hasTerms() && two.exp() > j) two++;
     for (k= 1; k <= (int) ceil (j/2.0); k++)
     {
-      if (one.hasTerms() && two.hasTerms())
+      if (k != j - k + 1)
       {
-        if (k != j - k + 1)
-        {
-          if ((one.hasTerms() && one.exp() == j - k + 1) && +
-              (two.hasTerms() && two.exp() == j - k + 1))
+        if ((one.hasTerms() && one.exp() == j - k + 1) && +
+            (two.hasTerms() && two.exp() == j - k + 1))
         {
           tmp[0] += mulNTL ((bufFactors[0][k]+one.coeff()),(bufFactors[1][k] +
-                      two.coeff())) - M (k + 1, 1) - M (j - k + 2, 1);
+                    two.coeff())) - M (k + 1, 1) - M (j - k + 2, 1);
           one++;
           two++;
         }
         else if (one.hasTerms() && one.exp() == j - k + 1)
         {
           tmp[0] += mulNTL ((bufFactors[0][k]+one.coeff()), bufFactors[1] [k]) -
-                      M (k + 1, 1);
+                    M (k + 1, 1);
           one++;
         }
         else if (two.hasTerms() && two.exp() == j - k + 1)
@@ -1681,7 +1825,6 @@ nonMonicHenselStep12 (const CanonicalForm& F, const CFList& factors,
       }
       else
         tmp[0] += M (k + 1, 1);
-      }
     }
   }
 
@@ -1720,16 +1863,21 @@ nonMonicHenselStep12 (const CanonicalForm& F, const CFList& factors,
       if (j + 2 <= M.rows())
         M (j + 2, l + 1)= mulNTL (Pi [l - 1][j + 1], bufFactors[l + 1] [j + 1]);
     }
+    else
+      M (j + 1, l + 1)= 0;
 
     if (degPi > 0 && degBuf > 0)
-      uIZeroJ= mulNTL (Pi[l -1] [0], buf[l + 1]) +
+      uIZeroJ= mulNTL (Pi[l - 1] [0], buf[l + 1]) +
                mulNTL (uIZeroJ, bufFactors[l+1] [0]);
     else if (degPi > 0)
-      uIZeroJ= mulNTL (uIZeroJ, bufFactors[l + 1]);
+      uIZeroJ= mulNTL (uIZeroJ, bufFactors[l + 1]) +
+               mulNTL (Pi[l - 1][0], buf[l + 1]);
     else if (degBuf > 0)
-      uIZeroJ= mulNTL (Pi[l - 1], buf[1]);
+      uIZeroJ= mulNTL (uIZeroJ, bufFactors[l + 1][0]) +
+               mulNTL (Pi[l - 1], buf[l + 1]);
     else
-      uIZeroJ= 0;
+      uIZeroJ= mulNTL (uIZeroJ, bufFactors[l + 1]) +
+               mulNTL (Pi[l - 1], buf[l + 1]);
 
     Pi [l] += xToJ*uIZeroJ;
 
@@ -1875,8 +2023,8 @@ nonMonicHenselLift12 (const CanonicalForm& F, CFList& factors, int l,
 }
 
 
-/// solve \f$ E=sum_{i= 1}^{r}{\sigma_{i}prod_{j=1, j\neq i}^{r}{f_{i}}}\f$
-/// mod M, products contains \f$ prod_{j=1, j\neq i}^{r}{f_{i}}} \f$
+/// solve \f$ E=\sum_{i= 1}^r{\sigma_{i}\prod_{j=1, j\neq i}^{r}{f_{i}}}\f$
+/// mod M, @a products contains \f$ \prod_{j=1, j\neq i}^{r}{f_{j}} \f$
 CFList
 diophantine (const CFList& recResult, const CFList& factors,
              const CFList& products, const CFList& M, const CanonicalForm& E,
@@ -1919,7 +2067,7 @@ diophantine (const CFList& recResult, const CFList& factors,
   CanonicalForm e= E;
   CFListIterator j= products;
   for (CFListIterator i= recDiophantine; i.hasItem(); i++, j++)
-    e -= i.getItem()*j.getItem();
+    e -= j.getItem()*i.getItem();
 
   CFList result= recDiophantine;
   int d= degree (M.getLast());
@@ -1941,7 +2089,7 @@ diophantine (const CFList& recResult, const CFList& factors,
       for (j= recDiophantine; j.hasItem(); j++, k++, l++)
       {
         k.getItem() += j.getItem()*power (y, i);
-        e -= j.getItem()*power (y, i)*l.getItem();
+        e -= l.getItem()*(j.getItem()*power (y, i));
       }
     }
     if (e.isZero())
@@ -1989,6 +2137,7 @@ nonMonicHenselStep (const CanonicalForm& F, const CFList& factors,
   CFArray buf= CFArray (diophant.length());
 
   // actual lifting
+  TIMING_START (diotime);
   CFList diophantine2= diophantine (diophant, factors, products, MOD, E,
                                     noOneToOne);
 
@@ -2001,8 +2150,10 @@ nonMonicHenselStep (const CanonicalForm& F, const CFList& factors,
     buf[k]= i.getItem();
     bufFactors[k] += xToJ*i.getItem();
   }
+  TIMING_END_AND_PRINT (diotime, "time for dio: ");
 
   // update Pi [0]
+  TIMING_START (product2);
   int degBuf0= degree (bufFactors[0], x);
   int degBuf1= degree (bufFactors[1], x);
   if (degBuf0 > 0 && degBuf1 > 0)
@@ -2011,17 +2162,22 @@ nonMonicHenselStep (const CanonicalForm& F, const CFList& factors,
     if (j + 2 <= M.rows())
       M (j + 2, 1)= mulMod (bufFactors[0] [j + 1], bufFactors[1] [j + 1], MOD);
   }
-  CanonicalForm uIZeroJ;
+  else
+    M (j + 1, 1)= 0;
 
+  CanonicalForm uIZeroJ;
   if (degBuf0 > 0 && degBuf1 > 0)
     uIZeroJ= mulMod (bufFactors[0] [0], buf[1], MOD) +
              mulMod (bufFactors[1] [0], buf[0], MOD);
   else if (degBuf0 > 0)
-    uIZeroJ= mulMod (buf[0], bufFactors[1], MOD);
+    uIZeroJ= mulMod (buf[0], bufFactors[1], MOD) +
+             mulMod (buf[1], bufFactors[0][0], MOD);
   else if (degBuf1 > 0)
-    uIZeroJ= mulMod (bufFactors[0], buf[1], MOD);
+    uIZeroJ= mulMod (bufFactors[0], buf[1], MOD) +
+             mulMod (buf[0], bufFactors[1][0], MOD);
   else
-    uIZeroJ= 0;
+    uIZeroJ= mulMod (bufFactors[0], buf[1], MOD) +
+             mulMod (buf[0], bufFactors[1], MOD);
   Pi [0] += xToJ*uIZeroJ;
 
   CFArray tmp= CFArray (factors.length() - 1);
@@ -2103,16 +2259,21 @@ nonMonicHenselStep (const CanonicalForm& F, const CFList& factors,
         M (j + 2, l + 1)= mulMod (Pi [l - 1] [j + 1], bufFactors[l + 1] [j + 1],
                                   MOD);
     }
+    else
+      M (j + 1, l + 1)= 0;
 
     if (degPi > 0 && degBuf > 0)
-      uIZeroJ= mulMod (Pi[l -1] [0], buf[l + 1], MOD) +
-               mulMod (uIZeroJ, bufFactors[l+1] [0], MOD);
+      uIZeroJ= mulMod (Pi[l - 1] [0], buf[l + 1], MOD) +
+               mulMod (uIZeroJ, bufFactors[l + 1] [0], MOD);
     else if (degPi > 0)
-      uIZeroJ= mulMod (uIZeroJ, bufFactors[l + 1], MOD);
+      uIZeroJ= mulMod (uIZeroJ, bufFactors[l + 1], MOD) +
+               mulMod (Pi[l - 1][0], buf[l + 1], MOD);
     else if (degBuf > 0)
-      uIZeroJ= mulMod (Pi[l - 1], buf[1], MOD);
+      uIZeroJ= mulMod (Pi[l - 1], buf[l + 1], MOD) +
+               mulMod (uIZeroJ, bufFactors[l + 1][0], MOD);
     else
-      uIZeroJ= 0;
+      uIZeroJ= mulMod (Pi[l - 1], buf[l + 1], MOD) +
+               mulMod (uIZeroJ, bufFactors[l + 1], MOD);
 
     Pi [l] += xToJ*uIZeroJ;
 
@@ -2177,6 +2338,7 @@ nonMonicHenselStep (const CanonicalForm& F, const CFList& factors,
 
     Pi[l] += tmp[l]*xToJ*F.mvar();
   }
+  TIMING_END_AND_PRINT (product2, "time for product in hensel step: ");
   return;
 }
 
@@ -2387,7 +2549,9 @@ nonMonicHenselLift23 (const CanonicalForm& F, const CFList& factors, const
   bufF= mod (bufF, y);
   bufF= mod (bufF, Variable (3));
 
+  TIMING_START (diotime);
   diophant= diophantine (bufF, bufFactors2);
+  TIMING_END_AND_PRINT (diotime, "time for dio in 23: ");
 
   CFMatrix M= CFMatrix (liftBound, bufFactors2.length() - 1);
 
@@ -2451,8 +2615,10 @@ nonMonicHenselLift23 (const CanonicalForm& F, const CFList& factors, const
 
   CFList products;
   bufF= mod (F, Variable (3));
+  TIMING_START (product1);
   for (CFListIterator k= factors; k.hasItem(); k++)
     products.append (bufF/k.getItem());
+  TIMING_END_AND_PRINT (product1, "time for product1 in 23: ");
 
   CFList MOD= CFList (power (v, liftBound));
   MOD.insert (yToL);
@@ -2515,6 +2681,7 @@ nonMonicHenselLift (const CFList& F, const CFList& factors, const CFList& LCs,
   CFList products;
   CanonicalForm quot, bufF= F.getFirst();
 
+  TIMING_START (product1);
   for (int i= 0; i < bufFactors.size(); i++)
   {
     if (degree (bufFactors[i], y) > 0)
@@ -2536,6 +2703,7 @@ nonMonicHenselLift (const CFList& F, const CFList& factors, const CFList& LCs,
       products.append (quot);
     }
   }
+  TIMING_END_AND_PRINT (product1, "time for product1 in further hensel:" );
 
   for (int d= 1; d < lNew; d++)
   {
@@ -2563,9 +2731,11 @@ nonMonicHenselLift (const CFList& eval, const CFList& factors,
   CFMatrix M= CFMatrix (liftBound[1], factors.length() - 1);
   int k= 0;
 
+  TIMING_START (hensel23);
   CFList result=
   nonMonicHenselLift23 (eval.getFirst(), factors, LCs [0], diophant, bufPi,
                         liftBound[1], liftBound[0], noOneToOne);
+  TIMING_END_AND_PRINT (hensel23, "time for 23: ");
 
   if (noOneToOne)
     return CFList();
@@ -2587,8 +2757,10 @@ nonMonicHenselLift (const CFList& eval, const CFList& factors,
   {
     bufEval.append (j.getItem());
     M= CFMatrix (liftBound[i], factors.length() - 1);
+    TIMING_START (hensel);
     result= nonMonicHenselLift (bufEval, result, LCs [i-1], diophant, bufPi, M,
                                 liftBound[i-1], liftBound[i], MOD, noOneToOne);
+    TIMING_END_AND_PRINT (hensel, "time for further hensel: ");
     if (noOneToOne)
       return result;
     MOD.append (power (Variable (i + 2), liftBound[i]));

@@ -1,4 +1,6 @@
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include "mod2.h"
 
 #include <omalloc/omalloc.h>

@@ -5,16 +5,16 @@
 * ABSTRACT: Implementation of option buisness
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef HAVE_FACTORY
 #define SI_DONT_HAVE_GLOBAL_VARS
 #include <factory/factory.h>
-#endif
 
 #define FE_OPT_STRUCTURE
 #include "feOpt.h"
@@ -197,7 +197,7 @@ const char* feSetOptValue(feOptIndex opt, int optarg)
     if (feOptSpec[opt].type == feOptString)
       return "option value needs to be an integer";
 
-    feOptSpec[opt].value = (void*) optarg;
+    feOptSpec[opt].value = (void*)(long) optarg;
   }
   return feOptAction(opt);
 }
@@ -218,9 +218,9 @@ static const char* feOptAction(feOptIndex opt)
 
       case FE_OPT_QUIET:
         if (feOptSpec[FE_OPT_QUIET].value)
-          verbose &= ~(Sy_bit(0)|Sy_bit(V_LOAD_LIB));
+          si_opt_2 &= ~(Sy_bit(0)|Sy_bit(V_LOAD_LIB));
         else
-          verbose |= Sy_bit(V_LOAD_LIB)|Sy_bit(0);
+          si_opt_2 |= Sy_bit(V_LOAD_LIB)|Sy_bit(0);
         return NULL;
 
       case FE_OPT_NO_TTY:
@@ -240,8 +240,12 @@ static const char* feOptAction(feOptIndex opt)
         return NULL;
 
       case FE_OPT_VERSION:
-        printf("%s",versionString());
+        {
+	char *s=versionString();
+        printf("%s",s);
+	omFree(s);
         return NULL;
+	}
 
       case FE_OPT_ECHO:
         si_echo = (int) ((long)(feOptSpec[FE_OPT_ECHO].value));
@@ -253,9 +257,7 @@ static const char* feOptAction(feOptIndex opt)
         siRandomStart = (unsigned int) ((unsigned long)
 			                  (feOptSpec[FE_OPT_RANDOM].value));
         siSeed=siRandomStart;
-#ifdef HAVE_FACTORY
         factoryseed(siRandomStart);
-#endif
         return NULL;
 
       case FE_OPT_EMACS:

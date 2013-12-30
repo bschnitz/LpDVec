@@ -5,7 +5,9 @@
 *  ABSTRACT -  dimension, multiplicity, HC, kbase
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 
@@ -922,7 +924,7 @@ static void hHedgeStep(scmon pure, scfmon stc,
                        int Nstc, varset var, int Nvar,poly hEdge)
 {
   int  iv = Nvar -1, k = var[Nvar], a, a0, a1, b, i;
-  int  x, x0;
+  int  x/*, x0*/;
   scmon pn;
   scfmon sn;
   if (iv==0)
@@ -957,7 +959,7 @@ static void hHedgeStep(scmon pure, scfmon stc,
   loop
   {
     a0 = a;
-    x0 = x;
+    // x0 = x;
     hStepS(sn, Nstc, var, Nvar, &a, &x);
     hElimS(sn, &b, a0, a, var, iv);
     a1 = a;
@@ -982,6 +984,21 @@ void scComputeHC(ideal S, ideal Q, int ak, poly &hEdge, ring tailRing)
 {
   int  i;
   int  k = ak;
+
+  #if HAVE_RINGS
+  if (rField_is_Ring(currRing) && (currRing->OrdSgn == -1))
+  {
+  //consider just monic generators (over rings with zero-divisors)
+  ideal SS=id_Copy(S,tailRing);
+  for(i=0;i<=idElem(SS);i++)
+  	{
+  	if(pIsPurePower(SS->m[i])==0)
+  		p_Delete(&SS->m[i],tailRing);
+  	}
+  	S=id_Copy(SS,tailRing);
+  }
+  #endif
+
   hNvar = (currRing->N);
   hexist = hInit(S, Q, &hNexist, tailRing);
   if (k!=0)
@@ -1432,14 +1449,14 @@ ende:
     }
     assume(p_ind!=NULL);
     assume(res->m[ind]==p_ind);
-    hEdge=p_ind; 
+    hEdge=p_ind;
     res->m[ind]=NULL;
     nDelete(&pGetCoeff(hEdge));
     pGetCoeff(hEdge)=NULL;
     for(i=(currRing->N);i>0;i--)
       pIncrExp(hEdge,i);
     pSetm(hEdge);
-    
+
     idDelete(&res);
     return;
   }

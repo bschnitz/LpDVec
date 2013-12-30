@@ -1,11 +1,11 @@
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include "mod2.h"
 
 #include <omalloc/omalloc.h>
 #include <misc/auxiliary.h>
-#ifdef HAVE_FACTORY
 #include <factory/factory.h> // :(
-#endif
 
 #include <misc/intvec.h>
 #include <misc/int64vec.h>
@@ -14,8 +14,8 @@
 
 #include <reporter/reporter.h>
 
-#include <findexec/feFopen.h>
-#include <findexec/feResource.h>
+#include <resources/feFopen.h>
+#include <resources/feResource.h>
 
 #include <coeffs/coeffs.h>
 
@@ -50,11 +50,9 @@
 #include <polys/clapsing.h>
 
 
-#ifdef HAVE_FACTORY
 // The following are needed due to FACTORY (e.g. initCanonicalForm)
 int initializeGMP(){ return 1; }
 int mmInit(void) {return 1; }
-#endif
 
 // // TODO: DUE to the use of HALT in npolygon.cc :(((
 extern "C" {void m2_end(int i){exit(i);}}
@@ -104,7 +102,6 @@ char *iiArithGetCmd(int nPos){return NULL; }
 #include "ratgring.h"
 #include "shiftgb.h"
 // #include "mmalloc.h" // move to Singular!?
-#include "gfan.h"
 
 #include "kutil.h"
 
@@ -127,8 +124,6 @@ char *iiArithGetCmd(int nPos){return NULL; }
 #include "f5gb.h"
 #include "f5lists.h"
 ////////#include "F5cLists.h"
-
-#include "gfan.h"
 
 
 #include "GMPrat.h"
@@ -611,11 +606,23 @@ void TestSimpleRingArithmetcs()
 
 int main( int, char *argv[] )
 {
+  assume( sizeof(long) == SIZEOF_LONG );
+
+  if( sizeof(long) != SIZEOF_LONG )
+  {
+    WerrorS("Bad config.h: wrong size of long!");
+
+    return(1);
+  }
+
+
   feInitResources(argv[0]);
 
   StringSetS("ressources in use (as reported by feStringAppendResources(0):\n");
   feStringAppendResources(0);
-  PrintS(StringAppendS("\n"));
+
+  PrintLn();
+  { char* s = StringEndS(); PrintS(s); omFree(s); }
 
   TestGBEngine();
   TestSimpleRingArithmetcs();

@@ -1,6 +1,9 @@
 ;; Test which should pass shifted exponents
+absfact
+abusalem
 alexpoly
 algebralib
+alias
 allres_s
 barei_s
 betti_s
@@ -62,14 +65,18 @@ bug_c_dp
 bug_chin
 bug_chinrem_mat
 bug_charseries
+bug_charseries2
 bug_diff
 bug_division
 bug_factorize
 bug_hilbstd
 bug_homog
+bug_idlen
 bug_interpol
 bug_mres
 bug_napMultT
+bug_newstruct
+bug_newstruct2
 bug_pd
 bug_presolve
 bug_primdec
@@ -80,6 +87,7 @@ bug_quotient
 bug_radcon
 bug_reduce
 bug_rp
+bug_ring_quot
 bug_tr132
 bug_tr134
 bug_tr158
@@ -89,6 +97,7 @@ bug_tr186
 bug_tr224
 bug_tr225
 bug_tr230
+bug_tr237
 bug_tr239
 ; do not try bug_tr276 without 2.2 GB RAM free
 ; bug_tr276
@@ -101,12 +110,19 @@ bug_tr307
 bug_tr315
 bug_tr316
 bug_tr319
+bug_tr329
 bug_tr346
 bug_tr357
 bug_tr359
 bug_tr376
 bug_tr379
 bug_tr380
+bug_tr387
+bug_tr404
+bug_tr485
+bug_tr501
+bug_532_s
+bug_538_s
 brnoeth_s
 countedref_s
 cyc5_lp
@@ -176,6 +192,7 @@ intersect_s
 invar
 invarlib
 janet
+jmbtest
 latex
 lift_s
 liftstd_s
@@ -196,9 +213,14 @@ mora_7
 mora_9
 ; mpsr_s
 mres_s
+ncfactor_example2_7FromMaster_s
 ncfactor_example_all_procedures_s
 ncfactor_inhomog_s
+ncfactor_koepf_s
+ncfactor_koepfShift_s
+ncfactor_tsai_s
 normal
+parallel_s
 paraplan_s
 pAddManyVarsManyL_s
 pAddManyVars_s
@@ -217,9 +239,12 @@ quotient_s
 rcyclic_15_32003_lp
 rcyclic_16_32003_lp
 rcyclic_17_32003_lp
+realclassify_s
+realizationMatroids
 rInit
 reduce_s
 res_s
+resources_s
 resultantp_s
 ringlist-z
 ringmaps
@@ -247,6 +272,7 @@ sres_s
 std_s
 ;MP stratify
 string
+tasks_s
 test_c_dp
 triang_s
 tst_s

@@ -7,10 +7,11 @@
 * ABSTRACT -
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
-#ifdef HAVE_FACTORY
 #define SI_DONT_HAVE_GLOBAL_VARS
 #include <factory/factory.h>
 #include <misc/options.h>
@@ -551,7 +552,6 @@ fglmLinearCombination( ideal source, poly monset )
     return comb;
 }
 
-#endif
 // Local Variables: ***
 // compile-command: "make Singular" ***
 // page-delimiter: "^\\(\\|//!\\)" ***

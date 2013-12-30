@@ -9,7 +9,9 @@
 #include <stdio.h>
 #include <math.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
 #include <omalloc/omalloc.h>
@@ -776,17 +778,22 @@ char * iiStringMatrix(matrix im, int dim, const ring r, char ch)
   int i,ii = MATROWS(im);
   int j,jj = MATCOLS(im);
   poly *pp = im->m;
-  char *s=StringSetS("");
+  char ch_s[2];
+  ch_s[0]=ch;
+  ch_s[1]='\0';
+
+  StringSetS("");
 
   for (i=0; i<ii; i++)
   {
     for (j=0; j<jj; j++)
     {
       p_String0(*pp++, r);
-      s=StringAppend("%c",ch);
-      if (dim > 1) s = StringAppendS("\n");
+      StringAppendS(ch_s);
+      if (dim > 1) StringAppendS("\n");
     }
   }
+  char *s=StringEndS();
   s[strlen(s)- (dim > 1 ? 2 : 1)]='\0';
   return s;
 }

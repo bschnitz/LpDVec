@@ -1,5 +1,7 @@
 #include <string.h>
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <kernel/febase.h>
 #include <kernel/polys.h>

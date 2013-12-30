@@ -1,6 +1,8 @@
 /* emacs edit mode for this file is -*- C++ -*- */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #ifndef NOSTREAMIO
 #include <string.h>
@@ -250,7 +252,7 @@ InternalPoly::invert()
         return u.getval();
     }
     else
-        return CFFactory::basic( 0 );
+        return CFFactory::basic( 0L );
 }
 
 InternalCF*
@@ -272,7 +274,7 @@ InternalPoly::tryInvert ( const CanonicalForm& M, bool& fail)
     return inverse.getval();
   }
   else
-    return CFFactory::basic( 0 );
+    return CFFactory::basic( 0L );
 }
 
 InternalCF*
@@ -293,7 +295,7 @@ InternalPoly::addsame( InternalCF* aCoeff )
         else
         {
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     else
@@ -310,7 +312,7 @@ InternalPoly::addsame( InternalCF* aCoeff )
             return res;
         }
         else
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
 
     }
 }
@@ -333,7 +335,7 @@ InternalPoly::subsame( InternalCF* aCoeff )
         else
         {
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     else
@@ -350,7 +352,7 @@ InternalPoly::subsame( InternalCF* aCoeff )
             return res;
         }
         else
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
 
     }
 }
@@ -377,12 +379,12 @@ InternalPoly::mulsame( InternalCF* aCoeff )
             if ( getRefCount() <= 1 )
             {
                 delete this;
-                return CFFactory::basic(0);
+                return CFFactory::basic(0L);
             }
             else
             {
                 decRefCount();
-                return CFFactory::basic(0);
+                return CFFactory::basic(0L);
             }
         }
         else  if ( resultFirst->exp == 0 )
@@ -440,12 +442,12 @@ InternalPoly::tryMulsame( InternalCF* aCoeff, const CanonicalForm& M)
             if ( getRefCount() <= 1 )
             {
                 delete this;
-                return CFFactory::basic(0);
+                return CFFactory::basic(0L);
             }
             else
             {
                 decRefCount();
-                return CFFactory::basic(0);
+                return CFFactory::basic(0L);
             }
         }
         else  if ( resultFirst->exp == 0 )
@@ -555,7 +557,7 @@ InternalPoly::divsame( InternalCF* aCoeff )
             ASSERT( 0, "FATAL ERROR, PLEASE INFORM THE AUTHOR" );
             firstTerm = 0;
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     else
@@ -569,7 +571,7 @@ InternalPoly::divsame( InternalCF* aCoeff )
             return res;
         }
         else
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
     }
 }
 
@@ -580,7 +582,7 @@ InternalPoly::tryDivsame( InternalCF* aCoeff, const CanonicalForm& M, bool& fail
     {
         InternalCF * dummy = aCoeff->tryInvert(M, fail);
         if (fail)
-          return CFFactory::basic( 0 );
+          return CFFactory::basic( 0L );
         if (is_imm(dummy)) dummy=this->tryMulsame(dummy, M);
         else dummy = dummy->tryMulsame( this, M);
         if (fail)
@@ -625,7 +627,7 @@ InternalPoly::tryDivsame( InternalCF* aCoeff, const CanonicalForm& M, bool& fail
         if (fail)
         {
           freeTermList (first);
-          return CFFactory::basic (0);
+          return CFFactory::basic (0L);
         }
         newcoeff= reduce (newcoeff, M);
         newexp = first->exp - exp;
@@ -658,7 +660,7 @@ InternalPoly::tryDivsame( InternalCF* aCoeff, const CanonicalForm& M, bool& fail
             ASSERT( 0, "FATAL ERROR, PLEASE INFORM THE AUTHOR" );
             firstTerm = 0;
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     else
@@ -672,7 +674,7 @@ InternalPoly::tryDivsame( InternalCF* aCoeff, const CanonicalForm& M, bool& fail
             return res;
         }
         else
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
     }
 }
 
@@ -688,7 +690,7 @@ InternalPoly::modsame( InternalCF* aCoeff )
     if ( inExtension() && getReduce( var ) )
     {
         if ( deleteObject() ) delete this;
-        return CFFactory::basic( 0 );
+        return CFFactory::basic( 0L );
     }
     InternalPoly *aPoly = (InternalPoly*)aCoeff;
     termList dummy, first, last;
@@ -735,7 +737,7 @@ InternalPoly::modsame( InternalCF* aCoeff )
         {
             firstTerm = 0;
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     else
@@ -749,7 +751,7 @@ InternalPoly::modsame( InternalCF* aCoeff )
             return res;
         }
         else
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
     }
 }
 
@@ -761,7 +763,7 @@ InternalPoly::divremsame( InternalCF* acoeff, InternalCF*& quot, InternalCF*& re
     {
         InternalCF * dummy = acoeff->invert();
         quot = dummy->mulsame( this );
-        rem = CFFactory::basic( 0 );
+        rem = CFFactory::basic( 0L );
     }
     else
     {
@@ -792,7 +794,7 @@ InternalPoly::divremsame( InternalCF* acoeff, InternalCF*& quot, InternalCF*& re
             else
                 quot = new InternalPoly( resultfirst, resultlast, var );
         else
-            quot = CFFactory::basic( 0 );
+            quot = CFFactory::basic( 0L );
         if ( first )
             if ( first->exp == 0 )
             {
@@ -802,7 +804,7 @@ InternalPoly::divremsame( InternalCF* acoeff, InternalCF*& quot, InternalCF*& re
             else
                 rem = new InternalPoly( first, last, var );
         else
-            rem = CFFactory::basic( 0 );
+            rem = CFFactory::basic( 0L );
     }
 }
 
@@ -852,7 +854,7 @@ InternalPoly::divremsamet( InternalCF* acoeff, InternalCF*& quot, InternalCF*& r
             else
                 quot = new InternalPoly( resultfirst, resultlast, var );
         else
-            quot = CFFactory::basic( 0 );
+            quot = CFFactory::basic( 0L );
         if ( first )
             if ( first->exp == 0 )
             {
@@ -862,7 +864,7 @@ InternalPoly::divremsamet( InternalCF* acoeff, InternalCF*& quot, InternalCF*& r
             else
                 rem = new InternalPoly( first, last, var );
         else
-            rem = CFFactory::basic( 0 );
+            rem = CFFactory::basic( 0L );
     }
     else
     {
@@ -881,7 +883,7 @@ InternalPoly::tryDivremsamet( InternalCF* acoeff, InternalCF*& quot, InternalCF*
        if (fail)
          return false;
        quot = dummy->tryMulsame( this, M);
-       rem = CFFactory::basic( 0 );
+       rem = CFFactory::basic( 0L );
        if (fail)
          return false;
        return true;
@@ -927,7 +929,7 @@ InternalPoly::tryDivremsamet( InternalCF* acoeff, InternalCF*& quot, InternalCF*
             else
                 quot = new InternalPoly( resultfirst, resultlast, var );
         else
-            quot = CFFactory::basic( 0 );
+            quot = CFFactory::basic( 0L );
         if ( first )
             if ( first->exp == 0 )
             {
@@ -938,14 +940,14 @@ InternalPoly::tryDivremsamet( InternalCF* acoeff, InternalCF*& quot, InternalCF*
             {
                 if (first->coeff.isZero())
                 {
-                  rem= CFFactory::basic (0);
+                  rem= CFFactory::basic (0L);
                   delete first;
                 }
                 else
                   rem = new InternalPoly( first, last, var );
             }
         else
-            rem = CFFactory::basic( 0 );
+            rem = CFFactory::basic( 0L );
     }
     else
     {
@@ -1078,7 +1080,7 @@ InternalPoly::addcoeff( InternalCF* cc )
             }
             else
             {
-                last->next = new term( 0, c, 0 );
+                last->next = new term( 0, c, 0L );
                 last = last->next;
             }
             return new InternalPoly( first, last, var );
@@ -1181,12 +1183,12 @@ InternalPoly::mulcoeff( InternalCF* cc )
         if ( getRefCount() <= 1 )
         {
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
         else
         {
             decRefCount();
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     else  if ( c.isOne() )
@@ -1195,7 +1197,7 @@ InternalPoly::mulcoeff( InternalCF* cc )
     {
         if ( getRefCount() <= 1 )
         {
-            mulTermList( firstTerm, c, 0 );
+            mulTermList( firstTerm, c, 0L );
             return this;
         }
         else
@@ -1243,12 +1245,12 @@ InternalPoly::dividecoeff( InternalCF* cc, bool invert )
         if ( getRefCount() <= 1 )
         {
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
         else
         {
             decRefCount();
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     if ( c.isOne() )
@@ -1269,7 +1271,7 @@ InternalPoly::dividecoeff( InternalCF* cc, bool invert )
             else
             {
                 delete this;
-                return CFFactory::basic( 0 );
+                return CFFactory::basic( 0L );
             }
         }
         else
@@ -1288,7 +1290,7 @@ InternalPoly::dividecoeff( InternalCF* cc, bool invert )
             else
             {
                 delete first;
-                return CFFactory::basic( 0 );
+                return CFFactory::basic( 0L );
             }
         }
     }
@@ -1308,7 +1310,7 @@ InternalPoly::tryDividecoeff( InternalCF* cc, bool invert, const CanonicalForm& 
             delete this;
           else
             decRefCount(); 
-          return dummy; //is equal to CFFactory::basic (0) in this case
+          return dummy; //is equal to CFFactory::basic ( 0L ) in this case
         }
         if (is_imm(dummy))
         {
@@ -1337,12 +1339,12 @@ InternalPoly::tryDividecoeff( InternalCF* cc, bool invert, const CanonicalForm& 
         if ( getRefCount() <= 1 )
         {
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
         else
         {
             decRefCount();
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     if ( c.isOne() )
@@ -1364,7 +1366,7 @@ InternalPoly::tryDividecoeff( InternalCF* cc, bool invert, const CanonicalForm& 
             else
             {
                 delete this;
-                return CFFactory::basic( 0 );
+                return CFFactory::basic( 0L );
             }
         }
         else
@@ -1383,7 +1385,7 @@ InternalPoly::tryDividecoeff( InternalCF* cc, bool invert, const CanonicalForm& 
             else
             {
                 delete first;
-                return CFFactory::basic( 0 );
+                return CFFactory::basic( 0L );
             }
         }
     }
@@ -1415,12 +1417,12 @@ InternalPoly::divcoeff( InternalCF* cc, bool invert )
         if ( getRefCount() <= 1 )
         {
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
         else
         {
             decRefCount();
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     if ( c.isOne() )
@@ -1441,7 +1443,7 @@ InternalPoly::divcoeff( InternalCF* cc, bool invert )
             else
             {
                 delete this;
-                return CFFactory::basic( 0 );
+                return CFFactory::basic( 0L );
             }
         }
         else
@@ -1460,7 +1462,7 @@ InternalPoly::divcoeff( InternalCF* cc, bool invert )
             else
             {
                 delete first;
-                return CFFactory::basic( 0 );
+                return CFFactory::basic( 0L );
             }
         }
     }
@@ -1499,12 +1501,12 @@ InternalPoly::tryDivcoeff( InternalCF* cc, bool invert, const CanonicalForm& M, 
         if ( getRefCount() <= 1 )
         {
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
         else
         {
             decRefCount();
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     if ( c.isOne() )
@@ -1517,7 +1519,7 @@ InternalPoly::tryDivcoeff( InternalCF* cc, bool invert, const CanonicalForm& M, 
             if (fail)
             {
               delete this;
-              return CFFactory::basic (0);
+              return CFFactory::basic (0L);
             }
             if ( firstTerm && firstTerm->exp != 0 )
                 return this;
@@ -1530,7 +1532,7 @@ InternalPoly::tryDivcoeff( InternalCF* cc, bool invert, const CanonicalForm& M, 
             else
             {
                 delete this;
-                return CFFactory::basic( 0 );
+                return CFFactory::basic( 0L );
             }
         }
         else
@@ -1541,12 +1543,12 @@ InternalPoly::tryDivcoeff( InternalCF* cc, bool invert, const CanonicalForm& M, 
             if (fail)
             {
               delete this;
-              return CFFactory::basic (0);
+              return CFFactory::basic (0L);
             }
             if (fail)
             {
               delete first;
-              return CFFactory::basic (0);
+              return CFFactory::basic (0L);
             }
             if ( first && first->exp != 0 )
                 return new InternalPoly( first, last, var );
@@ -1559,7 +1561,7 @@ InternalPoly::tryDivcoeff( InternalCF* cc, bool invert, const CanonicalForm& M, 
             else
             {
                 delete first;
-                return CFFactory::basic( 0 );
+                return CFFactory::basic( 0L );
             }
         }
     }
@@ -1576,7 +1578,7 @@ InternalPoly::modulocoeff( InternalCF* cc, bool invert )
     }
     ASSERT( ! c.isZero(), "divide by zero!" );
     if ( deleteObject() ) delete this;
-    return CFFactory::basic( 0 );
+    return CFFactory::basic( 0L );
 }
 
 InternalCF*
@@ -1594,12 +1596,12 @@ InternalPoly::modcoeff( InternalCF* cc, bool invert )
         if ( getRefCount() <= 1 )
         {
             delete this;
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
         else
         {
             decRefCount();
-            return CFFactory::basic( 0 );
+            return CFFactory::basic( 0L );
         }
     }
     else
@@ -1618,7 +1620,7 @@ InternalPoly::modcoeff( InternalCF* cc, bool invert )
             else
             {
                 delete this;
-                return CFFactory::basic( 0 );
+                return CFFactory::basic( 0L );
             }
         }
         else
@@ -1637,7 +1639,7 @@ InternalPoly::modcoeff( InternalCF* cc, bool invert )
             else
             {
                 delete first;
-                return CFFactory::basic( 0 );
+                return CFFactory::basic( 0L );
             }
         }
     }
@@ -1650,7 +1652,7 @@ InternalPoly::divremcoeff( InternalCF* cc, InternalCF*& quot, InternalCF*& rem, 
     {
         quot = copyObject();
         quot = quot->dividecoeff( cc, invert );
-        rem = CFFactory::basic( 0 );
+        rem = CFFactory::basic( 0L );
     }
     else  if ( invert )
     {
@@ -1658,7 +1660,7 @@ InternalPoly::divremcoeff( InternalCF* cc, InternalCF*& quot, InternalCF*& rem, 
             rem = cc;
         else
             rem = cc->copyObject();
-        quot = CFFactory::basic( 0 );
+        quot = CFFactory::basic( 0L );
     }
     else
     {
@@ -1675,8 +1677,8 @@ InternalPoly::divremcoeff( InternalCF* cc, InternalCF*& quot, InternalCF*& rem, 
             else
                 quot = new InternalPoly( quotfirst, quotlast, var );
         else
-            quot = CFFactory::basic( 0 );
-        rem = CFFactory::basic( 0 );
+            quot = CFFactory::basic( 0L );
+        rem = CFFactory::basic( 0L );
     }
 }
 
@@ -1687,7 +1689,7 @@ InternalPoly::divremcoefft( InternalCF* cc, InternalCF*& quot, InternalCF*& rem,
     {
         quot = copyObject();
         quot = quot->dividecoeff( cc, invert );
-        rem = CFFactory::basic( 0 );
+        rem = CFFactory::basic( 0L );
         return true;
     }
     else  if ( invert )
@@ -1696,7 +1698,7 @@ InternalPoly::divremcoefft( InternalCF* cc, InternalCF*& quot, InternalCF*& rem,
             rem = cc;
         else
             rem = cc->copyObject();
-        quot = CFFactory::basic( 0 );
+        quot = CFFactory::basic( 0L );
         return true;
     }
     CanonicalForm c( is_imm(cc) ? cc : cc->copyObject() );
@@ -1736,8 +1738,8 @@ InternalPoly::divremcoefft( InternalCF* cc, InternalCF*& quot, InternalCF*& rem,
             else
                 quot = new InternalPoly( quotfirst, quotcursor, var );
         else
-            quot = CFFactory::basic( 0 );
-        rem = CFFactory::basic( 0 );
+            quot = CFFactory::basic( 0L );
+        rem = CFFactory::basic( 0L );
     }
     else
     {
@@ -1755,7 +1757,7 @@ InternalPoly::tryDivremcoefft( InternalCF* cc, InternalCF*& quot, InternalCF*& r
         quot = quot->tryDividecoeff( cc, invert, M, fail );
         if (fail)
           return false;
-        rem = CFFactory::basic( 0 );
+        rem = CFFactory::basic( 0L );
         return true;
     }
     else  if ( invert )
@@ -1764,7 +1766,7 @@ InternalPoly::tryDivremcoefft( InternalCF* cc, InternalCF*& quot, InternalCF*& r
             rem = cc;
         else
             rem = cc->copyObject();
-        quot = CFFactory::basic( 0 );
+        quot = CFFactory::basic( 0L );
         return true;
     }
     CanonicalForm c( is_imm(cc) ? cc : cc->copyObject() );
@@ -1809,8 +1811,8 @@ InternalPoly::tryDivremcoefft( InternalCF* cc, InternalCF*& quot, InternalCF*& r
             else
                 quot = new InternalPoly( quotfirst, quotcursor, var );
         else
-            quot = CFFactory::basic( 0 );
-        rem = CFFactory::basic( 0 );
+            quot = CFFactory::basic( 0L );
+        rem = CFFactory::basic( 0L );
     }
     else
     {

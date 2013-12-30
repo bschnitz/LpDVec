@@ -15,6 +15,7 @@
 #define FAC_FQ_FACTORIZE_H
 
 // #include "config.h"
+#include "timing.h"
 
 #include "facFqBivar.h"
 #include "DegreePattern.h"
@@ -22,6 +23,10 @@
 #include "cf_util.h"
 #include "facFqSquarefree.h"
 #include "facFqBivarUtil.h"
+
+
+TIMING_DEFINE_PRINT (fac_fq_squarefree)
+TIMING_DEFINE_PRINT (fac_fq_factor_squarefree)
 
 /// Factorization over a finite field
 ///
@@ -149,14 +154,20 @@ CFFList FpFactorize (const CanonicalForm& G,///< [in] a multivariate poly
   ExtensionInfo info= ExtensionInfo (false);
   Variable a= Variable (1);
   CanonicalForm LcF= Lc (F);
+  TIMING_START (fac_fq_squarefree);
   CFFList sqrf= FpSqrf (F, false);
+  TIMING_END_AND_PRINT (fac_fq_squarefree,
+                        "time for squarefree factorization over Fq: ");
   CFFList result;
   CFList bufResult;
   sqrf.removeFirst();
   CFListIterator i;
   for (CFFListIterator iter= sqrf; iter.hasItem(); iter++)
   {
+    TIMING_START (fac_fq_factor_squarefree);
     bufResult= multiFactorize (iter.getItem().factor(), info);
+    TIMING_END_AND_PRINT (fac_fq_factor_squarefree,
+                          "time to factorize sqrfree factor over Fq: ");
     for (i= bufResult; i.hasItem(); i++)
       result.append (CFFactor (i.getItem(), iter.getItem().exp()));
   }
@@ -226,14 +237,20 @@ CFFList FqFactorize (const CanonicalForm& G, ///< [in] a multivariate poly
 
   ExtensionInfo info= ExtensionInfo (alpha, false);
   CanonicalForm LcF= Lc (F);
+  TIMING_START (fac_fq_squarefree);
   CFFList sqrf= FqSqrf (F, alpha, false);
+  TIMING_END_AND_PRINT (fac_fq_squarefree,
+                        "time for squarefree factorization over Fq: ");
   CFFList result;
   CFList bufResult;
   sqrf.removeFirst();
   CFListIterator i;
   for (CFFListIterator iter= sqrf; iter.hasItem(); iter++)
   {
+    TIMING_START (fac_fq_factor_squarefree);
     bufResult= multiFactorize (iter.getItem().factor(), info);
+    TIMING_END_AND_PRINT (fac_fq_factor_squarefree,
+                          "time to factorize sqrfree factor over Fq: ");
     for (i= bufResult; i.hasItem(); i++)
       result.append (CFFactor (i.getItem(), iter.getItem().exp()));
   }
@@ -454,8 +471,8 @@ extEarlyFactorDetect (
 /// looks for a (F.level() - 1)-tuple such that the resulting univariate
 /// polynomial has main variable Variable (1), is squarefree and its degree
 /// coincides with degree(F) and the bivariate one is primitive wrt.
-/// Variable(1), and successively evaluated polynomials have the same degree in 
-/// their main variable as F has, fails if there are no valid evaluation points, 
+/// Variable(1), and successively evaluated polynomials have the same degree in
+/// their main variable as F has, fails if there are no valid evaluation points,
 /// eval contains the intermediate evaluated polynomials.
 ///
 /// @return @a evalPoints returns an evaluation point, which is valid if and
@@ -509,22 +526,22 @@ extFactorize (const CanonicalForm& F,   ///< [in] poly to be factored
 /// compute the LCM of the contents of @a A wrt to each variable occuring in @a
 /// A.
 ///
-/// @return @a lcmContent returns the LCM of the contents of @a A wrt to each 
+/// @return @a lcmContent returns the LCM of the contents of @a A wrt to each
 ///         variable occuring in @a A.
 CanonicalForm
-lcmContent (const CanonicalForm& A, ///< [in] a compressed multivariate poly 
+lcmContent (const CanonicalForm& A, ///< [in] a compressed multivariate poly
             CFList& contentAi       ///< [in,out] an empty list, returns a list
-                                    ///< of the contents of @a A wrt to each 
+                                    ///< of the contents of @a A wrt to each
                                     ///< variable occuring in @a A starting from
                                     ///< @a A.mvar().
            );
 
-/// compress a polynomial s.t. \f$ deg_{x_{i}} (F) >= deg_{x_{i+1}} (F) \f$ and 
+/// compress a polynomial s.t. \f$ deg_{x_{i}} (F) >= deg_{x_{i+1}} (F) \f$ and
 /// no gaps between the variables occur
 ///
 /// @return a compressed poly with the above properties
 CanonicalForm myCompress (const CanonicalForm& F, ///< [in] a poly
-                          CFMap& N                ///< [in,out] a map to 
+                          CFMap& N                ///< [in,out] a map to
                                                   ///< decompress
                          );
 
@@ -561,7 +578,7 @@ refineBiFactors (const CanonicalForm& A,  ///< [in] some poly
 
 /// plug in evalPoint for y in a list of polys
 ///
-/// @return returns a list of the evaluated polys, these evaluated polys are 
+/// @return returns a list of the evaluated polys, these evaluated polys are
 /// made monic
 CFList
 buildUniFactors (const CFList& biFactors,       ///< [in] a list of polys
@@ -583,18 +600,18 @@ void sortByUniFactors (CFList*& Aeval,          ///< [in,out] array of bivariate
 /// from factorizations of A wrt different second variables
 void
 getLeadingCoeffs (const CanonicalForm& A,  ///< [in] some poly
-                  CFList*& Aeval,          ///< [in,out] array of bivariate
+                  CFList*& Aeval           ///< [in,out] array of bivariate
                                            ///< factors, returns the leading
                                            ///< coefficients of these factors
-                  const CFList& uniFactors,///< [in] univariate factors of A
-                  const CFList& evaluation ///< [in] evaluation point
                  );
 
 /// normalize precomputed leading coefficients such that leading coefficients
-/// evaluated at @a evaluation in K^(n-2) equal the leading coeffs wrt 
-/// Variable(1) of bivariate factors
+/// evaluated at @a evaluation in K^(n-2) equal the leading coeffs wrt
+/// Variable(1) of bivariate factors and change @a A and @a Aeval accordingly
 void
-prepareLeadingCoeffs (CFList*& LCs,               ///<[in,out] 
+prepareLeadingCoeffs (CFList*& LCs,               ///<[in,out]
+                      CanonicalForm& A,           ///<[in,out]
+                      CFList& Aeval,              ///<[in,out]
                       int n,                      ///<[in] level of poly to be
                                                   ///< factored
                       const CFList& leadingCoeffs,///<[in] precomputed leading
@@ -623,11 +640,11 @@ leadingCoeffReconstruction (const CanonicalForm& F,///<[in] poly to be factored
 CFList
 distributeContent (
           const CFList& L,                        ///<[in] list of polys, first
-                                                  ///< entry the content to be 
+                                                  ///< entry the content to be
                                                   ///< distributed
-          const CFList* differentSecondVarFactors,///<[in] factorization wrt 
+          const CFList* differentSecondVarFactors,///<[in] factorization wrt
                                                   ///< different second vars
-          int length                              ///<[in] length of 
+          int length                              ///<[in] length of
                                                   ///<differentSecondVarFactors
                   );
 
@@ -639,6 +656,141 @@ gcdFreeBasis (CFFList& factors1, ///< [in,out] list of factors, returns gcd free
                                  ///< factors
              );
 
+/// computes a list l of length length(LCFFactors)+1 of polynomials such that
+/// prod (l)=LCF, note that the first entry of l may be non constant. Intended
+/// to be used to precompute coefficients of a polynomial f from its bivariate
+/// factorizations.
+///
+/// @return see above
+CFList
+precomputeLeadingCoeff (const CanonicalForm& LCF,       ///<[in] a multivariate
+                                                        ///< poly
+                        const CFList& LCFFactors,       ///<[in] a list of
+                                                        ///< univariate factors
+                                                        ///< of LCF of level 2
+                        const Variable& alpha,          ///<[in] algebraic var.
+                        const CFList& evaluation,       ///<[in] an evaluation
+                                                        ///< point having
+                                                        ///< lSecondVarLCs+1
+                                                        ///< components
+                        CFList* & differentSecondVarLCs,///<[in] LCs of factors
+                                                        ///< of f wrt different
+                                                        ///< second variables
+                        int lSecondVarLCs,              ///<[in] length of the
+                                                        ///< above
+                        Variable& y                     ///<[in,out] if y.level()
+                                                        ///< is not 1 on output
+                                                        ///< the second variable
+                                                        ///< has been changed to
+                                                        ///< y
+                       );
+
+/// changes the second variable to be @a w and updates all relevant data
+void
+changeSecondVariable (CanonicalForm& A,        ///<[in,out] a multivariate poly
+                      CFList& biFactors,       ///<[in,out] bivariate factors
+                      CFList& evaluation,      ///<[in,out] evaluation point
+                      CFList*& oldAeval,       ///<[in,out] old bivariate factors
+                                               ///< wrt. different second vars
+                      int lengthAeval2,        ///<[in] length of oldAeval
+                      const CFList& uniFactors,///<[in] univariate factors
+                      const Variable& w        ///<[in] some variable
+                     );
+
+/// distributes a divisor LCmultiplier of LC(A,1) on the bivariate factors and
+/// the precomputed leading coefficients
+void
+distributeLCmultiplier (CanonicalForm& A,               ///<[in,out] some poly
+                        CFList& leadingCoeffs,          ///<[in,out] leading
+                                                        ///< coefficients
+                        CFList& biFactors,              ///<[in,out] bivariate
+                                                        ///< factors
+                        const CFList& evaluation,       ///<[in] eval. point
+                        const CanonicalForm& LCmultipler///<[in] multiplier
+                       );
+
+/// heuristic to distribute @a LCmultiplier onto factors based on the variables
+/// that occur in @a LCmultiplier and in the leading coeffs of bivariate factors
+void
+LCHeuristic (CanonicalForm& A,                 ///<[in,out] a poly
+             const CanonicalForm& LCmultiplier,///<[in,out] divisor of LC (A,1)
+             CFList& biFactors,                ///<[in,out] bivariate factors
+             CFList*& leadingCoeffs,           ///<[in,out] leading coeffs
+             const CFList* oldAeval,           ///<[in] bivariate factors wrt.
+                                               ///< different second vars
+             int lengthAeval,                  ///<[in] length of oldAeval
+             const CFList& evaluation,         ///<[in] evaluation point
+             const CFList& oldBiFactors        ///<[in] bivariate factors
+                                               ///< without LCmultiplier
+                                               ///< distributed on them
+            );
+
+/// checks if prod(LCs)==LC (oldA,1) and if so divides elements of leadingCoeffs
+/// by elements in contents, sets A to oldA and sets foundTrueMultiplier to true
+void
+LCHeuristicCheck (const CFList& LCs,        ///<[in] leading coeffs computed
+                  const CFList& contents,   ///<[in] content of factors
+                  CanonicalForm& A,         ///<[in,out] oldA*LCmultiplier^m
+                  const CanonicalForm& oldA,///<[in] some poly
+                  CFList& leadingCoeffs,    ///<[in,out] leading coefficients
+                  bool& foundTrueMultiplier ///<[in,out] success?
+                 );
+
+/// heuristic to distribute @a LCmultiplier onto factors based on the contents
+/// of @a factors. @a factors are assumed to come from LucksWangSparseHeuristic.
+/// If not successful @a contents will contain the content of each element of @a
+/// factors and @a LCs will contain the LC of each element of @a factors divided
+/// by its content
+void
+LCHeuristic2 (const CanonicalForm& LCmultiplier,///<[in] divisor of LC (A,1)
+              const CFList& factors,            ///<[in] result of
+                                                ///< LucksWangSparseHeuristic
+              CFList& leadingCoeffs,            ///<[in,out] leading coeffs
+              CFList& contents,                 ///<[in,out] content of factors
+              CFList& LCs,                      ///<[in,out] LC of factors
+                                                ///< divided by content of
+                                                ///< factors
+              bool& foundTrueMultiplier         ///<[in,out] success?
+             );
+
+/// heuristic to remove @a LCmultiplier from a factor based on the contents
+/// of @a factors. @a factors are assumed to come from LucksWangSparseHeuristic.
+void
+LCHeuristic3 (const CanonicalForm& LCmultiplier,///<[in] divisor of LC (A,1)
+              const CFList& factors,            ///<[in] result of
+                                                ///< LucksWangSparseHeuristic
+              const CFList& oldBiFactors,       ///<[in] bivariate factors
+                                                ///< without LCmultiplier
+                                                ///< distributed on them
+              const CFList& contents,           ///<[in] content of factors
+              const CFList* oldAeval,           ///<[in] bivariate factors wrt.
+                                                ///< different second vars
+              CanonicalForm& A,                 ///<[in,out] poly
+              CFList*& leadingCoeffs,           ///<[in,out] leading coeffs
+              int lengthAeval,                  ///<[in] length of oldAeval
+              bool& foundMultiplier             ///<[in,out] success?
+             );
+
+/// heuristic to remove factors of @a LCmultiplier from @a factors.
+/// More precisely checks if elements of @a contents divide @a LCmultiplier.
+/// Assumes LCHeuristic3 is run before it and was successful.
+void
+LCHeuristic4 (const CFList& oldBiFactors,   ///<[in] bivariate factors
+                                            ///< without LCmultiplier
+                                            ///< distributed on them
+              const CFList* oldAeval,       ///<[in] bivariate factors wrt.
+                                            ///< different second vars
+              const CFList& contents,       ///<[in] content of factors
+              const CFList& factors,        ///<[in] result of
+                                            ///< LucksWangSparseHeuristic
+              const CanonicalForm& testVars,///<[in] product of second vars that
+                                            ///< occur among oldAeval
+              int lengthAeval,              ///<[in] length of oldAeval
+              CFList*& leadingCoeffs,       ///<[in,out] leading coeffs
+              CanonicalForm& A,             ///<[in,out] poly
+              CanonicalForm& LCmultiplier,  ///<[in,out] divisor of LC (A,1)
+              bool& foundMultiplier         ///<[in] success?
+             );
+
 #endif
 /* FAC_FQ_FACTORIZE_H */
-

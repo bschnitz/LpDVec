@@ -1,4 +1,7 @@
-#include "config.h"
+#ifdef STANDALONE_PARSER
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 #include <stdio.h>
@@ -16,7 +19,7 @@ extern int optind, opterr, optopt;
 extern int lpverbose, check;
 extern int texinfo_out;
 
-int category_out;
+extern int category_out;
 
 extern int found_version, found_info, found_oldhelp, found_proc_in_proc;
 int warning_info = 0, warning_version = 0;
@@ -107,7 +110,7 @@ void main_init(int argc, char *argv[])
 }
 
 /*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
-void main_result(char *libname)
+void main_result(char */*libname*/)
 {
   if(!found_info)    printf("*** No info-string found!\n");
   if(!found_version) printf("*** No version-string found!\n");
@@ -118,6 +121,32 @@ void main_result(char *libname)
     printf("*** VERSION-string should come before every procedure definition.\n");
 }
 /*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+procinfo *iiInitSingularProcinfo(procinfo* pi, const char *libname,
+                                 const char *procname, int line, long pos,
+                                 BOOLEAN pstatic /*= FALSE*/)
+{
+  pi->libname = (char *)malloc(strlen(libname)+1);
+  memcpy(pi->libname, libname, strlen(libname));
+  *(pi->libname+strlen(libname)) = '\0';
+
+  pi->procname = (char *)malloc(strlen(procname)+1);
+  strcpy(pi->procname, procname/*, strlen(procname)*/);
+  pi->language = LANG_SINGULAR;
+  pi->ref = 1;
+  pi->is_static = pstatic;
+  pi->data.s.proc_start = pos;
+  pi->data.s.def_end    = 0L;
+  pi->data.s.help_start = 0L;
+  pi->data.s.body_start = 0L;
+  pi->data.s.body_end   = 0L;
+  pi->data.s.example_start = 0L;
+  pi->data.s.proc_lineno = line;
+  pi->data.s.body_lineno = 0;
+  pi->data.s.example_lineno = 0;
+  pi->data.s.body = NULL;
+  pi->data.s.help_chksum = 0;
+  return(pi);
+}
 
 /*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
 void pi_clear(procinfov pi)
@@ -157,8 +186,8 @@ static void PrintOut(FILE *fd, int pos_start, int pos_end)
 
 void printpi(procinfov pi)
 {
-  char *buf, name[256];
-  int len1, len2;
+  // char *buf, name[256];
+  // int len1, len2;
   /* pi->libname is badly broken -- use file, instead */
   FILE *fp = fopen( lib_file, "rb");
 
@@ -220,3 +249,4 @@ void printpi(procinfov pi)
 }
 
 /*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
+#endif

@@ -1,4 +1,4 @@
-; Plural/AlgDep-qso3-dp.tst
+Plural/AlgDep-qso3-dp.tst
 Plural/AnnFD-sl2-10.tst
 ; Plural/AnnFD-sl2-15.tst
 Plural/AnnFD-sl2-4.tst
@@ -40,3 +40,4 @@ Plural/Syz-qso3-q3.tst
 Plural/TwoGB-g2-3.tst
 ; Plural/ucha2.tst
 Plural/ucha4.tst
+;;; Plural/derham.tst ;; too long for now

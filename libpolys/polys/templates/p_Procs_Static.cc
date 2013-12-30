@@ -7,12 +7,12 @@
  *  Author:  obachman (Olaf Bachmann)
  *  Created: 12/00
  *******************************************************************/
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
-#ifdef HAVE_FACTORY
 #include <factory/factory.h>
-#endif
 
 // #include <polys/structs.h>
 #include <polys/monomials/ring.h>
@@ -38,8 +38,10 @@ const BOOLEAN p_procs_dynamic = FALSE;
 #include "templates/p_Procs_Impl.h"
 
 // define DoSetProc and InitSetProcs
+// cast_A_to_B<what##_Proc_Ptr, what##_Proc_Ptr> ???
+//  _p_procs->what =            cast_vptr_to_A<what##_Proc_Ptr>( ??? 
 #define SetStaticProcFromArray(what, type, field, length, ord) \
-  _p_procs->what =            cast_vptr_to_A<what##_Proc_Ptr>( \
+  _p_procs->what =            (what##_Proc_Ptr)( \
     what##_Proc_##type [index(what##_Proc, field, length, ord)])
 
 #define SetStaticProcFromFuncsArray(what, field, length, ord) \

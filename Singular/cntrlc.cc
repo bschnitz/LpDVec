@@ -9,7 +9,6 @@
 #ifdef DecAlpha_OSF1
 #define _XOPEN_SOURCE_EXTENDED
 #endif /* MP3-Y2 0.022UF */
-
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -18,31 +17,32 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
+
 #include <kernel/mod2.h>
 #include <omalloc/omalloc.h>
-
-#include <kernel/polys.h>
+#include <Singular/tok.h>
+#include <Singular/ipshell.h>
 #include <kernel/febase.h>
-
-#include "tok.h"
-#include "ipshell.h"
-#include "cntrlc.h"
-#include "feOpt.h"
-#include "version.h"
-#include "silink.h"
+void sig_chld_hdl(int sig); /*#include <Singular/links/ssiLink.h>*/
+#include <Singular/cntrlc.h>
+#include <Singular/feOpt.h>
+#include <Singular/misc_ip.h>
+#include <Singular/si_signals.h>
+#include <Singular/links/silink.h>
+#include <Singular/links/ssiLink.h>
 
 /* undef, if you don't want GDB to come up on error */
 
-#if !defined(__alpha)
 #define CALL_GDB
-#endif
 
 #if defined(__OPTIMIZE__) && defined(CALL_GDB)
 #undef CALL_GDB
 #endif
 
-#if defined(unix) && !defined(hpux)
+#if defined(unix)
  #include <unistd.h>
  #include <sys/types.h>
 
@@ -78,7 +78,7 @@
 si_link pipeLastLink=NULL;
 BOOLEAN singular_in_batchmode=FALSE;
 
-void sig_pipe_hdl(int sig)
+void sig_pipe_hdl(int /*sig*/)
 {
  if (pipeLastLink!=NULL)
  {
@@ -88,15 +88,16 @@ void sig_pipe_hdl(int sig)
  }
 }
 
-void sig_term_hdl(int sig)
+volatile BOOLEAN do_shutdown = FALSE;
+volatile int defer_shutdown = 0;
+
+void sig_term_hdl(int /*sig*/)
 {
- while (ssiToBeClosed!=NULL)
- {
-   slClose(ssiToBeClosed->l);
-   if (ssiToBeClosed==NULL) break;
-   ssiToBeClosed=(link_list)ssiToBeClosed->next;
- }
- exit(1);
+  do_shutdown = TRUE;
+  if (!defer_shutdown)
+  {
+    m2_end(1);
+  }
 }
 
 /*---------------------------------------------------------------------*
@@ -118,7 +119,7 @@ typedef void (*si_hdl_typ)(int);
  * Functions declarations
  *
  *---------------------------------------------------------------------*/
-void sigint_handler(int sig);
+void sigint_handler(int /*sig*/);
 
 si_hdl_typ si_set_signal ( int sig, si_hdl_typ signal_handler);
 
@@ -134,20 +135,40 @@ si_hdl_typ si_set_signal ( int sig, si_hdl_typ signal_handler);
 /*---------------------------------------------------------------------*/
 si_hdl_typ si_set_signal ( int sig, si_hdl_typ signal_handler)
 {
+#if 0
   si_hdl_typ retval=signal (sig, (si_hdl_typ)signal_handler);
   if (retval == SIG_ERR)
   {
      fprintf(stderr, "Unable to init signal %d ... exiting...\n", sig);
   }
-#ifdef HAVE_SIGINTERRUPT
-  siginterrupt(sig, 1);
+  si_siginterrupt(sig, 0);
+  /*system calls will be restarted if interrupted by  the  specified
+   * signal sig.  This is the default behavior in Linux.
+   */
+#else
+  struct sigaction new_action,old_action;
+
+  /* Set up the structure to specify the new action. */
+  new_action.sa_handler = signal_handler;
+  if (sig==SIGINT)
+    sigemptyset (&new_action.sa_mask);
+  else
+    new_action.sa_flags = SA_RESTART;
+
+  int r=si_sigaction (sig, &new_action, &old_action);
+  si_hdl_typ retval=(si_hdl_typ)old_action.sa_handler;
+  if (r == -1)
+  {
+     fprintf(stderr, "Unable to init signal %d ... exiting...\n", sig);
+     retval=SIG_ERR;
+  }
 #endif
   return retval;
 }                               /* si_set_signal */
 
 
 /*---------------------------------------------------------------------*/
-#if defined(ix86_Linux)
+#if defined(__linux__) && defined(__i386)
   #if !defined(HAVE_SIGCONTEXT) && !defined(HAVE_ASM_SIGCONTEXT_H)
 // we need the following structure sigcontext_struct.
 // if configure finds asm/singcontext.h we assume
@@ -182,7 +203,7 @@ struct sigcontext_struct {
 typedef struct sigcontext_struct sigcontext;
 #endif
 
-#if defined(x86_64_Linux)
+#if defined(__linux__) && defined(__amd64)
 #define HAVE_SIGSTRUCT
 #endif
 
@@ -198,7 +219,7 @@ typedef struct sigcontext_struct sigcontext;
 /*---------------------------------------------------------------------*/
 void sigsegv_handler(int sig, sigcontext s)
 {
-  fprintf(stderr,"Singular : signal %d (v: %d/%s):\n",sig,SINGULAR_VERSION,feVersionId);
+  fprintf(stderr,"Singular : signal %d (v: %d):\n",sig,SINGULAR_VERSION);
   if (sig!=SIGINT)
   {
     fprintf(stderr,"current line:>>%s<<\n",my_yylinebuf);
@@ -230,37 +251,6 @@ void sigsegv_handler(int sig, sigcontext s)
   exit(0);
 }
 
-/*2
-* init signal handlers, linux/i386 version
-*/
-void init_signals()
-{
-/*4 signal handler: linux*/
-  if (SIG_ERR==si_set_signal(SIGSEGV,(si_hdl_typ)sigsegv_handler))
-  {
-    PrintS("cannot set signal handler for SEGV\n");
-  }
-  if (SIG_ERR==si_set_signal(SIGFPE, (si_hdl_typ)sigsegv_handler))
-  {
-    PrintS("cannot set signal handler for FPE\n");
-  }
-  if (SIG_ERR==si_set_signal(SIGILL, (si_hdl_typ)sigsegv_handler))
-  {
-    PrintS("cannot set signal handler for ILL\n");
-  }
-  if (SIG_ERR==si_set_signal(SIGIOT, (si_hdl_typ)sigsegv_handler))
-  {
-    PrintS("cannot set signal handler for IOT\n");
-  }
-  if (SIG_ERR==si_set_signal(SIGINT ,(si_hdl_typ)sigint_handler))
-  {
-    PrintS("cannot set signal handler for INT\n");
-  }
-  si_set_signal(SIGCHLD, (si_hdl_typ)sig_chld_hdl);
-  si_set_signal(SIGPIPE, (si_hdl_typ)sig_pipe_hdl);
-  si_set_signal(SIGTERM, (si_hdl_typ)sig_term_hdl);
-}
-
 /*---------------------------------------------------------------------*/
 #elif defined(SunOS) /*SPARC_SUNOS*/
 /*2
@@ -268,8 +258,8 @@ void init_signals()
 */
 void sigsegv_handler(int sig, int code, struct sigcontext *scp, char *addr)
 {
-  fprintf(stderr,"Singular : signal %d, code %d (v: %d/%s):\n",
-    sig,code,SINGULAR_VERSION,feVersionId);
+  fprintf(stderr,"Singular : signal %d, code %d (v: %d):\n",
+    sig,code,SINGULAR_VERSION);
   if ((sig!=SIGINT)&&(sig!=SIGABRT))
   {
     fprintf(stderr,"current line:>>%s<<\n",my_yylinebuf);
@@ -292,21 +282,6 @@ void sigsegv_handler(int sig, int code, struct sigcontext *scp, char *addr)
   exit(0);
 }
 
-/*2
-* init signal handlers, sparc sunos 4 version
-*/
-void init_signals()
-{
-/*4 signal handler:*/
-  si_set_signal(SIGSEGV,sigsegv_handler);
-  si_set_signal(SIGBUS, sigsegv_handler);
-  si_set_signal(SIGFPE, sigsegv_handler);
-  si_set_signal(SIGILL, sigsegv_handler);
-  si_set_signal(SIGIOT, sigsegv_handler);
-  si_set_signal(SIGINT ,sigint_handler);
-  si_set_signal(SIGCHLD, (void (*)(int))SIG_IGN);
-  si_set_signal(SIGPIPE, (si_hdl_typ)sig_pipe_hdl);
-}
 #else
 
 /*---------------------------------------------------------------------*/
@@ -315,8 +290,8 @@ void init_signals()
 */
 void sigsegv_handler(int sig)
 {
-  fprintf(stderr,"Singular : signal %d (v: %d/%s):\n",
-    sig,SINGULAR_VERSION,feVersionId);
+  fprintf(stderr,"Singular : signal %d (v: %d):\n",
+    sig,SINGULAR_VERSION);
   if (sig!=SIGINT)
   {
     fprintf(stderr,"current line:>>%s<<\n",my_yylinebuf);
@@ -333,50 +308,21 @@ void sigsegv_handler(int sig)
     longjmp(si_start_jmpbuf,1);
   }
   #endif /* __OPTIMIZE__ */
-  #if defined(unix) && !defined(hpux)
-  /* debug(..) does not work under HPUX (because ptrace does not work..) */
+  #if defined(unix)
   #ifdef CALL_GDB
   if (sig!=SIGINT) debug(STACK_TRACE);
   #endif /* CALL_GDB */
   #endif /* unix */
   exit(0);
 }
-
-/*2
-* init signal handlers, general version
-*/
-void init_signals()
-{
-/*4 signal handler:*/
-  si_set_signal(SIGSEGV,(void (*) (int))sigsegv_handler);
-  #ifdef SIGBUS
-  si_set_signal(SIGBUS, sigsegv_handler);
-  #endif /* SIGBUS */
-  #ifdef SIGFPE
-  si_set_signal(SIGFPE, sigsegv_handler);
-  #endif /* SIGFPE */
-  #ifdef SIGILL
-  si_set_signal(SIGILL, sigsegv_handler);
-  #endif /* SIGILL */
-  #ifdef SIGIOT
-  si_set_signal(SIGIOT, sigsegv_handler);
-  #endif /* SIGIOT */
-  #ifdef SIGXCPU
-  si_set_signal(SIGXCPU, (void (*)(int))SIG_IGN);
-  #endif /* SIGIOT */
-  si_set_signal(SIGINT ,sigint_handler);
-  #if defined(HPUX_9) || defined(HPUX_10)
-  si_set_signal(SIGCHLD, (void (*)(int))SIG_IGN);
-  #endif
-  si_set_signal(SIGPIPE, (si_hdl_typ)sig_pipe_hdl);
-}
 #endif
+
 
 /*2
 * signal handler for SIGINT
 */
 int sigint_handler_cnt=0;
-void sigint_handler(int sig)
+void sigint_handler(int /*sig*/)
 {
   mflush();
   #ifdef HAVE_FEREAD
@@ -467,9 +413,8 @@ void sigint_handler(int sig)
 //}
 
 #ifdef unix
-# ifndef hpux
 #  ifndef __OPTIMIZE__
-int si_stop_stack_trace_x;
+volatile int si_stop_stack_trace_x;
 #    ifdef CALL_GDB
 static void debug (int method)
 {
@@ -496,15 +441,13 @@ static void debug (int method)
     switch (method)
     {
       case INTERACTIVE:
-        fprintf (stderr, "debug_stop\n");
+        fprintf (stderr, "\n\nquit with \"p si_stop_stack_trace_x=0\"\n\n\n");
         debug_stop (args);
         break;
-      #ifndef __OPTIMIZE__
       case STACK_TRACE:
         fprintf (stderr, "stack_trace\n");
         stack_trace (args);
         break;
-      #endif
       default:
         // should not be reached:
         exit(1);
@@ -528,8 +471,6 @@ static void debug_stop (char *const*args)
 }
 #    endif /* CALL_GDB */
 
-static int stack_trace_done;
-
 static void stack_trace (char *const*args)
 {
   int pid;
@@ -542,10 +483,6 @@ static void stack_trace (char *const*args)
   char buffer[256];
   char c;
 
-  stack_trace_done = 0;
-
-  signal (SIGCHLD, stack_trace_sigchld);
-
   if ((pipe (in_fd) == -1) || (pipe (out_fd) == -1))
   {
     perror ("could open pipe");
@@ -555,9 +492,9 @@ static void stack_trace (char *const*args)
   pid = fork ();
   if (pid == 0)
   {
-    close (0); dup2 (in_fd[0],0);   /* set the stdin to the in pipe */
-    close (1); dup2 (out_fd[1],1);  /* set the stdout to the out pipe */
-    close (2); dup2 (out_fd[1],2);  /* set the stderr to the out pipe */
+    si_close (0); si_dup2 (in_fd[0],0);   /* set the stdin to the in pipe */
+    si_close (1); si_dup2 (out_fd[1],1);  /* set the stdout to the out pipe */
+    si_close (2); si_dup2 (out_fd[1],2);  /* set the stderr to the out pipe */
 
     execvp (args[0], args);      /* exec gdb */
     perror ("exec failed");
@@ -572,9 +509,9 @@ static void stack_trace (char *const*args)
   FD_ZERO (&fdset);
   FD_SET (out_fd[0], &fdset);
 
-  write (in_fd[1], "backtrace\n", 10);
-  write (in_fd[1], "p si_stop_stack_trace_x = 0\n", 28);
-  write (in_fd[1], "quit\n", 5);
+  si_write (in_fd[1], "backtrace\n", 10);
+  si_write (in_fd[1], "p si_stop_stack_trace_x = 0\n", 28);
+  si_write (in_fd[1], "quit\n", 5);
 
   index = 0;
   state = 0;
@@ -585,17 +522,13 @@ static void stack_trace (char *const*args)
     tv.tv_sec = 1;
     tv.tv_usec = 0;
 
-#    ifdef hpux
-    sel = select (FD_SETSIZE, (int *)readset.fds_bits, NULL, NULL, &tv);
-#    else /* hpux */
-    sel = select (FD_SETSIZE, &readset, NULL, NULL, &tv);
-#    endif /* hpux */
+    sel = si_select (FD_SETSIZE, &readset, NULL, NULL, &tv);
     if (sel == -1)
       break;
 
     if ((sel > 0) && (FD_ISSET (out_fd[0], &readset)))
     {
-      if (read (out_fd[0], &c, 1))
+      if (si_read (out_fd[0], &c, 1))
       {
         switch (state)
         {
@@ -622,40 +555,43 @@ static void stack_trace (char *const*args)
         }
       }
     }
-    else if (stack_trace_done)
+    else if (si_stop_stack_trace_x==0)
       break;
   }
 
-  close (in_fd[0]);
-  close (in_fd[1]);
-  close (out_fd[0]);
-  close (out_fd[1]);
+  si_close (in_fd[0]);
+  si_close (in_fd[1]);
+  si_close (out_fd[0]);
+  si_close (out_fd[1]);
   m2_end(0);
 }
 
-static void stack_trace_sigchld (int signum)
-{
-  stack_trace_done = 1;
-}
-
 #  endif /* !__OPTIMIZE__ */
-# endif /* !hpux */
 #endif /* unix */
 
-/* Under HPUX 9, system(...) returns -1 if SIGCHLD does not equal
-   SIG_DFL. However, if it stays at SIG_DFL we get zombie processes
-   for terminated childs generated by fork. Therefors some special treatment
-   is necessary */
-#ifdef HPUX_9
-# undef system
-extern "C" {
-  int  hpux9_system(const char* call)
-  {
-    int ret;
-    si_set_signal(SIGCHLD, (void (*)(int))SIG_DFL);
-    ret = system(call);
-    si_set_signal(SIGCHLD, (void (*)(int))SIG_IGN);
-    return ret;
-  }
+/*2
+* init signal handlers
+*/
+void init_signals()
+{
+  #ifdef SIGSEGV
+  si_set_signal(SIGSEGV,(si_hdl_typ)sigsegv_handler);
+  #endif
+  #ifdef SIGBUS
+  si_set_signal(SIGBUS, (si_hdl_typ)sigsegv_handler);
+  #endif
+  #ifdef SIGFPE
+  si_set_signal(SIGFPE, (si_hdl_typ)sigsegv_handler);
+  #endif
+  #ifdef SIGILL
+  si_set_signal(SIGILL, (si_hdl_typ)sigsegv_handler);
+  #endif
+  #ifdef SIGIOT
+  si_set_signal(SIGIOT, (si_hdl_typ)sigsegv_handler);
+  #endif
+  si_set_signal(SIGINT ,(si_hdl_typ)sigint_handler);
+  si_set_signal(SIGCHLD, (si_hdl_typ)sig_chld_hdl);
+  si_set_signal(SIGPIPE, (si_hdl_typ)sig_pipe_hdl);
+  si_set_signal(SIGTERM, (si_hdl_typ)sig_term_hdl);
 }
-#endif /* HPUX_9 */
+

@@ -1,6 +1,8 @@
 /* emacs edit mode for this file is -*- C++ -*- */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include "canonicalform.h"
 #include "imm.h"
@@ -19,6 +21,11 @@ InternalInteger::InternalInteger()
 }
 
 InternalInteger::InternalInteger( const int i )
+{
+    mpz_init_set_si( thempi, i );
+}
+
+InternalInteger::InternalInteger( const long i )
 {
     mpz_init_set_si( thempi, i );
 }
@@ -220,7 +227,7 @@ InternalInteger::comparecoeff ( InternalCF * c )
 InternalCF* InternalInteger::addcoeff( InternalCF* c )
 {
     ASSERT( ::is_imm( c ) == INTMARK, "incompatible base coefficients" );
-    int cc = imm2int( c );
+    long cc = imm2int( c );
     if ( getRefCount() > 1 )
     {
         decRefCount();
@@ -259,7 +266,7 @@ InternalCF* InternalInteger::addcoeff( InternalCF* c )
 InternalCF* InternalInteger::subcoeff( InternalCF* c, bool negate )
 {
     ASSERT( ::is_imm( c ) == INTMARK, "incompatible base coefficients" );
-    int cc = imm2int( c );
+    long cc = imm2int( c );
     if ( getRefCount() > 1 )
     {
         decRefCount();
@@ -314,7 +321,7 @@ InternalCF* InternalInteger::subcoeff( InternalCF* c, bool negate )
 InternalCF* InternalInteger::mulcoeff( InternalCF* c )
 {
     ASSERT( ::is_imm( c ) == INTMARK, "incompatible base coefficients" );
-    int cc = imm2int( c );
+    long cc = imm2int( c );
     if ( getRefCount() > 1 )
     {
         decRefCount();
@@ -393,7 +400,7 @@ InternalInteger::bgcdcoeff ( const InternalCF * const c )
     if ( cf_glob_switches.isOn( SW_RATIONAL ) )
          return int2imm( 1 );
 
-    int cInt = imm2int( c );
+    long cInt = imm2int( c );
 
     // trivial cases
     if ( cInt == 1 || cInt == -1 )
@@ -479,7 +486,7 @@ InternalInteger::bextgcdcoeff( InternalCF * c, CanonicalForm & a, CanonicalForm 
         return int2imm( 1 );
     }
 
-    int cInt = imm2int( c );
+    long cInt = imm2int( c );
 
     // trivial cases
     if ( cInt == 1 || cInt == -1 )
@@ -511,9 +518,9 @@ InternalInteger::bextgcdcoeff( InternalCF * c, CanonicalForm & a, CanonicalForm 
 }
 //}}}
 
-int InternalInteger::intval() const
+long InternalInteger::intval() const
 {
-  return (int)mpz_get_si( thempi );
+  return mpz_get_si( thempi );
 }
 
 int InternalInteger::intmod( int p ) const

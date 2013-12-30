@@ -1,9 +1,14 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
+#include <omalloc/omalloc.h>
 
 //#include <kernel/mod2.h>
-#include <omalloc/omalloc.h>
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
+#include <misc/auxiliary.h>
+
 #include <polys/monomials/p_polys.h>
 //#include <kernel/febase.h>
 //#include <kernel/pShallowCopyDelete.h>
@@ -593,7 +598,7 @@ void kBucket_Mult_n(kBucket_pt bucket, number n)
            performed when "(i<coef_start)" is true?
            For the time being, I leave it as it is. */
         if (rField_is_Ring(r) && !(rField_is_Domain(r)))
-	{
+        {
           bucket->buckets_length[i] = pLength(bucket->buckets[i]);
           kBucketAdjust(bucket, i);
         }
@@ -715,9 +720,22 @@ void kBucket_Minus_m_Mult_p(kBucket_pt bucket, poly m, poly p, int *l,
   kbTest(bucket);
   i = pLogLength(l1);
 
-  if ((i <= bucket->buckets_used) && (bucket->buckets[i] != NULL))
+#if defined(HAVE_RINGS)||defined(HAVE_PLURAL)
+  if ((rField_is_Ring(r) && !(rField_is_Domain(r)))
+  ||(rIsPluralRing(r)))
   {
-    assume(pLength(bucket->buckets[i])==bucket->buckets_length[i]);
+    pSetCoeff0(m, n_Neg(pGetCoeff(m),r->cf));
+    p1=pp_Mult_mm(p,m,r);
+    pSetCoeff0(m, n_Neg(pGetCoeff(m),r->cf));
+    l1=pLength(p1);
+    i = pLogLength(l1);
+  }
+  else
+#endif
+  {
+    if ((i <= bucket->buckets_used) && (bucket->buckets[i] != NULL))
+    {
+      assume(pLength(bucket->buckets[i])==bucket->buckets_length[i]);
 //#ifdef USE_COEF_BUCKETS
 //     if(bucket->coef[i]!=NULL)
 //     {
@@ -729,43 +747,30 @@ void kBucket_Minus_m_Mult_p(kBucket_pt bucket, poly m, poly p, int *l,
 //     }
 //     else
 //#endif
-    MULTIPLY_BUCKET(bucket,i);
-    p1 = p_Minus_mm_Mult_qq(bucket->buckets[i], m, p1,
+      MULTIPLY_BUCKET(bucket,i);
+      p1 = p_Minus_mm_Mult_qq(bucket->buckets[i], m, p1,
                             bucket->buckets_length[i], l1,
                             spNoether, r);
-    l1 = bucket->buckets_length[i];
-    bucket->buckets[i] = NULL;
-    bucket->buckets_length[i] = 0;
-#ifdef HAVE_RINGS
-    if (rField_is_Ring(r) && !(rField_is_Domain(r)))
-    {
-      l1 = pLength(p1);
-      assume(pLength(p1) == l1);
-    }
-#endif
-    i = pLogLength(l1);
-  }
-  else
-  {
-    pSetCoeff0(m, n_Neg(pGetCoeff(m),r->cf));
-    if (spNoether != NULL)
-    {
-      l1 = -1;
-      p1 = r->p_Procs->pp_Mult_mm_Noether(p1, m, spNoether, l1, r);
+      l1 = bucket->buckets_length[i];
+      bucket->buckets[i] = NULL;
+      bucket->buckets_length[i] = 0;
       i = pLogLength(l1);
     }
     else
     {
-      p1 = r->p_Procs->pp_Mult_mm(p1, m, r);
-#ifdef HAVE_RINGS
-      if (rField_is_Ring(r) && !(rField_is_Domain(r)))
+      pSetCoeff0(m, n_Neg(pGetCoeff(m),r->cf));
+      if (spNoether != NULL)
       {
-        l1 = pLength(p1);
+        l1 = -1;
+        p1 = r->p_Procs->pp_Mult_mm_Noether(p1, m, spNoether, l1, r);
         i = pLogLength(l1);
       }
-#endif
+      else
+      {
+        p1 = r->p_Procs->pp_Mult_mm(p1, m, r);
+      }
+      pSetCoeff0(m, n_Neg(pGetCoeff(m),r->cf));
     }
-    pSetCoeff0(m, n_Neg(pGetCoeff(m),r->cf));
   }
 
   while (bucket->buckets[i] != NULL)
@@ -1083,8 +1088,8 @@ number kBucketPolyRed(kBucket_pt bucket,
   if (! n_IsOne(pGetCoeff(p1),r->cf))
   {
     number an = pGetCoeff(p1), bn = pGetCoeff(lm);
-//StringSetS("##### an = "); nWrite(an); PrintS(StringAppend("\n"));
-//StringSetS("##### bn = "); nWrite(bn); PrintS(StringAppend("\n"));
+//StringSetS("##### an = "); nWrite(an); PrintS(StringEndS("\n")); // NOTE/TODO: use StringAppendS("\n"); omFree(s);
+//StringSetS("##### bn = "); nWrite(bn); PrintS(StringEndS("\n")); // NOTE/TODO: use StringAppendS("\n"); omFree(s);
     /* ksCheckCoeff: divide out gcd from an and bn: */
     int ct = ksCheckCoeff(&an, &bn,r->cf);
     /* the previous command returns ct=0 or ct=2 iff an!=1
@@ -1124,9 +1129,9 @@ number kBucketPolyRed(kBucket_pt bucket,
   l1--;
 
   assume(l1==pLength(a1));
+#if 0
   BOOLEAN backuped=FALSE;
   number coef;
-  #if 0
   //@Viktor, don't ignore coefficients on monomials
   if(l1==1) {
 
@@ -1142,12 +1147,15 @@ number kBucketPolyRed(kBucket_pt bucket,
     //deletes coef as side effect
     //}
   }
-  #endif
+#endif
 
   kBucket_Minus_m_Mult_p(bucket, lm, a1, &l1, spNoether);
 
+#if 0
   if (backuped)
     p_SetCoeff0(a1,coef,r);
+#endif
+
   p_LmDelete(&lm, r);
   if (reset_vec) p_SetCompP(a1, 0, r);
   kbTest(bucket);

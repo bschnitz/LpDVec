@@ -14,12 +14,12 @@
 #define LINKAGE
 #endif
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
-#ifdef HAVE_FACTORY
 #include <factory/factory.h>
-#endif
 
 #include <polys/monomials/p_polys.h>
 #include <polys/monomials/ring.h>

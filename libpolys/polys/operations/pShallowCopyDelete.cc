@@ -7,7 +7,9 @@
  *  Author:  obachman (Olaf Bachmann)
  *  Created: 8/00
  *******************************************************************/
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include "pShallowCopyDelete.h"
 
 // a simple implementations
@@ -45,7 +47,7 @@ poly pShallowCopyDelete_General(poly s_p, ring s_r, ring d_r, omBin d_bin)
   return dp.next;
 }
 
-pShallowCopyDeleteProc pGetShallowCopyDeleteProc(ring source_r, ring dest_r)
+pShallowCopyDeleteProc pGetShallowCopyDeleteProc(ring /*source_r*/, ring /*dest_r*/)
 {
   return pShallowCopyDelete_General;
 }

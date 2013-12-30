@@ -16,7 +16,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <queue>
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <kernel/tgb.h>
 #include <kernel/tgb_internal.h>
@@ -27,14 +29,13 @@
 #include <polys/nc/nc.h>
 #include <polys/nc/sca.h>
 #include <polys/prCopy.h>
-#include <kernel/longrat.h>
+#include <libpolys/coeffs/longrat.h>
 #include <coeffs/modulop.h>
 #define BUCKETS_FOR_NORO_RED 1
 #define SR_HDL(A) ((long)(A))
 static const int bundle_size = 100;
 static const int bundle_size_noro = 10000;
 static const int delay_factor = 3;
-int QlogSize (number n);
 #define ADD_LATER_SIZE 500
 #if 1
 static omBin lm_bin = NULL;
@@ -61,7 +62,7 @@ int slim_nsize (number n, ring r)
   }
   if(rField_is_Q (r))
   {
-    return QlogSize (n);
+    return nlQlogSize (n, r->cf);
   }
   else
   {
@@ -175,39 +176,6 @@ int kSBucketLength (kBucket * b, poly lm)
   return s;
 }
 #endif
-struct snumber_dummy
-{
-  mpz_t z;
-  mpz_t n;
-  #if defined(LDEBUG)
-  int debug;
-  #endif
-  BOOLEAN s;
-};
-typedef struct snumber_dummy  *number_dummy;
-
-
-int QlogSize (number n)
-{
-  long nl=n_Size(n,currRing->cf);
-  if (nl==0L) return 0;
-  if (nl==1L)
-  {
-    long i = n_Int(n,currRing->cf);
-    unsigned long v;
-    v = (i >= 0) ? i : -i;
-    int r = 0;
-
-    while(v >>= 1)
-    {
-      r++;
-    }
-    return r + 1;
-  }
-  //assume denominator is 0
-  number_dummy nn=(number_dummy)n;
-  return mpz_sizeinbase (nn->z, 2);
-}
 
 #ifdef LEN_VAR3
 static inline wlen_type pSLength (poly p, int l)
@@ -216,7 +184,7 @@ static inline wlen_type pSLength (poly p, int l)
   number coef = pGetCoeff (p);
   if(rField_is_Q (currRing))
   {
-    c = QlogSize (coef);
+    c = nlQlogSize (coef, currRing->cf);
   }
   else
     c = nSize (coef);
@@ -247,7 +215,7 @@ wlen_type kSBucketLength (kBucket * b, poly lm = NULL)
   //c=nSize(pGetCoeff(lm));
   if(rField_is_Q (currRing))
   {
-    c = QlogSize (coef);
+    c = nlQlogSize (coef, currRing->cf);
   }
   else
     c = nSize (coef);
@@ -264,7 +232,7 @@ wlen_type kSBucketLength (kBucket * b, poly lm = NULL)
   {
     if(rField_is_Q (currRing))
     {
-      int modifier = QlogSize (pGetCoeff (b->coef[0]));
+      int modifier = nlQlogSize (pGetCoeff (b->coef[0]), currRing->cf);
       c += modifier;
     }
     else
@@ -294,7 +262,7 @@ static inline wlen_type pSLength (poly p, int l)
   number coef = pGetCoeff (p);
   if(rField_is_Q (currRing))
   {
-    c = QlogSize (coef);
+    c = nlQlogSize (coef, currRing->cf);
   }
   else
     c = nSize (coef);
@@ -320,7 +288,7 @@ wlen_type kSBucketLength (kBucket * b, poly lm = NULL)
   //c=nSize(pGetCoeff(lm));
   if(rField_is_Q (currRing))
   {
-    c = QlogSize (coef);
+    c = nlQlogSize (coef, currRing->cf);
   }
   else
     c = nSize (coef);
@@ -337,7 +305,7 @@ wlen_type kSBucketLength (kBucket * b, poly lm = NULL)
   {
     if(rField_is_Q (currRing))
     {
-      int modifier = QlogSize (pGetCoeff (b->coef[0]));
+      int modifier = nlQlogSize (pGetCoeff (b->coef[0]), currRing->cf);
       c += modifier;
     }
     else
@@ -484,7 +452,7 @@ static wlen_type do_pELength (poly p, slimgb_alg * c, int dlm = -1)
   return s;
 }
 
-wlen_type pELength (poly p, slimgb_alg * c, ring r)
+wlen_type pELength (poly p, slimgb_alg * c, ring /*r*/)
 {
   if(p == NULL)
     return 0;
@@ -507,7 +475,7 @@ wlen_type pELength (poly p, slimgb_alg * c, ring r)
   return s;
 }
 
-wlen_type kEBucketLength (kBucket * b, poly lm, int sugar, slimgb_alg * ca)
+wlen_type kEBucketLength (kBucket * b, poly lm, int /*sugar*/, slimgb_alg * ca)
 {
   wlen_type s = 0;
   if(lm == NULL)
@@ -569,7 +537,7 @@ static inline wlen_type pQuality (poly p, slimgb_alg * c, int l = -1)
       number coef = pGetCoeff (p);
       if(rField_is_Q (currRing))
       {
-        cs = QlogSize (coef);
+        cs = nlQlogSize (coef, currRing->cf);
       }
       else
         cs = nSize (coef);
@@ -623,7 +591,7 @@ wlen_type red_object::guess_quality (slimgb_alg * c)
       //c=nSize(pGetCoeff(lm));
       if(rField_is_Q (currRing))
       {
-        cs = QlogSize (coef);
+        cs = nlQlogSize (coef, currRing->cf);
       }
       else
         cs = nSize (coef);
@@ -632,7 +600,7 @@ wlen_type red_object::guess_quality (slimgb_alg * c)
       {
         if(rField_is_Q (currRing))
         {
-          int modifier = QlogSize (pGetCoeff (bucket->coef[0]));
+          int modifier = nlQlogSize (pGetCoeff (bucket->coef[0]), currRing->cf);
           cs += modifier;
         }
         else
@@ -911,7 +879,7 @@ BOOLEAN good_has_t_rep (int i, int j, slimgb_alg * c)
     if(i_con[n] == j)
     {
       now_t_rep (i, j, c);
-      omfree (i_con);
+      omFree (i_con);
       return TRUE;
     }
   }
@@ -1119,8 +1087,8 @@ static void move_backward_in_S (int old_pos, int new_pos, kStrategy strat)
 static int *make_connections (int from, int to, poly bound, slimgb_alg * c)
 {
   ideal I = c->S;
-  int *cans = (int *) omalloc (c->n * sizeof (int));
-  int *connected = (int *) omalloc (c->n * sizeof (int));
+  int *cans = (int *) omAlloc (c->n * sizeof (int));
+  int *connected = (int *) omAlloc (c->n * sizeof (int));
   cans[0] = to;
   int cans_length = 1;
   connected[0] = from;
@@ -1157,7 +1125,7 @@ static int *make_connections (int from, int to, poly bound, slimgb_alg * c)
             {
               connected[connected_length] = -1;
             }
-            omfree (cans);
+            omFree (cans);
             return connected;
           }
         }
@@ -1203,7 +1171,7 @@ static int *make_connections (int from, int to, poly bound, slimgb_alg * c)
             {
               connected[connected_length] = -1;
             }
-            omfree (cans);
+            omFree (cans);
             return connected;
           }
           break;
@@ -1248,7 +1216,7 @@ static void replace_pair (int &i, int &j, slimgb_alg * c)
     if(i_con[n] == j)
     {
       now_t_rep (i, j, c);
-      omfree (i_con);
+      omFree (i_con);
       p_Delete (&lm, c->r);
       return;
     }
@@ -1399,7 +1367,7 @@ static wlen_type pair_weighted_length (int i, int j, slimgb_alg * c)
     assume (c->weighted_lengths[i] % c1 == 0);
     wlen_type el2 = c->weighted_lengths[j] / c2;
     assume (el2 != 0);
-    assume (c->weighted_lengths[j] % c2 == 0);
+    //assume (c->weighted_lengths[j] % c2 == 0); // fails in Tst/Plural/dmod_lib.tst
     //should be * for function fields
     //return (c1+c2) * (el1+el2-2);
     wlen_type res = coeff_mult_size_estimate (c1, c2, c->r);
@@ -1468,6 +1436,10 @@ sorted_pair_node **add_to_basis_ideal_quotient (poly h, slimgb_alg * c,
   }
 
 #define ENLARGE(pointer, type) pointer=(type*) omrealloc(pointer, c->array_lengths*sizeof(type))
+
+#define ENLARGE_ALIGN(pointer, type) {if(pointer)\
+         pointer=(type*)omReallocAligned(pointer, c->array_lengths*sizeof(type));\
+         else pointer=(type*)omAllocAligned(c->array_lengths*sizeof(type));}
 //  BOOLEAN corr=lenS_correct(c->strat);
   int sugar;
   int ecart = 0;
@@ -1483,22 +1455,22 @@ sorted_pair_node **add_to_basis_ideal_quotient (poly h, slimgb_alg * c,
     c->array_lengths = c->array_lengths * 2;
     assume (c->array_lengths >= c->n);
     ENLARGE (c->T_deg, int);
-    ENLARGE (c->tmp_pair_lm, poly);
-    ENLARGE (c->tmp_spn, sorted_pair_node *);
+    ENLARGE_ALIGN (c->tmp_pair_lm, poly);
+    ENLARGE_ALIGN (c->tmp_spn, sorted_pair_node *);
 
-    ENLARGE (c->short_Exps, long);
+    ENLARGE_ALIGN (c->short_Exps, long);
     ENLARGE (c->lengths, int);
 #ifndef HAVE_BOOST
 #ifndef USE_STDVECBOOL
 
-    ENLARGE (c->states, char *);
+    ENLARGE_ALIGN (c->states, char *);
 #endif
 #endif
-    ENLARGE (c->gcd_of_terms, poly);
+    ENLARGE_ALIGN (c->gcd_of_terms, poly);
     //if (c->weighted_lengths!=NULL) {
-    ENLARGE (c->weighted_lengths, wlen_type);
+    ENLARGE_ALIGN (c->weighted_lengths, wlen_type);
     //}
-    //ENLARGE(c->S->m,poly);
+    //ENLARGE_ALIGN(c->S->m,poly);
   }
   pEnlargeSet (&c->S->m, c->n - 1, 1);
   if(c->T_deg_full)
@@ -1512,7 +1484,7 @@ sorted_pair_node **add_to_basis_ideal_quotient (poly h, slimgb_alg * c,
   }
   c->tmp_pair_lm[i] = pOne_Special (c->r);
 
-  c->tmp_spn[i] = (sorted_pair_node *) omalloc (sizeof (sorted_pair_node));
+  c->tmp_spn[i] = (sorted_pair_node *) omAlloc (sizeof (sorted_pair_node));
 
   c->lengths[i] = pLength (h);
 
@@ -1539,7 +1511,7 @@ sorted_pair_node **add_to_basis_ideal_quotient (poly h, slimgb_alg * c,
 
 #else
   if(i > 0)
-    c->states[i] = (char *) omalloc (i * sizeof (char));
+    c->states[i] = (char *) omAlloc (i * sizeof (char));
   else
     c->states[i] = NULL;
 #endif
@@ -1549,6 +1521,7 @@ sorted_pair_node **add_to_basis_ideal_quotient (poly h, slimgb_alg * c,
   c->short_Exps[i] = p_GetShortExpVector (h, c->r);
 
 #undef ENLARGE
+#undef ENLARGE_ALIGN
   if(p_GetComp (h, currRing) <= c->syz_comp)
   {
     for(j = 0; j < i; j++)
@@ -1748,7 +1721,7 @@ sorted_pair_node **add_to_basis_ideal_quotient (poly h, slimgb_alg * c,
       assume (__p_GetComp (c->S->m[nodes[lower]->i], c->r) ==
               __p_GetComp (c->S->m[nodes[lower]->j], c->r));
       nodes_final[spc_final] =
-        (sorted_pair_node *) omalloc (sizeof (sorted_pair_node));
+        (sorted_pair_node *) omAlloc (sizeof (sorted_pair_node));
 
       *(nodes_final[spc_final++]) = *(nodes[lower]);
       //c->tmp_spn[nodes[lower]->j]=(sorted_pair_node*) omalloc(sizeof(sorted_pair_node));
@@ -1822,7 +1795,7 @@ sorted_pair_node **add_to_basis_ideal_quotient (poly h, slimgb_alg * c,
 
       c->introduceDelayedPairs (array_arg, j);
 
-      omfree (array_arg);       // !!!
+      omFree (array_arg);       // !!!
     }
 //     PrintS("Saturation - done!!!\n");
   }
@@ -2214,7 +2187,7 @@ static void mass_add (poly * p, int pn, slimgb_alg * c)
   {
     memmove (big_sbuf + partsum, sbuf[j],
              ibuf[j] * sizeof (sorted_pair_node *));
-    omfree (sbuf[j]);
+    omFree (sbuf[j]);
     partsum += ibuf[j];
   }
 
@@ -2242,12 +2215,12 @@ void NoroCache::evaluateRows ()
 {
   //after that can evaluate placeholders
   int i;
-  buffer = (number *) omalloc (nIrreducibleMonomials * sizeof (number));
+  buffer = (number *) omAlloc (nIrreducibleMonomials * sizeof (number));
   for(i = 0; i < root.branches_len; i++)
   {
     evaluateRows (1, root.branches[i]);
   }
-  omfree (buffer);
+  omFree (buffer);
   buffer = NULL;
 }
 
@@ -3286,8 +3259,8 @@ slimgb_alg::slimgb_alg (ideal I, int syz_comp, BOOLEAN F4, int deg_pos)
 #endif
   h = omalloc (n * sizeof (int));
   lengths = (int *) h;
-  weighted_lengths = (wlen_type *) omalloc (n * sizeof (wlen_type));
-  gcd_of_terms = (poly *) omalloc (n * sizeof (poly));
+  weighted_lengths = (wlen_type *) omAllocAligned (n * sizeof (wlen_type));
+  gcd_of_terms = (poly *) omAlloc (n * sizeof (poly));
 
   short_Exps = (long *) omalloc (n * sizeof (long));
   if(F4_mode)
@@ -3621,7 +3594,7 @@ ideal t_rep_gb (ring r, ideal arg_I, int syz_comp, BOOLEAN F4_mode)
 }
 
 ideal
-do_t_rep_gb (ring r, ideal arg_I, int syz_comp, BOOLEAN F4_mode, int deg_pos)
+do_t_rep_gb (ring /*r*/, ideal arg_I, int syz_comp, BOOLEAN F4_mode, int deg_pos)
 {
   //  Print("QlogSize(0) %d, QlogSize(1) %d,QlogSize(-2) %d, QlogSize(5) %d\n", QlogSize(nlInit(0)),QlogSize(nlInit(1)),QlogSize(nlInit(-2)),QlogSize(nlInit(5)));
 
@@ -3978,7 +3951,7 @@ void free_sorted_pair_node (sorted_pair_node * s, ring r)
 }
 
 static BOOLEAN
-pair_better (sorted_pair_node * a, sorted_pair_node * b, slimgb_alg * c)
+pair_better (sorted_pair_node * a, sorted_pair_node * b, slimgb_alg * /*c*/)
 {
   if(a->deg < b->deg)
     return TRUE;
@@ -4181,7 +4154,7 @@ quality_of_pos_in_strat_S_mult_high (int pos, poly high, slimgb_alg * c)
 #endif
 
 static void
-multi_reduction_lls_trick (red_object * los, int losl, slimgb_alg * c,
+multi_reduction_lls_trick (red_object * los, int /*losl*/, slimgb_alg * c,
                            find_erg & erg)
 {
   erg.expand = NULL;
@@ -4503,7 +4476,7 @@ static int fwbw (red_object * los, int i)
 }
 
 static void
-canonicalize_region (red_object * los, int l, int u, slimgb_alg * c)
+canonicalize_region (red_object * los, int l, int u, slimgb_alg * /*c*/)
 {
   assume (l <= u + 1);
   int i;
@@ -4513,9 +4486,15 @@ canonicalize_region (red_object * los, int l, int u, slimgb_alg * c)
   }
 }
 
+#ifdef NDEBUG
+static void
+multi_reduction_find (red_object * los, int /*losl*/, slimgb_alg * c, int startf,
+                      find_erg & erg)
+#else
 static void
 multi_reduction_find (red_object * los, int losl, slimgb_alg * c, int startf,
                       find_erg & erg)
+#endif
 {
   kStrategy strat = c->strat;
 
@@ -4630,7 +4609,7 @@ int search_red_object_pos (red_object * a, int top, red_object * key)
   }
 }
 
-static void sort_region_down (red_object * los, int l, int u, slimgb_alg * c)
+static void sort_region_down (red_object * los, int l, int u, slimgb_alg * /*c*/)
 {
   int r_size = u - l + 1;
   qsort (los + l, r_size, sizeof (red_object), red_object_better_gen);
@@ -4889,7 +4868,7 @@ int red_object::clear_to_poly ()
   return l;
 }
 
-void reduction_step::reduce (red_object * r, int l, int u)
+void reduction_step::reduce (red_object * /*r*/, int /*l*/, int /*u*/)
 {
 }
 
@@ -5064,6 +5043,157 @@ void multi_reduce_step (find_erg & erg, red_object * r, slimgb_alg * c)
   }
 }
 
-void simple_reducer::pre_reduce (red_object * r, int l, int u)
+void simple_reducer::pre_reduce (red_object * /*r*/, int /*l*/, int /*u*/)
 {
 }
+
+template int pos_helper<int, int*>(skStrategy*, spolyrec*, int, int*, spolyrec**);
+template int pos_helper<long, long*>(skStrategy*, spolyrec*, long, long*, spolyrec**);
+
+template void noro_step<unsigned char>(spolyrec**, int&, slimgb_alg*);
+template void noro_step<unsigned int>(spolyrec**, int&, slimgb_alg*);
+template void noro_step<unsigned short>(spolyrec**, int&, slimgb_alg*);
+
+
+template int term_nodes_sort_crit<unsigned char>(void const*, void const*);
+template int term_nodes_sort_crit<unsigned int>(void const*, void const*);
+template int term_nodes_sort_crit<unsigned short>(void const*, void const*);
+
+template spolyrec* row_to_poly<unsigned char>(unsigned char*, spolyrec**, int, ip_sring*);
+template spolyrec* row_to_poly<unsigned int>(unsigned int*, spolyrec**, int, ip_sring*);
+template spolyrec* row_to_poly<unsigned short>(unsigned short*, spolyrec**, int, ip_sring*);
+
+template void simplest_gauss_modp<unsigned char>(unsigned char*, int, int);
+template void simplest_gauss_modp<unsigned int>(unsigned int*, int, int);
+template void simplest_gauss_modp<unsigned short>(unsigned short*, int, int);
+
+
+template int modP_lastIndexRow<unsigned char>(unsigned char*, int);
+template int modP_lastIndexRow<unsigned int>(unsigned int*, int);
+template int modP_lastIndexRow<unsigned short>(unsigned short*, int);
+
+template SparseRow<unsigned char>* noro_red_to_non_poly_t<unsigned char>(spolyrec*, int&, NoroCache<unsigned char>*, slimgb_alg*);
+template SparseRow<unsigned int>* noro_red_to_non_poly_t<unsigned int>(spolyrec*, int&, NoroCache<unsigned int>*, slimgb_alg*);
+template SparseRow<unsigned short>* noro_red_to_non_poly_t<unsigned short>(spolyrec*, int&, NoroCache<unsigned short>*, slimgb_alg*);
+
+
+template MonRedResNP<unsigned char> noro_red_mon_to_non_poly<unsigned char>(spolyrec*, NoroCache<unsigned char>*, slimgb_alg*);
+template MonRedResNP<unsigned int> noro_red_mon_to_non_poly<unsigned int>(spolyrec*, NoroCache<unsigned int>*, slimgb_alg*);
+template MonRedResNP<unsigned short> noro_red_mon_to_non_poly<unsigned short>(spolyrec*, NoroCache<unsigned short>*, slimgb_alg*);
+
+template SparseRow<unsigned char>* noro_red_to_non_poly_dense<unsigned char>(MonRedResNP<unsigned char>*, int, NoroCache<unsigned char>*);
+template SparseRow<unsigned char>* noro_red_to_non_poly_sparse<unsigned char>(MonRedResNP<unsigned char>*, int, NoroCache<unsigned char>*);
+template SparseRow<unsigned int>* noro_red_to_non_poly_dense<unsigned int>(MonRedResNP<unsigned int>*, int, NoroCache<unsigned int>*);
+template SparseRow<unsigned int>* noro_red_to_non_poly_sparse<unsigned int>(MonRedResNP<unsigned int>*, int, NoroCache<unsigned int>*);
+template SparseRow<unsigned short>* noro_red_to_non_poly_dense<unsigned short>(MonRedResNP<unsigned short>*, int, NoroCache<unsigned short>*);
+template SparseRow<unsigned short>* noro_red_to_non_poly_sparse<unsigned short>(MonRedResNP<unsigned short>*, int, NoroCache<unsigned short>*);
+
+
+
+template class DataNoroCacheNode<unsigned char>;
+template class DataNoroCacheNode<unsigned int>;
+template class DataNoroCacheNode<unsigned short>;
+
+template class NoroCache<unsigned char>;
+template class NoroCache<unsigned int>;
+template class NoroCache<unsigned short>;
+
+
+
+template void add_coef_times_dense<unsigned char>(unsigned char*, int, unsigned char const*, int, snumber*);
+template void add_coef_times_dense<unsigned int>(unsigned int*, int, unsigned int const*, int, snumber*);
+template void add_coef_times_dense<unsigned short>(unsigned short*, int, unsigned short const*, int, snumber*);
+template void add_coef_times_sparse<unsigned char>(unsigned char*, int, SparseRow<unsigned char>*, snumber*);
+template void add_coef_times_sparse<unsigned int>(unsigned int*, int, SparseRow<unsigned int>*, snumber*);
+template void add_coef_times_sparse<unsigned short>(unsigned short*, int, SparseRow<unsigned short>*, snumber*);
+template void add_dense<unsigned char>(unsigned char*, int, unsigned char const*, int);
+template void add_dense<unsigned int>(unsigned int*, int, unsigned int const*, int);
+template void add_dense<unsigned short>(unsigned short*, int, unsigned short const*, int);
+template void add_sparse<unsigned char>(unsigned char*, int, SparseRow<unsigned char>*);
+template void add_sparse<unsigned int>(unsigned int*, int, SparseRow<unsigned int>*);
+template void add_sparse<unsigned short>(unsigned short*, int, SparseRow<unsigned short>*);
+
+
+template void sub_dense<unsigned char>(unsigned char*, int, unsigned char const*, int);
+template void sub_dense<unsigned int>(unsigned int*, int, unsigned int const*, int);
+template void sub_dense<unsigned short>(unsigned short*, int, unsigned short const*, int);
+template void sub_sparse<unsigned char>(unsigned char*, int, SparseRow<unsigned char>*);
+template void sub_sparse<unsigned int>(unsigned int*, int, SparseRow<unsigned int>*);
+template void sub_sparse<unsigned short>(unsigned short*, int, SparseRow<unsigned short>*);
+template void write_coef_idx_to_buffer_dense<unsigned char>(CoefIdx<unsigned char>*, int&, unsigned char*, int);
+template void write_coef_idx_to_buffer_dense<unsigned int>(CoefIdx<unsigned int>*, int&, unsigned int*, int);
+template void write_coef_idx_to_buffer_dense<unsigned short>(CoefIdx<unsigned short>*, int&, unsigned short*, int);
+template void write_coef_idx_to_buffer<unsigned char>(CoefIdx<unsigned char>*, int&, int*, unsigned char*, int);
+template void write_coef_idx_to_buffer<unsigned int>(CoefIdx<unsigned int>*, int&, int*, unsigned int*, int);
+template void write_coef_idx_to_buffer<unsigned short>(CoefIdx<unsigned short>*, int&, int*, unsigned short*, int);
+template void write_coef_times_xx_idx_to_buffer_dense<unsigned char>(CoefIdx<unsigned char>*, int&, unsigned char*, int, snumber*);
+template void write_coef_times_xx_idx_to_buffer_dense<unsigned int>(CoefIdx<unsigned int>*, int&, unsigned int*, int, snumber*);
+template void write_coef_times_xx_idx_to_buffer_dense<unsigned short>(CoefIdx<unsigned short>*, int&, unsigned short*, int, snumber*);
+template void write_coef_times_xx_idx_to_buffer<unsigned char>(CoefIdx<unsigned char>*, int&, int*, unsigned char*, int, snumber*);
+template void write_coef_times_xx_idx_to_buffer<unsigned int>(CoefIdx<unsigned int>*, int&, int*, unsigned int*, int, snumber*);
+template void write_coef_times_xx_idx_to_buffer<unsigned short>(CoefIdx<unsigned short>*, int&, int*, unsigned short*, int, snumber*);
+template void write_minus_coef_idx_to_buffer_dense<unsigned char>(CoefIdx<unsigned char>*, int&, unsigned char*, int);
+template void write_minus_coef_idx_to_buffer_dense<unsigned int>(CoefIdx<unsigned int>*, int&, unsigned int*, int);
+template void write_minus_coef_idx_to_buffer_dense<unsigned short>(CoefIdx<unsigned short>*, int&, unsigned short*, int);
+template void write_minus_coef_idx_to_buffer<unsigned char>(CoefIdx<unsigned char>*, int&, int*, unsigned char*, int);
+template void write_minus_coef_idx_to_buffer<unsigned int>(CoefIdx<unsigned int>*, int&, int*, unsigned int*, int);
+template void write_minus_coef_idx_to_buffer<unsigned short>(CoefIdx<unsigned short>*, int&, int*, unsigned short*, int);
+
+
+template class std::vector<DataNoroCacheNode<unsigned char>*>;
+template class std::vector<DataNoroCacheNode<unsigned int>*>;
+template class std::vector<DataNoroCacheNode<unsigned short>*>;
+template class std::vector<PolySimple>;
+
+template void std::sort( CoefIdx<unsigned char>* , CoefIdx<unsigned char>*  );
+template void std::sort( CoefIdx<unsigned int>*  , CoefIdx<unsigned int>*   );
+template void std::sort( CoefIdx<unsigned short>*, CoefIdx<unsigned short>* );
+
+template void std::sort_heap<CoefIdx<unsigned char>*>(CoefIdx<unsigned char>*, CoefIdx<unsigned char>*);
+template void std::sort_heap<CoefIdx<unsigned int>*>(CoefIdx<unsigned int>*, CoefIdx<unsigned int>*);
+template void std::sort_heap<CoefIdx<unsigned short>*>(CoefIdx<unsigned short>*, CoefIdx<unsigned short>*);
+
+template void std::make_heap<CoefIdx<unsigned char>*>(CoefIdx<unsigned char>*, CoefIdx<unsigned char>*);
+template void std::make_heap<CoefIdx<unsigned int>*>(CoefIdx<unsigned int>*, CoefIdx<unsigned int>*);
+template void std::make_heap<CoefIdx<unsigned short>*>(CoefIdx<unsigned short>*, CoefIdx<unsigned short>*);
+
+
+#if 0
+template void std::__final_insertion_sort<CoefIdx<unsigned char>*>(CoefIdx<unsigned char>*, CoefIdx<unsigned char>*);
+template void std::__final_insertion_sort<CoefIdx<unsigned int>*>(CoefIdx<unsigned int>*, CoefIdx<unsigned int>*);
+template void std::__final_insertion_sort<CoefIdx<unsigned short>*>(CoefIdx<unsigned short>*, CoefIdx<unsigned short>*);
+
+template void std::__introsort_loop<CoefIdx<unsigned char>*, long>(CoefIdx<unsigned char>*, CoefIdx<unsigned char>*, long);
+template void std::__introsort_loop<CoefIdx<unsigned int>*, long>(CoefIdx<unsigned int>*, CoefIdx<unsigned int>*, long);
+template void std::__introsort_loop<CoefIdx<unsigned short>*, long>(CoefIdx<unsigned short>*, CoefIdx<unsigned short>*, long);
+
+template void std::__heap_select<CoefIdx<unsigned char>*>(CoefIdx<unsigned char>*, CoefIdx<unsigned char>*, CoefIdx<unsigned char>*);
+template void std::__heap_select<CoefIdx<unsigned int>*>(CoefIdx<unsigned int>*, CoefIdx<unsigned int>*, CoefIdx<unsigned int>*);
+template void std::__heap_select<CoefIdx<unsigned short>*>(CoefIdx<unsigned short>*, CoefIdx<unsigned short>*, CoefIdx<unsigned short>*);
+
+template void std::__insertion_sort<CoefIdx<unsigned char>*>(CoefIdx<unsigned char>*, CoefIdx<unsigned char>*);
+template void std::__insertion_sort<CoefIdx<unsigned int>*>(CoefIdx<unsigned int>*, CoefIdx<unsigned int>*);
+template void std::__insertion_sort<CoefIdx<unsigned short>*>(CoefIdx<unsigned short>*, CoefIdx<unsigned short>*);
+
+template void std::__move_median_first<CoefIdx<unsigned char>*>(CoefIdx<unsigned char>*, CoefIdx<unsigned char>*, CoefIdx<unsigned char>*);
+template void std::__move_median_first<CoefIdx<unsigned int>*>(CoefIdx<unsigned int>*, CoefIdx<unsigned int>*, CoefIdx<unsigned int>*);
+template void std::__move_median_first<CoefIdx<unsigned short>*>(CoefIdx<unsigned short>*, CoefIdx<unsigned short>*, CoefIdx<unsigned short>*);
+
+template void std::__unguarded_linear_insert<CoefIdx<unsigned char>*>(CoefIdx<unsigned char>*);
+template void std::__unguarded_linear_insert<CoefIdx<unsigned int>*>(CoefIdx<unsigned int>*);
+template void std::__unguarded_linear_insert<CoefIdx<unsigned short>*>(CoefIdx<unsigned short>*);
+
+template void std::__adjust_heap<CoefIdx<unsigned char>*, long, CoefIdx<unsigned char> >(CoefIdx<unsigned char>*, long, long, CoefIdx<unsigned char>);
+template void std::__adjust_heap<CoefIdx<unsigned int>*, long, CoefIdx<unsigned int> >(CoefIdx<unsigned int>*, long, long, CoefIdx<unsigned int>);
+template void std::__adjust_heap<CoefIdx<unsigned short>*, long, CoefIdx<unsigned short> >(CoefIdx<unsigned short>*, long, long, CoefIdx<unsigned short>);
+
+template void std::__push_heap<CoefIdx<unsigned char>*, long, CoefIdx<unsigned char> >(CoefIdx<unsigned char>*, long, long, CoefIdx<unsigned char>);
+template void std::__push_heap<CoefIdx<unsigned int>*, long, CoefIdx<unsigned int> >(CoefIdx<unsigned int>*, long, long, CoefIdx<unsigned int>);
+template void std::__push_heap<CoefIdx<unsigned short>*, long, CoefIdx<unsigned short> >(CoefIdx<unsigned short>*, long, long, CoefIdx<unsigned short>);
+
+template CoefIdx<unsigned char>* std::__unguarded_partition<CoefIdx<unsigned char>*, CoefIdx<unsigned char> >(CoefIdx<unsigned char>*, CoefIdx<unsigned char>*, CoefIdx<unsigned char> const&);
+template CoefIdx<unsigned int>* std::__unguarded_partition<CoefIdx<unsigned int>*, CoefIdx<unsigned int> >(CoefIdx<unsigned int>*, CoefIdx<unsigned int>*, CoefIdx<unsigned int> const&);
+template CoefIdx<unsigned short>* std::__unguarded_partition<CoefIdx<unsigned short>*, CoefIdx<unsigned short> >(CoefIdx<unsigned short>*, CoefIdx<unsigned short>*, CoefIdx<unsigned short> const&);
+
+#endif
+

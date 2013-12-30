@@ -1,5 +1,7 @@
 #include <string.h>
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <misc/intvec.h>
 #include <misc/int64vec.h>
@@ -1120,7 +1122,7 @@ int64vec* rGetGlobalOrderWeightVec(ring r)
     for (int j=0;j<=length;j++)
       (*res)[j]=(int64)weights[j];
   }
-  else if( (r->order[0]==ringorder_a64) )
+  else if(  /*(*/ r->order[0]==ringorder_a64 /*)*/  )
   {
     int64* weights=(int64*)r->wvhdl[0];
     length=r->block1[0] - r->block0[0];

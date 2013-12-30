@@ -2,13 +2,15 @@
 *  Computer Algebra System SINGULAR     *
 ****************************************/
 /*
-* ABSTRACT: Implementation of option buisness
+* ABSTRACT: Implementation of option business
 */
 
 #include <string.h>
 #include <stdlib.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 #define FE_OPT_STRUCTURE

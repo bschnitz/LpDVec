@@ -1,37 +1,47 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
+
 /*
 * ABSTRACT: identfier handling
 */
 
-#include <string.h>
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 
-#include "config.h"
 #include <kernel/mod2.h>
+
 #include <omalloc/omalloc.h>
-#include <Singular/tok.h>
+
 #include <misc/options.h>
-#include <Singular/ipshell.h>
 #include <misc/intvec.h>
-#include <kernel/febase.h>
+
 #include <coeffs/numbers.h>
 #include <coeffs/bigintmat.h>
-#include <kernel/longrat.h>
-#include <kernel/polys.h>
-#include <polys/monomials/ring.h>
-#include <kernel/ideals.h>
+
 #include <polys/matpol.h>
+#include <polys/monomials/ring.h>
+
+#include <kernel/febase.h>
+#include <libpolys/coeffs/longrat.h>
+#include <kernel/polys.h>
+#include <kernel/ideals.h>
+#include <kernel/syz.h>
+
+#include <Singular/tok.h>
+#include <Singular/ipshell.h>
 #include <Singular/lists.h>
 #include <Singular/attrib.h>
-#include <Singular/silink.h>
-#include <kernel/syz.h>
+#include <Singular/links/silink.h>
 #include <Singular/ipid.h>
 #include <Singular/blackbox.h>
 
 #ifdef HAVE_DYNAMIC_LOADING
 #include <polys/mod_raw.h>
 #endif /* HAVE_DYNAMIC_LOADING */
+
+#include <string.h>
 
 omBin sip_command_bin = omGetSpecBin(sizeof(sip_command));
 omBin sip_package_bin = omGetSpecBin(sizeof(sip_package));
@@ -193,6 +203,7 @@ idhdl idrec::set(const char * s, int level, int t, BOOLEAN init)
   IDTYP(h)  = t;
   IDLEV(h)  = level;
   IDNEXT(h) = this;
+  BOOLEAN at_start=(this==IDROOT);
   h->id_i=iiS2I(s);
   if (init)
   {
@@ -220,6 +231,8 @@ idhdl idrec::set(const char * s, int level, int t, BOOLEAN init)
     }
   }
   // --------------------------------------------------------
+  if (at_start)
+    IDNEXT(h) = IDROOT;
   return  h;
 }
 
@@ -238,7 +251,7 @@ idhdl enterid(const char * s, int lev, int t, idhdl* root, BOOLEAN init, BOOLEAN
   if (s==NULL) return NULL;
   idhdl h;
   s=omStrDup(s);
-  idhdl *save_root=root;
+  // idhdl *save_root=root;
   if (t==PACKAGE_CMD)
   {
     if (root!=&(basePack->idroot))
@@ -419,7 +432,7 @@ void killhdl2(idhdl h, idhdl * ih, ring r)
   }
   else if ((IDTYP(h)==RING_CMD)||(IDTYP(h)==QRING_CMD))
     rKill(h);
-  else
+  else if (IDDATA(h)!=NULL)
     s_internalDelete(IDTYP(h),IDDATA(h),r);
   //  general  -------------------------------------------------------------
   // now dechain it and delete idrec
@@ -455,7 +468,7 @@ void killhdl2(idhdl h, idhdl * ih, ring r)
   omFreeBin((ADDRESS)h, idrec_bin);
 }
 
-idhdl ggetid(const char *n, BOOLEAN local, idhdl *packhdl)
+idhdl ggetid(const char *n, BOOLEAN /*local*/, idhdl *packhdl)
 {
   idhdl h = IDROOT->get(n,myynest);
   idhdl h2=NULL;
@@ -510,6 +523,32 @@ lists ipNameList(idhdl root)
     L->m[l].rtyp=STRING_CMD;
     L->m[l].data=omStrDup(IDID(h));
     l++;
+    h=IDNEXT(h);
+  }
+  return L;
+}
+
+lists ipNameListLev(idhdl root, int lev)
+{
+  idhdl h=root;
+  /* compute the length */
+  int l=0;
+  while (h!=NULL) { if (IDLEV(h)==lev) l++; h=IDNEXT(h); }
+  /* allocate list */
+  lists L=(lists)omAllocBin(slists_bin);
+  L->Init(l);
+  /* copy names */
+  h=root;
+  l=0;
+  while (h!=NULL)
+  {
+    if (IDLEV(h)==lev)
+    {
+      /* list is initialized with 0 => no need to clear anything */
+      L->m[l].rtyp=STRING_CMD;
+      L->m[l].data=omStrDup(IDID(h));
+      l++;
+    }
     h=IDNEXT(h);
   }
   return L;
@@ -641,7 +680,7 @@ void paCleanUp(package pack)
 #endif /* HAVE_DYNAMIC_LOADING */
     }
 #endif /* HAVE_STATIC */
-    omfree((ADDRESS)pack->libname);
+    omFree((ADDRESS)pack->libname);
     memset((void *) pack, 0, sizeof(sip_package));
     pack->language=LANG_NONE;
   }

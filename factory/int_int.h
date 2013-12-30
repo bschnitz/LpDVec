@@ -64,6 +64,7 @@ public:
         ASSERT( 0, "ups there is something wrong in your code" );
     }
     InternalInteger( const int i );
+    InternalInteger( const long i );
     InternalInteger( const char * str, const int base=10 );
     InternalInteger( const mpz_ptr );
     ~InternalInteger();
@@ -110,7 +111,7 @@ public:
     InternalCF * bextgcdsame ( InternalCF *, CanonicalForm &, CanonicalForm & );
     InternalCF * bextgcdcoeff ( InternalCF *, CanonicalForm &, CanonicalForm & );
 
-    int intval() const;
+    long intval() const;
 
     int intmod( int p ) const;
 
@@ -124,6 +125,7 @@ public:
     friend void gmp_numerator ( const CanonicalForm & f, mpz_ptr result);
     friend void gmp_denominator ( const CanonicalForm & f, mpz_ptr result );
     friend mpz_ptr getmpi ( InternalCF * value, bool symmetric );
+    friend void getmpi ( InternalCF * value, mpz_t mpi);
 };
 
 //{{{ inline InternalCF * InternalInteger::normalizeMyself, uiNormalizeMyself ()

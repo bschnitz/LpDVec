@@ -1,14 +1,18 @@
 #include <unistd.h>
+#include <stdio.h>
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>
 
+#include <kernel/mod2.h>
 #include <coeffs/si_gmp.h>
 
 #include <omalloc/omalloc.h>
 #include <Singular/links/s_buff.h>
+#include <Singular/si_signals.h>
+
 //struct s_buff_s
 //{
 //    char * buff; // buffer
@@ -20,54 +24,38 @@
 
 //typedef struct s_buff_s * s_buff;
 
-#define S_BUFF_LEN 8192
-
-sigset_t ssi_sigmask; // set in ssiLink.cc
-sigset_t ssi_oldmask; // set in ssiLink.cc
-
-#define SSI_BLOCK_CHLD sigprocmask(SIG_SETMASK, &ssi_sigmask, &ssi_oldmask)
-#define SSI_UNBLOCK_CHLD sigprocmask(SIG_SETMASK, &ssi_oldmask, NULL)
+#define S_BUFF_LEN 4096
 
 s_buff s_open(int fd)
 {
-  SSI_BLOCK_CHLD;
   s_buff F=(s_buff)omAlloc0(sizeof(*F));
   F->fd=fd;
   F->buff=(char*)omAlloc(S_BUFF_LEN);
-  SSI_UNBLOCK_CHLD;
   return F;
 }
 
 s_buff s_open_by_name(const char *n)
 {
-  SSI_BLOCK_CHLD;
-  int fd=open(n,O_RDONLY);
-  SSI_UNBLOCK_CHLD;
+  int fd=si_open(n,O_RDONLY);
   return s_open(fd);
+}
+
+int    s_free(s_buff &F)
+{
+  if (F!=NULL)
+  {
+    omFreeSize(F->buff,S_BUFF_LEN);
+    omFreeSize(F,sizeof(*F));
+    F=NULL;
+  }
+  return 0;
 }
 
 int    s_close(s_buff &F)
 {
   if (F!=NULL)
   {
-    SSI_BLOCK_CHLD;
-      #ifdef TEST_SBUFF
-      printf("%d bytes read, %d read op.\n",F->len[10],F->len[0]);
-      if (F->len[1]>0) printf("%d read op with <16 bytes\n",F->len[1]);
-      if (F->len[2]>0) printf("%d read op with <32 bytes\n",F->len[2]);
-      if (F->len[3]>0) printf("%d read op with <54 bytes\n",F->len[3]);
-      if (F->len[4]>0) printf("%d read op with <128 bytes\n",F->len[4]);
-      if (F->len[5]>0) printf("%d read op with <256 bytes\n",F->len[5]);
-      if (F->len[6]>0) printf("%d read op with <512 bytes\n",F->len[6]);
-      if (F->len[7]>0) printf("%d read op with <1024 bytes\n",F->len[7]);
-      if (F->len[8]>0) printf("%d read op with <2048 bytes\n",F->len[8]);
-      if (F->len[9]>0) printf("%d read op with >=2048 bytes\n",F->len[9]);
-      #endif
-    omFreeSize(F->buff,S_BUFF_LEN);
     int r=close(F->fd);
-    omFreeSize(F,sizeof(*F));
-    F=NULL;
-    SSI_UNBLOCK_CHLD;
     return r;
   }
   return 0;
@@ -83,9 +71,7 @@ int s_getc(s_buff F)
   if (F->bp>=F->end)
   {
     memset(F->buff,0,S_BUFF_LEN); /*debug*/
-    SSI_BLOCK_CHLD;
-    int r=read(F->fd,F->buff,S_BUFF_LEN);
-    SSI_UNBLOCK_CHLD;
+    int r=si_read(F->fd,F->buff,S_BUFF_LEN);
     if (r<=0)
     {
       F->is_eof=1;
@@ -95,19 +81,6 @@ int s_getc(s_buff F)
     {
       F->end=r-1;
       F->bp=0;
-      #ifdef TEST_SBUFF
-      F->len[0]++;
-      if (r<16) F->len[1]++;
-      else if (r<32) F->len[2]++;
-      else if (r<64) F->len[3]++;
-      else if (r<128) F->len[4]++;
-      else if (r<256) F->len[5]++;
-      else if (r<512) F->len[6]++;
-      else if (r<1024) F->len[7]++;
-      else if (r<2048) F->len[8]++;
-      else  F->len[9]++;
-      F->len[10]+=r;
-      #endif
       return F->buff[0];
     }
   }
@@ -134,9 +107,8 @@ void s_ungetc(int c, s_buff F)
   if (F==NULL)
   {
     printf("link closed");
-    return;
   }
-  if (F->bp>=0)
+  else if (F->bp>=0)
   {
     F->buff[F->bp]=c;
     F->bp--;
@@ -153,6 +125,34 @@ int s_readint(s_buff F)
   char c;
   int neg=1;
   int r=0;
+  //int digit=0;
+  do
+  {
+    c=s_getc(F);
+  } while((!F->is_eof) && (c<=' '));
+  if (c=='-') { neg=-1; c=s_getc(F); }
+  while(isdigit(c))
+  {
+    //digit++;
+    r=r*10+(c-'0');
+    c=s_getc(F);
+  }
+  s_ungetc(c,F);
+  //if (digit==0) { printf("unknown char %c(%d)\n",c,c); /*debug*/
+  //                printf("buffer:%s\np=%d,e=%d\n",F->buff,F->bp,F->end);fflush(stdout); } /*debug*/
+  return r*neg;
+}
+
+long s_readlong(s_buff F)
+{
+  if (F==NULL)
+  {
+    printf("link closed");
+    return 0;
+  }
+  char c;
+  long neg=1;
+  long r=0;
   //int digit=0;
   do
   {
@@ -253,7 +253,6 @@ void s_readmpz_base(s_buff F, mpz_ptr a, int base)
   }
   if (neg==-1) mpz_neg(a,a);
 }
-
 int s_iseof(s_buff F)
 {
   if (F!=NULL) return F->is_eof;

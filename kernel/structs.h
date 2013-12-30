@@ -9,25 +9,25 @@
 
 /* for omBin */
 #include <omalloc/omalloc.h>
-#include <misc/auxiliary.h>
-#include <kernel/polys.h>
-#include <polys/coeffrings.h>
-
 #ifdef HAVE_RINGS
 #include <coeffs/si_gmp.h>
 #endif
 
 /* standard types */
-#ifdef HAVE_RINGS
-typedef unsigned long NATNUMBER;
-typedef mpz_ptr int_number;
-#endif
+//#ifdef HAVE_RINGS
+//typedef unsigned long NATNUMBER;
+//typedef mpz_ptr int_number;
+//#endif
 
 #define BITSET  unsigned int
 
 
 /* C++-part */
 #ifdef __cplusplus
+#include <misc/auxiliary.h>
+#include <kernel/polys.h>
+#include <polys/coeffrings.h>
+
 class sleftv;
 class procinfo;
 class skStrategy;
@@ -88,7 +88,7 @@ typedef procinfo *         procinfov;
 #ifdef __cplusplus
 extern "C" {
 #endif
-void  m2_end(int i) __attribute__((noreturn));
+void  m2_end(int i);
 #ifdef __cplusplus
 }
 #endif
@@ -97,7 +97,7 @@ void  m2_end(int i) __attribute__((noreturn));
 
 #ifdef __cplusplus
 int   inits(void);
-int   IsPrime(int i);
+//int   IsPrime(int i);
 extern int siSeed;
 int siRand();
 #endif

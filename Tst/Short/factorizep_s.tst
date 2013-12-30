@@ -384,4 +384,121 @@ list l=factorize(f);
 size (l[1]) < 6;
 testfactors (l,f);
 
+
+kill r;
+ring r=2,(x,y),dp;
+poly f= (x^6*y+x^4*y^2+x^5+x^2*y^2+x^2*y+y^2+x)*(x^6*y^2+y^7+x^3*y^3+x^4+y);
+list l= factorize (f);
+testfactors (l, f);
+
+f= (x^3*y^2+y^3+x^2+1)*(x^2*y^6+x^4*y^2+y^4+y^3+x*y+x+1);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^3*y^4+y^3+x+1)*(x*y^7+y^6+x^2*y^2+x^3+x*y+y);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^4*y^3+x^2*y^4+x^5+x*y^2+1)*(x^2*y^6+x*y^5+x*y^4+x^2*y^2+x^2*y+y);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^5+x*y^2+y)*(x^4*y^2+x^3+x*y+1);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^2*y^3+y^3+x^2+x)*(x^7+x^5*y+x^2*y^3+y^3+1);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^3*y+x*y+1)*(x^5*y+x*y^4+x^2*y^2+y^2+y+1);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^4*y^2+x^3*y+x*y+1)*(x*y^5+y^5+x^2*y+x*y+x+1);
+l= factorize (f);
+testfactors (l, f);
+
+
+
+f= (y^6+x^5+y^3+x)*(x^2*y^3+y^4+y);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x*y^3+x*y^2+1)*(x^3*y^3+x^4*y+1);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^4*y^2+x^3*y^2+x*y+1)*(x^6+y^5);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^5*y+x^2*y^3+x*y^3+x^2+y+1)*(x*y^5+x^2);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^2*y^3+x*y^2+x+1)*(x^5+x*y^2+x*y+1);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^6+x*y^2+x^2+y)*(y^5+x^3*y+y+1);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (y^6+x*y^4+y^4+y^3+1)*(y^6+x^5+x^2*y^2+x^2*y+x*y+1);
+l= factorize (f);
+testfactors (l, f);
+
+
+f= (x^5+y^3+x)*(x*y^5+x^3*y+x^2+y);
+l= factorize (f);
+testfactors (l, f);
+
+
+f=x^2*y^5+x^4*y^2+x^2*y^4+x^4*y+x^3*y^2+x*y^4+x^2*y^2+y^3+x^2+x*y+x+1;
+l= factorize (f);
+testfactors (l,f);
+
+kill r;
+ring r=2,(x,y,z,s,t,u,v),dp;
+poly f= y*z*s^2*t^2+x^4*y*u+y^3*z*s*u+x*y*z^2*s*u+x^2*z^2*u^2+x*y^4*v+x^2*t*u^2*v+x*y*z*s*t+z^2*s^2*t+z^2*s*t^2+x*y^3*v+y*s*t^2*v+x*z^2*s+y^2*t*u+x*y*z+y*z*v;
+poly g= x^2*z^2*s^2+x^2*y*s^3+y^2*z*s*t^2+x*s^3*t^2+y^3*z*s*u+y*t^4*u+x^2*z^2*u^2+y^2*z*t*u^2+x*s*t^2*u^2+y*t^2*u^3+y^2*z^3*v+x^2*s*u^2*v+x*z*s*u^2*v+y^2*z*s^2+y*z^3*t+x^2*z*t^2+z^2*s*t*v+z^2*t^2*v+z^3*u*v+s^2*t*u*v+s*v^4+y^3*u+x*z^2*u+x*z*s*v+u*v^3+x^2*t+z*t+u;
+poly h= x^2*y*s+z*s^2*t+z^3*u+x^2*s*u+y*s^2*u+x*y*u*v+x*s*u*v+x*z*t+z^2*t+x*y*u+x*t*u+y*s;
+poly k=f*g*h;
+def l= factorize (k);
+testfactors (l, k);
+
+kill r;
+// from P. Zimmermann via libsingular-devel
+ring r = 2,(y,t),dp;
+poly f = y*t^8 + y^5*t^2 + y*t^6 + t^7 + y^6 + y^5*t + y^2*t^4 + y^2*t^2 +
+y^2*t + t^3 + y^2 + t^2;
+def l=factorize (f);
+testfactors (l, f);
+
+// tr. 482
+ring R6s = (32003,s),(x,y),dp;
+minpoly = (s6-11914s5+3952s4-5439s3-15290s2-15431s+15606);
+poly G3 = x3+y3+(-s-1)*x2+(s-2)*xy+(-s-1)*y2+(s+1)*x+(s+1)*y+(-s);
+def l=factorize(G3);
+testfactors (l, G3);
+
+kill r;
+ring r=(32003,s),(x,y,z),dp;
+minpoly=(s6-11914s5+3952s4-5439s3-15290s2-15431s+15606);
+poly f=x32003+y32003+(-15819s5+10130s4-13478s3-9892s2+7280s+7612)+z32003;
+factorize (f);
+
 tst_status(1);$

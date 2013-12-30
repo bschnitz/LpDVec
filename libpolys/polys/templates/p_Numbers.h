@@ -42,7 +42,7 @@ static inline void n_InpMult_FieldGeneral(number &n1, number n2, const ring r)
 { ndInpMult(n1, n2, r->cf); }
 
 static inline void n_InpAdd_FieldGeneral(number &n1, number n2, const ring r)
-{ ndInpAdd(n1, n2, r->cf); }
+{ n_InpAdd(n1, n2, r->cf); }
 
 #ifdef HAVE_RINGS
 #define n_Copy_RingGeneral(n, r)           r->cf->cfCopy(n,r->cf)
@@ -56,12 +56,12 @@ static inline void n_InpAdd_FieldGeneral(number &n1, number n2, const ring r)
 //#define n_InpMult_RingGeneral(n1, n2, r)   r->cf->nInpMult(n1, n2, r->cf)
 #define n_InpMult_RingGeneral(n1, n2, r)   ndInpMult(n1, n2, r->cf)
 static inline void n_InpAdd_RingGeneral(number &n1, number n2, const ring r)
-{ assume(rField_is_Ring(r)); ndInpAdd(n1, n2, r->cf); }
+{ assume(rField_is_Ring(r)); n_InpAdd(n1, n2, r->cf); }
 #endif
 
 #include <coeffs/modulop.h>
 #define n_Copy_FieldZp(n, r)        n
-#define n_Delete_FieldZp(n, r)      ((void)0)
+#define n_Delete_FieldZp(n, r)      do {} while (0)
 #define n_Mult_FieldZp(n1, n2, r)   npMultM(n1,n2, r->cf)
 #define n_Add_FieldZp(n1, n2, r)    npAddM(n1, n2, r->cf)
 #define n_IsZero_FieldZp(n, r)      npIsZeroM(n, r->cf)

@@ -1,13 +1,14 @@
 #! /bin/bash
 
-#C="$0"
-#C=`readlink -f "$C"`
-#C=`dirname "$C"`
-#C=`ls -d1 "$C"`
+C="$0"
+C=`readlink -f "$C"`
+C=`dirname "$C"`
+C=`ls -d1 "$C"`
 
 # NOTE: if you moved this config please either use the above or
 # make sure the following variables are up to date
-prefix=@prefix@ 
+prefix="$C/../"
+#prefix=@prefix@ 
 exec_prefix=@exec_prefix@
 includedir=@includedir@
 libdir=@libdir@
@@ -75,11 +76,11 @@ while test $# -gt 0; do
 	;;
 
     --libsg)
-	${ECHOn} " -L${libdir} -L${libdir}/singular -lSingular_g -lnumeric_g -lkernel_g -lpolys_g -lcoeffs_g -lreporter_g -lmisc_g @FACTORY_LIBS@ -lomalloc_g -lfindexec_g @NTL_LIBS@ @USEPPROCSDYNAMICLD@ @GMP_LIBS@" 
+	${ECHOn} " -L${libdir} -L${libdir}/singular -lSingular_g -lnumeric_g -lkernel_g -lpolys_g -lcoeffs_g -lreporter_g -lmisc_g @FACTORY_LIBS@ -lomalloc_g -lresources_g @NTL_LIBS@ @USEPPROCSDYNAMICLD@ @GMP_LIBS@" 
 	;;
 
     --libs)
-	${ECHOn} " -L${libdir} -L${libdir}/singular -lSingular -lnumeric -lkernel -lpolys -lcoeffs -lreporter -lmisc @FACTORY_LIBS@ -lomalloc -lfindexec @NTL_LIBS@ @USEPPROCSDYNAMICLD@ @GMP_LIBS@" 
+	${ECHOn} " -L${libdir} -L${libdir}/singular -lSingular -lnumeric -lkernel -lpolys -lcoeffs -lreporter -lmisc @FACTORY_LIBS@ -lomalloc -lresources @NTL_LIBS@ @USEPPROCSDYNAMICLD@ @GMP_LIBS@" 
 	;;
 
     *)

@@ -1,17 +1,47 @@
-//////////////////////////////////////////////////////////////////////////////
-version="$Id$";
+///////////////////////////////////////////////////////////////////////////
+version="version schreyer.lib 4.0.0.0 Jun_2013 "; // $Id$
 category="General purpose";
 info="
-LIBRARY: schreyer.lib     Helpers for working with the Schreyer induced ordering
+LIBRARY: schreyer.lib     Helpers for computing a Schreyer resolution in @code{derham.lib}
 AUTHOR:  Oleksandr Motsak <U@D>, where U={motsak}, D={mathematik.uni-kl.de}
+KEYWORDS: Schreyer ordering; Schreyer resolution; syzygy
+OVERVIEW:
+@* The library contains helper procedures for computing a Schreyer resoltion (cf. [SFO]), 
+   originally meant to be used by @code{derham.lib} (which requires resolutions over the homogenized Weyl algebra). 
+   The library works both in the commutative and non-commutative setting (cf. [MO]). 
+   Here, we call a free resolution a Schreyer resolution if each syzygy module is given by a Groebner basis
+   with respect to the corresponding Schreyer ordering. 
+   A Schreyer resolution can be much bigger than a minimal resolution of the same module, but may be easier to construct.
+@* The input for the resolution computations is a set of vectors @code{M} in form of a module over some basering @code{R}.
+   The ring @code{R} may be non-commutative, in which case the ring ordering should be global.
+@* These procedures produce/work with partial Schreyer resolutions of @code{(R^rank(M))/M} in form of 
+   a ring (endowed with a special ring ordering that will be extended in the course of a resolution computation) 
+   containing a list of modules @code{RES} and a module @code{MRES}:
+@* The list of modules @code{RES} contains the images of maps (also called syzygy modules) substituting the
+   computed beginning of a Schreyer resolution, that is, each syzygy module is given by a Groebner basis 
+   with respect to the corresponding Schreyer ordering. 
+@* The list @code{RES} starts with a zero map given by @code{rank(M)} zero generators indicating that the image of 
+   the first differential map is zero. The second map @code{RES[2]} is given by @code{M}, which indicates that 
+   the resolution of @code{(R^rank(M))/M} is being computed.
+@* The module @code{MRES} is a direct sum of modules from @code{RES} and thus comprises all computed differentials.
+@* Syzygies are shifted so that @code{gen(i)} is mapped to @code{MRES[i]} under the differential map.
+@* The Schreyer ordering succesively extends the starting module ordering on @code{M} (defined in Singular by the basering @code{R}) 
+   and is extended to higher syzygies using the following definition:
+@*        a < b if and only if (d(a) < d(b)) OR ( (d(a) = d(b) AND (comp(a) < comp(b)) ), 
+@* where @code{d(a)} is the image of a under the differential (given by @code{MRES}), 
+   and @code{comp(a)} is the module component, for any module terms @code{a} and @code{b} from the same higher syzygy module.
+REFERENCES:
+[SFO] Schreyer, F.O.: Die Berechnung von Syzygien mit dem verallgemeinerten Weierstrassschen Divisionssatz,
+      Master's thesis, Univ. Hamburg, 1980. 
+[MO]  Motsak, O.: Non-commutative Computer Algebra with applications: Graded commutative algebra and related 
+      structures in Singular with applications, Ph.D. thesis, TU Kaiserslautern, 2010
+
+NOTE:  requires the dynamic or built-in module @code{syzextra}
 
 PROCEDURES:
- Sres(M,l)      Schreyer resolution of module M of maximal length l
- Ssyz(M)        Schreyer resolution of module M of length 1
- Scontinue(l)   continue the resolution computation by most l steps
-
-KEYWORDS:  syzygy; Schreyer induced ordering; Schreyer free resolution
-NOTE:  requires the dynamic module: syzextra
+  Sres(M,len)     compute Schreyer resolution of module M of maximal length len
+  Ssyz(M)         compute Schreyer resolution of module M of length 1
+  Scontinue(len)  extend currently active resolution by (at most) len syszygies
 ";
 
 static proc prepareSyz( module I, list # )
@@ -249,10 +279,11 @@ static proc Sstep()
   {
     "Sstep::NextInput: ";
     M;
-    @V;
+    deg(M[1..ncols(M)]); // no use of @W :(?
     @RANK;   
     DetailedPrint(MRES);
-    attrib(MRES, "isHomog");
+    attrib(MRES, "isHomog"); @W;
+    deg(MRES[1..ncols(MRES)]);
   }
 
   
@@ -272,11 +303,12 @@ static proc Sstep()
 //  K;
 
   module N = separateSyzGB(K, @RANK)[2]; // 1^st syz. module: vectors which start in lower part (comp >= @RANK)
-  attrib(N, "isHomog", @V);
 
 // "N_0: "; N; DetailedPrint(N, 10);
-  
-  N = std(N); // TODO: fix "wrong weights"!!!?
+
+//  basering; print(@V); type(N); 
+//  attrib(N, "isHomog", @V);  // TODO: fix "wrong weights"!!!? deg is wrong :(((
+  N = std(N);
   attrib(N, "isHomog", @V);
 
 //  N;
@@ -326,11 +358,10 @@ static proc Sstep()
 }
 
 proc Scontinue(int l)
-"USAGE:  Scontinue(l)
-RETURN:  nothing, instead it changes RES and MRES variables in the current ring
-PURPOSE: computes further (at most l) syzygies 
-NOTE:    must be used within a ring returned by Sres or Ssyz. RES and MRES are
-         explained in Sres
+"USAGE:  Scontinue(int len)
+RETURN:  nothing, instead it changes the currently active resolution
+PURPOSE: extends the currently active resolution by at most len syzygies 
+ASSUME:  must be used within a ring returned by Sres or Ssyz
 EXAMPLE: example Scontinue; shows an example
 "
 {
@@ -358,10 +389,10 @@ example
 }
 
 proc Ssyz(module M)
-"USAGE:  Ssyz(M)
-RETURN:  ring, containing a list of modules RES and a module MRES
-PURPOSE: computes the first syzygy module of M (wrt some Schreyer ordering)
-NOTE:    The output is explained in Sres
+"USAGE:  Ssyz(module M)
+RETURN:  ring, containing a Schreyer resolution
+PURPOSE: computes a Schreyer resolution of M of length 1 (see the library overview)
+SEE ALSO: Sres
 EXAMPLE: example Ssyz; shows an example
 "
 {
@@ -390,18 +421,11 @@ example
 }
 
 proc Sres(module M, int l)
-"USAGE:  Sres(M, l)
-RETURN:  ring, containing a list of modules RES and a module MRES
-PURPOSE: computes (at most l) syzygy modules of M wrt the classical Schreyer
-         induced ordering with gen(i) > gen(j) if i > j, provided both gens
-         are from the same syzygy level.
-NOTE:    RES contains the images of maps subsituting the beginning of the
-         Schreyer free resolution of baseRing^r/M, while MRES is a sum of
-         these images in a big free sum, containing all the syzygy modules.
-         The syzygy modules are shifted so that gen(i) correspons to MRES[i].
-         The leading zero module RES[0] indicates the fact that coker of the
-         first map is zero. The number of zeroes inducates the rank of input.
-NOTE:    If l == 0 then l is set to be nvars(basering) + 1
+"USAGE:  Sres(module M, int len)
+RETURN:  ring, containing a Schreyer resolution
+PURPOSE: computes a Schreyer resolution of M of length at most len (see the library overview)
+NOTE:    If given len is zero then nvars(basering) + 1 is used instead.
+SEE ALSO: Ssyz
 EXAMPLE: example Sres; shows an example
 "
 {
@@ -1390,7 +1414,7 @@ static proc loadme()
 
   if( !defined(DetailedPrint) )
   {
-    if( !@DEBUG )
+    if( 1 )
     {
 
       if( @DEBUG )
@@ -1425,8 +1449,13 @@ static proc loadme()
 //      exportto(Schreyer, Syzextra::reduce_syz);
 //      exportto(Schreyer, Syzextra::p_Content);
 
+      exportto(Schreyer, Syzextra::ProfilerStart); exportto(Schreyer, Syzextra::ProfilerStop);
+
       exportto(Schreyer, Syzextra::Tail);
+
+      exportto(Schreyer, Syzextra::m2_end);
     }
+/*
     else
     {
       if( @DEBUG )
@@ -1434,7 +1463,7 @@ static proc loadme()
         "Loading the Debug version!";
       }
 
-      load("syzextra_g.so");
+      load("syzextra.so");
 
       if( @DEBUG )
       {      
@@ -1461,9 +1490,14 @@ static proc loadme()
 //      exportto(Schreyer, Syzextra_g::reduce_syz);
 //      exportto(Schreyer, Syzextra_g::p_Content);
 
+      exportto(Schreyer, Syzextra_g::ProfilerStart); exportto(Schreyer, Syzextra_g::ProfilerStop);
+
       exportto(Schreyer, Syzextra_g::Tail);
       
+      
+      exportto(Schreyer, Syzextra_g::m2_end);
     }
+*/
 
     exportto(Top, DetailedPrint);
     exportto(Top, GetInducedData);
@@ -1477,7 +1511,7 @@ static proc loadme()
   
   if( !defined(GetInducedData) )
   {
-    ERROR("Sorry but we are missing the dynamic module (syzextra(_g)?.so)...");
+    ERROR("Sorry but we are missing the dynamic module (syzextra.so)...");
   }
 
 }

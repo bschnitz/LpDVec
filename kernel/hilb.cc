@@ -5,7 +5,9 @@
 *  ABSTRACT -  Hilbert series
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <kernel/structs.h>
 #include <kernel/febase.h>
@@ -212,7 +214,7 @@ static void hWDegree(intvec *wdegree)
 }
 
 static intvec * hSeries(ideal S, intvec *modulweight,
-                int notstc, intvec *wdegree, ideal Q, ring tailRing)
+                int /*notstc*/, intvec *wdegree, ideal Q, ring tailRing)
 {
   intvec *work, *hseries1=NULL;
   int  mc;

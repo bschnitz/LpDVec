@@ -8,6 +8,7 @@
 */
 #include <misc/auxiliary.h>
 #include <omalloc/omalloc.h>
+#include <reporter/reporter.h>
 
 #include <coeffs/si_gmp.h>
 #include <coeffs/coeffs.h>
@@ -130,6 +131,31 @@ void     nlWrite(number &a, const coeffs r);
 number nlModP(number q, const coeffs Q, const coeffs Zp);
 
 int      nlSize(number n, const coeffs r);
+
+static inline int nlQlogSize (number n, const coeffs r)
+{
+  assume( nCoeff_is_Q (r) );
+
+  long nl=nlSize(n,r);
+  if (nl==0L) return 0;
+  if (nl==1L)
+  {
+    long i = SR_TO_INT (n);
+    unsigned long v;
+    v = (i >= 0) ? i : -i;
+    int r = 0;
+
+    while(v >>= 1)
+    {
+      r++;
+    }
+    return r + 1;
+  }
+  //assume denominator is 0
+  number nn=(number) n;
+  return mpz_sizeinbase (nn->z, 2);
+}
+
 number   nlGetDenom(number &n, const coeffs r);
 number   nlGetNumerator(number &n, const coeffs r);
 void     nlCoeffWrite(const coeffs r, BOOLEAN details);
@@ -160,7 +186,7 @@ LINLINE void nlInpMult(number &a, number b, const coeffs r);
 #define nlTest(a, r) nlDBTest(a,__FILE__,__LINE__, r)
 BOOLEAN nlDBTest(number a, char *f,int l, const coeffs r);
 #else
-#define nlTest(a, r) ((void)0)
+#define nlTest(a, r) do {} while (0)
 #endif
 
 #endif

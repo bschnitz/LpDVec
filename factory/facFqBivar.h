@@ -16,6 +16,7 @@
 
 // #include "config.h"
 
+#include "timing.h"
 #include "cf_assert.h"
 
 #include "facFqBivarUtil.h"
@@ -25,6 +26,9 @@
 #include "facFqSquarefree.h"
 #include "cf_map.h"
 #include "cfNewtonPolygon.h"
+
+TIMING_DEFINE_PRINT(fac_fq_bi_sqrf)
+TIMING_DEFINE_PRINT(fac_fq_bi_factor_sqrf)
 
 static const double log2exp= 1.442695041;
 
@@ -44,24 +48,36 @@ biFactorize (const CanonicalForm& F,       ///< [in] a bivariate poly
              const ExtensionInfo& info     ///< [in] information about extension
             );
 
-/// factorize a squarefree bivariate polynomial over \f$ F_{p} \f$.
-///
-/// @return @a FpBiSqrfFactorize returns a list of monic factors, the first
-///         element is the leading coefficient.
-/// @sa FqBiSqrfFactorize(), GFBiSqrfFactorize()
-inline
-CFList FpBiSqrfFactorize (const CanonicalForm & G ///< [in] a bivariate poly
-                         )
+inline CFList
+biSqrfFactorizeHelper (const CanonicalForm& G, ExtensionInfo& info)
 {
-  ExtensionInfo info= ExtensionInfo (false);
   CFMap N;
   CanonicalForm F= compress (G, N);
   CanonicalForm contentX= content (F, 1);
   CanonicalForm contentY= content (F, 2);
   F /= (contentX*contentY);
   CFFList contentXFactors, contentYFactors;
-  contentXFactors= factorize (contentX);
-  contentYFactors= factorize (contentY);
+  if (info.getAlpha().level() != 1)
+  {
+    contentXFactors= factorize (contentX, info.getAlpha());
+    contentYFactors= factorize (contentY, info.getAlpha());
+  }
+  else if (info.getAlpha().level() == 1 && info.getGFDegree() == 1)
+  {
+    contentXFactors= factorize (contentX);
+    contentYFactors= factorize (contentY);
+  }
+  else if (info.getAlpha().level() == 1 && info.getGFDegree() != 1)
+  {
+    CFList bufContentX, bufContentY;
+    bufContentX= biFactorize (contentX, info);
+    bufContentY= biFactorize (contentY, info);
+    for (CFListIterator iter= bufContentX; iter.hasItem(); iter++)
+      contentXFactors.append (CFFactor (iter.getItem(), 1));
+    for (CFListIterator iter= bufContentY; iter.hasItem(); iter++)
+      contentYFactors.append (CFFactor (iter.getItem(), 1));
+  }
+
   if (contentXFactors.getFirst().factor().inCoeffDomain())
     contentXFactors.removeFirst();
   if (contentYFactors.getFirst().factor().inCoeffDomain())
@@ -77,8 +93,16 @@ CFList FpBiSqrfFactorize (const CanonicalForm & G ///< [in] a bivariate poly
     result.insert (Lc (G));
     return result;
   }
-  mat_ZZ M;
-  vec_ZZ S;
+  mpz_t * M=new mpz_t [4];
+  mpz_init (M[0]);
+  mpz_init (M[1]);
+  mpz_init (M[2]);
+  mpz_init (M[3]);
+
+  mpz_t * S=new mpz_t [2];
+  mpz_init (S[0]);
+  mpz_init (S[1]);
+
   F= compress (F, M, S);
   CFList result= biFactorize (F, info);
   for (CFListIterator i= result; i.hasItem(); i++)
@@ -89,7 +113,31 @@ CFList FpBiSqrfFactorize (const CanonicalForm & G ///< [in] a bivariate poly
     result.append (N (i.getItem().factor()));
   normalize (result);
   result.insert (Lc(G));
+
+  mpz_clear (M[0]);
+  mpz_clear (M[1]);
+  mpz_clear (M[2]);
+  mpz_clear (M[3]);
+  delete [] M;
+
+  mpz_clear (S[0]);
+  mpz_clear (S[1]);
+  delete [] S;
+
   return result;
+}
+
+/// factorize a squarefree bivariate polynomial over \f$ F_{p} \f$.
+///
+/// @return @a FpBiSqrfFactorize returns a list of monic factors, the first
+///         element is the leading coefficient.
+/// @sa FqBiSqrfFactorize(), GFBiSqrfFactorize()
+inline
+CFList FpBiSqrfFactorize (const CanonicalForm & G ///< [in] a bivariate poly
+                         )
+{
+  ExtensionInfo info= ExtensionInfo (false);
+  return biSqrfFactorizeHelper (G, info);
 }
 
 /// factorize a squarefree bivariate polynomial over \f$ F_{p}(\alpha ) \f$.
@@ -103,42 +151,7 @@ CFList FqBiSqrfFactorize (const CanonicalForm & G, ///< [in] a bivariate poly
                          )
 {
   ExtensionInfo info= ExtensionInfo (alpha, false);
-  CFMap N;
-  CanonicalForm F= compress (G, N);
-  CanonicalForm contentX= content (F, 1);
-  CanonicalForm contentY= content (F, 2);
-  F /= (contentX*contentY);
-  CFFList contentXFactors, contentYFactors;
-  contentXFactors= factorize (contentX, alpha);
-  contentYFactors= factorize (contentY, alpha);
-  if (contentXFactors.getFirst().factor().inCoeffDomain())
-    contentXFactors.removeFirst();
-  if (contentYFactors.getFirst().factor().inCoeffDomain())
-    contentYFactors.removeFirst();
-  if (F.inCoeffDomain())
-  {
-    CFList result;
-    for (CFFListIterator i= contentXFactors; i.hasItem(); i++)
-      result.append (N (i.getItem().factor()));
-    for (CFFListIterator i= contentYFactors; i.hasItem(); i++)
-      result.append (N (i.getItem().factor()));
-    normalize (result);
-    result.insert (Lc (G));
-    return result;
-  }
-  mat_ZZ M;
-  vec_ZZ S;
-  F= compress (F, M, S);
-  CFList result= biFactorize (F, info);
-  for (CFListIterator i= result; i.hasItem(); i++)
-    i.getItem()= N (decompress (i.getItem(), M, S));
-  for (CFFListIterator i= contentXFactors; i.hasItem(); i++)
-    result.append (N(i.getItem().factor()));
-  for (CFFListIterator i= contentYFactors; i.hasItem(); i++)
-    result.append (N (i.getItem().factor()));
-  normalize (result);
-  result.insert (Lc(G));
-  return result;
+  return biSqrfFactorizeHelper (G, info);
 }
 
 /// factorize a squarefree bivariate polynomial over GF
@@ -153,42 +166,7 @@ CFList GFBiSqrfFactorize (const CanonicalForm & G ///< [in] a bivariate poly
   ASSERT (CFFactory::gettype() == GaloisFieldDomain,
           "GF as base field expected");
   ExtensionInfo info= ExtensionInfo (getGFDegree(), gf_name, false);
-  CFMap N;
-  CanonicalForm F= compress (G, N);
-  CanonicalForm contentX= content (F, 1);
-  CanonicalForm contentY= content (F, 2);
-  F /= (contentX*contentY);
-  CFList contentXFactors, contentYFactors;
-  contentXFactors= biFactorize (contentX, info);
-  contentYFactors= biFactorize (contentY, info);
-  if (contentXFactors.getFirst().inCoeffDomain())
-    contentXFactors.removeFirst();
-  if (contentYFactors.getFirst().inCoeffDomain())
-    contentYFactors.removeFirst();
-  if (F.inCoeffDomain())
-  {
-    CFList result;
-    for (CFListIterator i= contentXFactors; i.hasItem(); i++)
-      result.append (N (i.getItem()));
-    for (CFListIterator i= contentYFactors; i.hasItem(); i++)
-      result.append (N (i.getItem()));
-    normalize (result);
-    result.insert (Lc (G));
-    return result;
-  }
-  mat_ZZ M;
-  vec_ZZ S;
-  F= compress (F, M, S);
-  CFList result= biFactorize (F, info);
-  for (CFListIterator i= result; i.hasItem(); i++)
-    i.getItem()= N (decompress (i.getItem(), M, S));
-  for (CFListIterator i= contentXFactors; i.hasItem(); i++)
-    result.append (N(i.getItem()));
-  for (CFListIterator i= contentYFactors; i.hasItem(); i++)
-    result.append (N (i.getItem()));
-  normalize (result);
-  result.insert (Lc(G));
-  return result;
+  return biSqrfFactorizeHelper (G, info);
 }
 
 /// factorize a bivariate polynomial over \f$ F_{p} \f$
@@ -268,17 +246,31 @@ FpBiFactorize (const CanonicalForm & G, ///< [in] a bivariate poly
     result.insert (CFFactor (LcF, 1));
     return result;
   }
-  mat_ZZ M;
-  vec_ZZ S;
+  mpz_t * M=new mpz_t [4];
+  mpz_init (M[0]);
+  mpz_init (M[1]);
+  mpz_init (M[2]);
+  mpz_init (M[3]);
+
+  mpz_t * S=new mpz_t [2];
+  mpz_init (S[0]);
+  mpz_init (S[1]);
+
   F= compress (F, M, S);
 
+  TIMING_START (fac_fq_bi_sqrf);
   CFFList sqrf= FpSqrf (F, false);
+  TIMING_END_AND_PRINT (fac_fq_bi_sqrf,
+                       "time for bivariate sqrf factors over Fp: ");
   CFList bufResult;
   sqrf.removeFirst();
   CFListIterator i;
   for (CFFListIterator iter= sqrf; iter.hasItem(); iter++)
   {
+    TIMING_START (fac_fq_bi_factor_sqrf);
     bufResult= biFactorize (iter.getItem().factor(), info);
+    TIMING_END_AND_PRINT (fac_fq_bi_factor_sqrf,
+                          "time to factor bivariate sqrf factors over Fp: ");
     for (i= bufResult; i.hasItem(); i++)
       result.append (CFFactor (N (decompress (i.getItem(), M, S)),
                                iter.getItem().exp()));
@@ -288,6 +280,17 @@ FpBiFactorize (const CanonicalForm & G, ///< [in] a bivariate poly
   result= Union (result, contentYFactors);
   normalize (result);
   result.insert (CFFactor (LcF, 1));
+
+  mpz_clear (M[0]);
+  mpz_clear (M[1]);
+  mpz_clear (M[2]);
+  mpz_clear (M[3]);
+  delete [] M;
+
+  mpz_clear (S[0]);
+  mpz_clear (S[1]);
+  delete [] S;
+
   return result;
 }
 
@@ -369,17 +372,32 @@ FqBiFactorize (const CanonicalForm & G, ///< [in] a bivariate poly
     result.insert (CFFactor (LcF, 1));
     return result;
   }
-  mat_ZZ M;
-  vec_ZZ S;
+
+  mpz_t * M=new mpz_t [4];
+  mpz_init (M[0]);
+  mpz_init (M[1]);
+  mpz_init (M[2]);
+  mpz_init (M[3]);
+
+  mpz_t * S=new mpz_t [2];
+  mpz_init (S[0]);
+  mpz_init (S[1]);
+
   F= compress (F, M, S);
 
+  TIMING_START (fac_fq_bi_sqrf);
   CFFList sqrf= FqSqrf (F, alpha, false);
+  TIMING_END_AND_PRINT (fac_fq_bi_sqrf,
+                       "time for bivariate sqrf factors over Fq: ");
   CFList bufResult;
   sqrf.removeFirst();
   CFListIterator i;
   for (CFFListIterator iter= sqrf; iter.hasItem(); iter++)
   {
+    TIMING_START (fac_fq_bi_factor_sqrf);
     bufResult= biFactorize (iter.getItem().factor(), info);
+    TIMING_END_AND_PRINT (fac_fq_bi_factor_sqrf,
+                          "time to factor bivariate sqrf factors over Fq: ");
     for (i= bufResult; i.hasItem(); i++)
       result.append (CFFactor (N (decompress (i.getItem(), M, S)),
                                iter.getItem().exp()));
@@ -389,6 +407,17 @@ FqBiFactorize (const CanonicalForm & G, ///< [in] a bivariate poly
   result= Union (result, contentYFactors);
   normalize (result);
   result.insert (CFFactor (LcF, 1));
+
+  mpz_clear (M[0]);
+  mpz_clear (M[1]);
+  mpz_clear (M[2]);
+  mpz_clear (M[3]);
+  delete [] M;
+
+  mpz_clear (S[0]);
+  mpz_clear (S[1]);
+  delete [] S;
+
   return result;
 }
 
@@ -471,17 +500,32 @@ GFBiFactorize (const CanonicalForm & G, ///< [in] a bivariate poly
     result.insert (CFFactor (LcF, 1));
     return result;
   }
-  mat_ZZ M;
-  vec_ZZ S;
+
+  mpz_t * M=new mpz_t [4];
+  mpz_init (M[0]);
+  mpz_init (M[1]);
+  mpz_init (M[2]);
+  mpz_init (M[3]);
+
+  mpz_t * S=new mpz_t [2];
+  mpz_init (S[0]);
+  mpz_init (S[1]);
+
   F= compress (F, M, S);
 
+  TIMING_START (fac_fq_bi_sqrf);
   CFFList sqrf= GFSqrf (F, false);
+  TIMING_END_AND_PRINT (fac_fq_bi_sqrf,
+                       "time for bivariate sqrf factors over GF: ");
   CFList bufResult;
   sqrf.removeFirst();
   CFListIterator i;
   for (CFFListIterator iter= sqrf; iter.hasItem(); iter++)
   {
+    TIMING_START (fac_fq_bi_factor_sqrf);
     bufResult= biFactorize (iter.getItem().factor(), info);
+    TIMING_END_AND_PRINT (fac_fq_bi_factor_sqrf,
+                          "time to factor bivariate sqrf factors over GF: ");
     for (i= bufResult; i.hasItem(); i++)
       result.append (CFFactor (N (decompress (i.getItem(), M, S)),
                                iter.getItem().exp()));
@@ -491,6 +535,17 @@ GFBiFactorize (const CanonicalForm & G, ///< [in] a bivariate poly
   result= Union (result, contentYFactors);
   normalize (result);
   result.insert (CFFactor (LcF, 1));
+
+  mpz_clear (M[0]);
+  mpz_clear (M[1]);
+  mpz_clear (M[2]);
+  mpz_clear (M[3]);
+  delete [] M;
+
+  mpz_clear (S[0]);
+  mpz_clear (S[1]);
+  delete [] S;
+
   return result;
 }
 
@@ -562,18 +617,20 @@ extFactorRecombination (
 /// @sa extFactorRecombination(), earlyFactorDetectection()
 CFList
 factorRecombination (
-                CFList& factors,       ///< [in,out] list of lifted factors
-                                       ///< that are monic wrt Variable (1)
-                CanonicalForm& F,      ///< [in,out] poly to be factored
-                const CanonicalForm& M,///< [in] Variable (2)^liftBound
-                DegreePattern& degs,   ///< [in] degree pattern
-                int s,                 ///< [in] algorithm starts checking
-                                       ///< subsets of size s
-                int thres,             ///< [in] threshold for the size of
-                                       ///< subsets which are checked, for a
-                                       ///< full factor recombination choose
-                                       ///< thres= factors.length()/2
-                const modpk& b=modpk() ///< [in] coeff bound
+            CFList& factors,            ///< [in,out] list of lifted factors
+                                        ///< that are monic wrt Variable (1)
+            CanonicalForm& F,           ///< [in,out] poly to be factored
+            const CanonicalForm& M,     ///< [in] Variable (2)^liftBound
+            DegreePattern& degs,        ///< [in] degree pattern
+            const CanonicalForm& eval,  ///< [in] evaluation point
+            int s,                      ///< [in] algorithm starts checking
+                                        ///< subsets of size s
+            int thres,                  ///< [in] threshold for the size of
+                                        ///< subsets which are checked, for a
+                                        ///< full factor recombination choose
+                                        ///< thres= factors.length()/2
+            const modpk& b=modpk(),     ///< [in] coeff bound
+            const CanonicalForm& den= 1 ///< [in] bound on the den if over Q (a)
                     );
 
 /// chooses a field extension.
@@ -619,7 +676,8 @@ earlyFactorDetection (
                                    ///< whenever we find a factor
            bool& success,          ///< [in,out] indicating success
            int deg,                ///< [in] stage of Hensel lifting
-           const modpk& b= modpk() ///< [in] coeff bound
+           const CanonicalForm& eval, ///<[in] evaluation point
+           const modpk& b= modpk()///< [in] coeff bound
                      );
 
 /// detects factors of @a F at stage @a deg of Hensel lifting.
@@ -667,7 +725,8 @@ henselLiftAndEarly (
         const CFList& uniFactors,  ///< [in] univariate factors
         const ExtensionInfo& info, ///< [in] information about extension
         const CanonicalForm& eval, ///< [in] evaluation point
-        modpk& b                   ///< [in] coeff bound
+        modpk& b,                  ///< [in] coeff bound
+        CanonicalForm& den         ///< [in] bound on the den if over Q(a)
                   );
 
 /// hensel Lifting and early factor detection

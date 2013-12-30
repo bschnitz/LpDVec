@@ -12,44 +12,55 @@
 **/
 //*****************************************************************************
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
+
 #include <kernel/mod2.h>
 #include <kernel/febase.h>
+#include <Singular/blackbox.h>
+#include <Singular/ipshell.h>
 
-/* whether pyobject module is linked statically or dynamically */
-#ifdef HAVE_PYTHON
+//#ifdef EMBED_PYTHON
+//#include "pyobject.cc"
+//#endif
 
-  #if defined(HAVE_STATIC) 
-    #ifdef HAVE_STATIC_PYTHON
-      #define HAVE_STATIC_PYOBJECT
-    #endif
-  #else
-    #ifdef EMBED_PYTHON
-      #define HAVE_STATIC_PYOBJECT
-    #else
-      #define HAVE_DYNAMIC_PYOBJECT
-    #endif
-  #endif 
-#endif
-
-# ifdef HAVE_STATIC_PYOBJECT // Case: link pyobject interface statically
-#include "pyobject.cc"
-void pyobject_setup() { pyobject_init(); }
-
-
-# elif defined(HAVE_DYNAMIC_PYOBJECT) // Case: pyobject is dynamic module (prefered variant)
-
-// forward declaration for Singular/iplib.cc
-void* binary_module_function(const char* lib, const char* func); 
-void pyobject_setup()
+static BOOLEAN pyobject_load()
 {
-  void* fktn = binary_module_function("pyobject", "mod_init");
-  if (fktn) (* reinterpret_cast<void (*)()>(fktn) )();
-  else Werror("python related functions are not available");
+  return jjLOAD("pyobject.so", TRUE);
 }
 
-#else                // Case: no python
-void pyobject_setup() { }
+/// blackbox support - initialization via autoloading
+void* pyobject_autoload(blackbox* bbx)
+{
+  assume(bbx != NULL);
+  return (pyobject_load() || (bbx->blackbox_Init == pyobject_autoload)?
+	  NULL: bbx->blackbox_Init(bbx));
+}
 
-#endif  // HAVE_PYTHON
+void pyobject_default_destroy(blackbox  */*b*/, void */*d*/)
+{
+  Werror("Python-based functionality not available!");
+}
+
+// Setting up an empty blackbox type, which can be filled with pyobject
+void pyobject_setup()
+{
+  blackbox *bbx = (blackbox*)omAlloc0(sizeof(blackbox));
+  bbx->blackbox_Init = pyobject_autoload;
+  bbx->blackbox_destroy = pyobject_default_destroy;
+  setBlackboxStuff(bbx, "pyobject");
+}
+
+/// Explicitely load, if not loaded already
+BOOLEAN pyobject_ensure() {
+
+  int tok = -1;
+  blackbox* bbx = (blackboxIsCmd("pyobject", tok) == ROOT_DECL?
+                   getBlackboxStuff(tok): (blackbox*)NULL);
+  if (bbx == NULL) return TRUE;
+  return (bbx->blackbox_Init == pyobject_autoload?  pyobject_load(): FALSE);
+}
+
+
 

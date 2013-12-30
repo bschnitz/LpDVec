@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <sstream>
 #include <istream>
+#include <stdio.h>
 
 using namespace std;
 
@@ -51,7 +52,7 @@ static list<int> readIntList(istream &s)
 {
   list<int> ret;
   int c=s.peek();
-  while((c>='0') && (c<='9')|| (c==' '))
+  while(((c>='0') && (c<='9')) || (c==' '))
     {
       //      fprintf(Stderr,"?\n");
       int r;
@@ -64,8 +65,8 @@ static list<int> readIntList(istream &s)
 
 namespace gfan{
 PolymakeProperty::PolymakeProperty(const std::string &name_, const std::string &value_):
-  name(name_),
-  value(value_)
+  value(value_),
+  name(name_)
 {
 }
 
@@ -169,9 +170,9 @@ void PolymakeFile::close()
     }
   else
     {
-      fprintf(f,"_application %s\n",application.c_str());
-      fprintf(f,"_version 2.2\n");
-      fprintf(f,"_type %s\n",type.c_str());
+      // fprintf(f,"_application %s\n",application.c_str());
+      // fprintf(f,"_version 2.2\n");
+      // fprintf(f,"_type %s\n",type.c_str());
 
       for(list<PolymakeProperty>::const_iterator i=properties.begin();i!=properties.end();i++)
         {
@@ -199,9 +200,9 @@ void PolymakeFile::writeStream(ostream &file)
     }
   else
     {
-      file << "_application " << application << endl;
-      file << "_version 2.2\n";
-      file << "_type " << type << endl;
+      // file << "_application " << application << endl;
+      // file << "_version 2.2\n";
+      // file << "_type " << type << endl;
 
       for(list<PolymakeProperty>::const_iterator i=properties.begin();i!=properties.end();i++)
         {
@@ -269,13 +270,13 @@ void PolymakeFile::writeCardinalProperty(const char *p, Integer n)
 }
 
 
-bool PolymakeFile::readBooleanProperty(const char *p)
+bool PolymakeFile::readBooleanProperty(const char */*p*/)
 {
   return false;
 }
 
 
-void PolymakeFile::writeBooleanProperty(const char *p, bool n)
+void PolymakeFile::writeBooleanProperty(const char */*p*/, bool /*n*/)
 {
 }
 
@@ -320,7 +321,7 @@ void PolymakeFile::writeMatrixProperty(const char *p, const ZMatrix &m, bool ind
 {
   stringstream t;
 
-  if(comments)assert(comments->size()>=m.getHeight());
+  if(comments)assert((int)comments->size()>=m.getHeight());
   if(isXml)
     {
       t << "<matrix>\n";
@@ -387,7 +388,7 @@ void PolymakeFile::writeIncidenceMatrixProperty(const char *p, const vector<list
   if(isXml)
     {
       t<<"<incidence_matrix>";
-      for(int i=0;i<m.size();i++)
+      for(unsigned i=0;i<m.size();i++)
         {
           t<<"<set>";
           list<int> temp=m[i];
@@ -403,7 +404,7 @@ void PolymakeFile::writeIncidenceMatrixProperty(const char *p, const vector<list
     }
   else
     {
-      for(int i=0;i<m.size();i++)
+      for(unsigned i=0;i<m.size();i++)
         {
           t<<'{';
           list<int> temp=m[i];
@@ -443,7 +444,7 @@ void PolymakeFile::writeCardinalVectorProperty(const char *p, ZVector const &v)
   if(isXml)
     {
       t<<"<vector>";
-      for(int i=0;i<v.size();i++)
+      for(unsigned i=0;i<v.size();i++)
         {
           if(i!=0)t<<" ";
           t<<v[i];
@@ -452,7 +453,7 @@ void PolymakeFile::writeCardinalVectorProperty(const char *p, ZVector const &v)
     }
   else
     {
-      for(int i=0;i<v.size();i++)
+      for(unsigned i=0;i<v.size();i++)
         {
           if(i!=0)t<<" ";
           t<<v[i];

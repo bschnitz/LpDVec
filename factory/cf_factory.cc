@@ -1,6 +1,8 @@
 /* emacs edit mode for this file is -*- C++ -*- */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include "cf_assert.h"
 
@@ -24,7 +26,7 @@ CFFactory::settype ( int type )
 }
 
 InternalCF *
-CFFactory::basic ( int value )
+CFFactory::basic ( long value )
 {
     if ( currenttype == IntegerDomain )
         if ( value >= MINIMMEDIATE && value <= MAXIMMEDIATE )
@@ -49,7 +51,7 @@ CFFactory::basic ( int value )
 }
 
 InternalCF *
-CFFactory::basic ( int type, int value )
+CFFactory::basic ( int type, long value )
 {
     if ( type == IntegerDomain )
         if ( value >= MINIMMEDIATE && value <= MAXIMMEDIATE )
@@ -203,7 +205,7 @@ CFFactory::basic ( int type, const char * const str )
 }
 
 InternalCF *
-CFFactory::basic ( int type, int value, bool nonimm )
+CFFactory::basic ( int type, long value, bool nonimm )
 {
     if ( nonimm )
         if ( type == IntegerDomain )
@@ -230,7 +232,7 @@ CFFactory::basic ( const mpz_ptr num )
 }
 
 InternalCF *
-CFFactory::rational ( int num, int den )
+CFFactory::rational ( long num, long den )
 {
     InternalRational * res = new InternalRational( num, den );
     return res->normalize_myself();
@@ -260,7 +262,7 @@ InternalCF *
 CFFactory::poly ( const Variable & v, int exp )
 {
     if ( v.level() == LEVELBASE )
-        return CFFactory::basic( 1 );
+        return CFFactory::basic( 1L );
     else
         return new InternalPoly( v, exp, 1 );
 }
@@ -282,3 +284,10 @@ mpz_ptr getmpi ( InternalCF * value, bool symmetric )
         mpz_init_set( dummy, InternalPrimePower::MPI( value ) );
     return dummy;
 }
+
+void getmpi ( InternalCF * value, mpz_t mpi)
+{
+    ASSERT( ! is_imm( value ) && (value->levelcoeff() == IntegerDomain ), "illegal operation" );
+    mpz_init_set (mpi, ((InternalInteger*)value)->thempi);
+}
+

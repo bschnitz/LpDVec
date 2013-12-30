@@ -1,0 +1,143 @@
+AC_DEFUN([SING_SHOW_FLAGS], [
+
+echo "/* --------------- $1 --------------- */";
+
+AC_MSG_CHECKING([  CFLAGS?..])
+AC_MSG_RESULT(${CFLAGS:-unset})
+AC_MSG_CHECKING([CXXFLAGS?..])
+AC_MSG_RESULT(${CXXFLAGS:-unset})
+AC_MSG_CHECKING([CPPFLAGS?..])
+AC_MSG_RESULT(${CPPFLAGS:-unset})
+AC_MSG_CHECKING([    DEFS?..])
+AC_MSG_RESULT(${DEFS:-unset})
+AC_MSG_CHECKING([ LDFLAGS?..])
+AC_MSG_RESULT(${LDFLAGS:-unset})
+AC_MSG_CHECKING([    LIBS?..])
+AC_MSG_RESULT(${LIBS:-unset})
+AC_MSG_CHECKING([     GCC?..])
+AC_MSG_RESULT(${GCC:-unset})
+AC_MSG_CHECKING([      CC?..])
+AC_MSG_RESULT(${CC:-unset})
+AC_MSG_CHECKING([     GXX?..])
+AC_MSG_RESULT(${GXX:-unset})
+AC_MSG_CHECKING([     CXX?..])
+AC_MSG_RESULT(${CXX:-unset})
+
+# echo "/* =============== $1 =============== */";
+])
+
+AC_DEFUN([SING_RESET_FLAGS], [
+ AC_MSG_WARN([Please note that we set empty defaults for \`CFLAGS' and \`CXXFLAGS' (instead of \`-g -O')])
+ : ${CFLAGS:=""}
+ : ${CXXFLAGS:=""}
+])
+
+
+AC_DEFUN([SING_CHECK_SET_ARGS], [
+#  SING_SHOW_FLAGS([Initial state?...])dnl
+
+ ENABLE_DEBUG="no"
+ ENABLE_OPTIMIZATION="yes"
+
+ AC_ARG_ENABLE([debug],
+  AS_HELP_STRING([--enable-debug], [build the debugging version of the libraries]),
+  [if test "x$enableval" = "xyes"; then
+   ENABLE_DEBUG="yes"
+  fi])
+
+ AC_ARG_ENABLE([optimizationflags],
+  AS_HELP_STRING([--disable-optimizationflags], [build the without default optimization flags]),
+  [if test "x$enableval" = "xno"; then
+   ENABLE_OPTIMIZATION="no"
+  fi])
+  
+ AC_MSG_CHECKING([debugging checks should be embedded])
+ if test "x${ENABLE_DEBUG}" != xyes; then
+  AC_MSG_RESULT([no])
+ else
+  AC_MSG_RESULT([yes])
+ fi
+ 
+ AC_MSG_CHECKING([whether optimization flags should be used])
+ if test "x${ENABLE_OPTIMIZATION}" == xyes; then
+  AC_MSG_RESULT([yes])
+ else
+  AC_MSG_RESULT([no])
+ fi
+ 
+ AM_CONDITIONAL(WANT_DEBUG, test x"${ENABLE_DEBUG}" == xyes)
+ AM_CONDITIONAL(WANT_OPTIMIZATIONFLAGS, test x"${ENABLE_OPTIMIZATION}" != xno)
+
+ if test "x${ENABLE_DEBUG}" == xyes; then
+  if test "x${ENABLE_OPTIMIZATION}" == xyes; then
+   AC_MSG_ERROR([Please note that you have enabled the debug and optimization flags, which may not work well together (try \`--disable-optimizationflags')!])
+  fi
+# else
+#  AC_DEFINE([OM_NDEBUG],1,"Disable OM Debug")
+#  AC_DEFINE([NDEBUG],1,"Disable Debug")
+ fi
+
+# SING_SHOW_FLAGS([checking flags....])
+
+ FLAGS="-pipe -fno-common"
+ AC_LANG_PUSH([C])
+ AX_APPEND_COMPILE_FLAGS(${FLAGS}, [CFLAGS])
+ AC_LANG_POP([C])
+ 
+ AC_LANG_PUSH([C++])
+ AX_APPEND_COMPILE_FLAGS(${FLAGS}, [CXXFLAGS])
+ AX_APPEND_COMPILE_FLAGS([-fexceptions -frtti], [POLYMAKE_CXXFLAGS])
+ AC_LANG_POP([C++])
+
+ AX_APPEND_LINK_FLAGS(${FLAGS}) 
+
+ AC_SUBST(POLYMAKE_CXXFLAGS)
+
+ if test "x${ENABLE_DEBUG}" == xyes; then
+  DBGFLAGS="-g -ftrapv -fdiagnostics-show-option -Wall -Wextra"
+  #  -pedantic too strict ??? -Wvla -Wno-long-long ???
+  AC_LANG_PUSH([C])
+  AX_APPEND_COMPILE_FLAGS(${DBGFLAGS}, [CFLAGS])
+  AC_LANG_POP([C])
+  AC_LANG_PUSH([C++])
+  AX_APPEND_COMPILE_FLAGS(${DBGFLAGS}, [CXXFLAGS])
+  AC_LANG_POP([C++])
+  AX_APPEND_LINK_FLAGS(${DBGFLAGS})
+ fi
+
+ ## for clang: -Wunneeded-internal-declaration 
+
+ if test "x${ENABLE_OPTIMIZATION}" != xno; then 
+  OPTFLAGS="-DOM_NDEBUG -DNDEBUG -O3 -Wno-unused-function -Wno-trigraphs -Wno-unused-parameter -Wno-unused-variable -fomit-frame-pointer -fwrapv -fvisibility=default -finline-functions -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-enforce-eh-specs -fconserve-space -funroll-loops"
+  #  -O3 - crashes gcc???!!!  
+  # -fpermissive  
+  AC_LANG_PUSH([C])
+  AX_APPEND_COMPILE_FLAGS(${OPTFLAGS}, [CFLAGS])
+  AC_LANG_POP([C])
+  AC_LANG_PUSH([C++])
+  AX_APPEND_COMPILE_FLAGS(${OPTFLAGS}, [CXXFLAGS])
+#   AX_APPEND_COMPILE_FLAGS([-fno-threadsafe-statics -fno-enforce-eh-specs -fconserve-space], [CXXFLAGS])
+###  AX_APPEND_COMPILE_FLAGS([-fno-implicit-templates], [CXXFLAGS]) # problems due to STL
+  AC_LANG_POP([C++])
+  AX_APPEND_LINK_FLAGS(${OPTFLAGS}) 
+#  AX_APPEND_LINK_FLAGS([-fno-threadsafe-statics -fno-enforce-eh-specs -fconserve-space])
+###  AX_APPEND_LINK_FLAGS([-fno-implicit-templates]) # see above :(
+#  AX_APPEND_LINK_FLAGS([ ])
+ fi
+
+ FLAGS2="-Qunused-arguments"
+ AC_LANG_PUSH([C])
+ AX_APPEND_COMPILE_FLAGS(${FLAGS2}, [CFLAGS])
+ AC_LANG_POP([C])
+ 
+ AC_LANG_PUSH([C++])
+ AX_APPEND_COMPILE_FLAGS(${FLAGS2}, [CXXFLAGS])
+ AC_LANG_POP([C++])
+
+ AX_APPEND_LINK_FLAGS(${FLAGS2}) 
+
+# SING_SHOW_FLAGS([before PROG_C_CC])
+
+AC_PROG_CC
+AC_PROG_CXX
+])

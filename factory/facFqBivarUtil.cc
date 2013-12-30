@@ -10,7 +10,11 @@
  **/
 /*****************************************************************************/
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
+
+#include "timing.h"
 
 #include "cf_map.h"
 #include "algext.h"
@@ -27,6 +31,9 @@
 #include "facHensel.h"
 #include "facMul.h"
 
+TIMING_DEFINE_PRINT(fac_log_deriv_div)
+TIMING_DEFINE_PRINT(fac_log_deriv_mul)
+TIMING_DEFINE_PRINT(fac_log_deriv_pre)
 
 void append (CFList& factors1, const CFList& factors2)
 {
@@ -48,6 +55,13 @@ void decompress (CFFList& factors, const CFMap& N)
 {
   for (CFFListIterator i= factors; i.hasItem(); i++)
     i.getItem()= CFFactor (N (i.getItem().factor()), i.getItem().exp());
+}
+
+void decompress (CFAFList& factors, const CFMap& N)
+{
+  for (CFAFListIterator i= factors; i.hasItem(); i++)
+    i.getItem()= CFAFactor (N (i.getItem().factor()), i.getItem().minpoly(),
+                            i.getItem().exp());
 }
 
 void appendSwapDecompress (CFList& factors1, const CFList& factors2,
@@ -449,30 +463,33 @@ logarithmicDerivative (const CanonicalForm& F, const CanonicalForm& G, int l,
   CanonicalForm q,r;
   CanonicalForm logDeriv;
 
+  TIMING_START (fac_log_deriv_div);
   q= newtonDiv (F, G, xToL);
+  TIMING_END_AND_PRINT (fac_log_deriv_div, "time for division in logderiv1: ");
 
+  TIMING_START (fac_log_deriv_mul);
   logDeriv= mulMod2 (q, deriv (G, y), xToL);
+  TIMING_END_AND_PRINT (fac_log_deriv_mul, "time to multiply in logderiv1: ");
 
-  logDeriv= swapvar (logDeriv, x, y);
-  int j= degree (logDeriv) + 1;
+  if (degree (logDeriv, x) == 0)
+  {
+    Q= q;
+    return CFArray();
+  }
+
+  int j= degree (logDeriv, y) + 1;
   CFArray result= CFArray (j);
+  CFIterator ii;
   for (CFIterator i= logDeriv; i.hasTerms() && !logDeriv.isZero(); i++)
   {
-    if (i.exp() == j - 1)
-    {
-      result [j - 1]= swapvar (i.coeff(), x, y);
-      j--;
-    }
+    if (i.coeff().inCoeffDomain())
+      result[0] += i.coeff()*power (x,i.exp());
     else
     {
-      for (; i.exp() < j - 1; j--)
-        result [j - 1]= 0;
-      result [j - 1]= swapvar (i.coeff(), x, y);
-      j--;
+      for (ii= i.coeff(); ii.hasTerms(); ii++)
+        result[ii.exp()] += ii.coeff()*power (x,i.exp());
     }
   }
-  for (; j > 0; j--)
-    result [j - 1]= 0;
   Q= q;
   return result;
 }
@@ -491,6 +508,7 @@ logarithmicDerivative (const CanonicalForm& F, const CanonicalForm& G, int l,
   CanonicalForm logDeriv;
 
   CanonicalForm bufF;
+  TIMING_START (fac_log_deriv_pre);
   if ((oldL > 100 && l - oldL < 50) || (oldL < 100 && l - oldL < 30))
   {
     bufF= F;
@@ -503,47 +521,59 @@ logarithmicDerivative (const CanonicalForm& F, const CanonicalForm& G, int l,
     //middle product style computation of [G*oldQ]^{l}_{oldL}
     CanonicalForm G3= div (G, xToOldL);
     CanonicalForm Up= mulMod2 (G3, oldQ, xToLOldL);
-    CanonicalForm xToOldL2= power (x, oldL/2);
+    CanonicalForm xToOldL2= power (x, (oldL+1)/2);
     CanonicalForm G2= mod (G, xToOldL);
     CanonicalForm G1= div (G2, xToOldL2);
     CanonicalForm G0= mod (G2, xToOldL2);
     CanonicalForm oldQ1= div (oldQ, xToOldL2);
     CanonicalForm oldQ0= mod (oldQ, xToOldL2);
-    CanonicalForm Mid= mulMod2 (G1, oldQ1, xToLOldL);
+    CanonicalForm Mid;
+    if (oldL % 2 == 1)
+      Mid= mulMod2 (G1, oldQ1*x, xToLOldL);
+    else
+      Mid= mulMod2 (G1, oldQ1, xToLOldL);
     //computation of Low might be faster using a real middle product?
     CanonicalForm Low= mulMod2 (G0, oldQ1, xToOldL)+mulMod2 (G1, oldQ0, xToOldL);
-    Low= div (Low, xToOldL2);
+    Low= div (Low, power (x, oldL/2));
+    Low= mod (Low, xToLOldL);
     Up += Mid + Low;
     bufF= div (F, xToOldL);
     bufF -= Up;
   }
+  TIMING_END_AND_PRINT (fac_log_deriv_pre, "time to preprocess: ");
 
-  q= newtonDiv (bufF, G, xToLOldL);
+  TIMING_START (fac_log_deriv_div);
+  if (l-oldL > 0)
+    q= newtonDiv (bufF, G, xToLOldL);
+  else
+    q= 0;
   q *= xToOldL;
   q += oldQ;
+  TIMING_END_AND_PRINT (fac_log_deriv_div, "time for div in logderiv2: ");
 
+  TIMING_START (fac_log_deriv_mul);
   logDeriv= mulMod2 (q, deriv (G, y), xToL);
+  TIMING_END_AND_PRINT (fac_log_deriv_mul, "time for mul in logderiv2: ");
 
-  logDeriv= swapvar (logDeriv, x, y);
-  int j= degree (logDeriv) + 1;
+  if (degree (logDeriv, x) == 0)
+  {
+    Q= q;
+    return CFArray();
+  }
+
+  int j= degree (logDeriv,y) + 1;
   CFArray result= CFArray (j);
+  CFIterator ii;
   for (CFIterator i= logDeriv; i.hasTerms() && !logDeriv.isZero(); i++)
   {
-    if (i.exp() == j - 1)
-    {
-      result [j - 1]= swapvar (i.coeff(), x, y);
-      j--;
-    }
+    if (i.coeff().inCoeffDomain())
+      result[0] += i.coeff()*power (x,i.exp());
     else
     {
-      for (; i.exp() < j - 1; j--)
-        result [j - 1]= 0;
-      result [j - 1]= swapvar (i.coeff(), x, y);
-      j--;
+      for (ii= i.coeff(); ii.hasTerms(); ii++)
+        result[ii.exp()] += ii.coeff()*power (x,i.exp());
     }
   }
-  for (; j > 0; j--)
-    result [j - 1]= 0;
   Q= q;
   return result;
 }
@@ -695,6 +725,160 @@ int * computeBounds (const CanonicalForm& F, int& n, bool& isIrreducible)
           bufGFName=gf_name;
         }
         setCharacteristic(0);
+        CanonicalForm tmp= gcd (newtonPolyg[0][0],newtonPolyg[0][1]);  // maybe it's better to use plain intgcd
+        tmp= gcd (tmp, newtonPolyg[1][0]);
+        tmp= gcd (tmp, newtonPolyg[1][1]);
+        tmp= gcd (tmp, newtonPolyg[2][0]);
+        tmp= gcd (tmp, newtonPolyg[2][1]);
+        isIrreducible= (tmp==1);
+        if (GF)
+          setCharacteristic (p, d, bufGFName);
+        else
+          setCharacteristic(p);
+      }
+    }
+  }
+
+  int minX, minY, maxX, maxY;
+  minX= newtonPolyg [0] [0];
+  minY= newtonPolyg [0] [1];
+  maxX= minX;
+  maxY= minY;
+  int indZero= 0;
+  for (int i= 1; i < sizeOfNewtonPolygon; i++)
+  {
+    if (newtonPolyg[i][1] == 0)
+    {
+      if (newtonPolyg[indZero][1] == 0)
+      {
+        if (newtonPolyg[indZero][0] < newtonPolyg[i][0])
+          indZero= i;
+      }
+      else
+        indZero= i;
+    }
+    if (minX > newtonPolyg [i] [0])
+      minX= newtonPolyg [i] [0];
+    if (maxX < newtonPolyg [i] [0])
+      maxX= newtonPolyg [i] [0];
+    if (minY > newtonPolyg [i] [1])
+      minY= newtonPolyg [i] [1];
+    if (maxY < newtonPolyg [i] [1])
+      maxY= newtonPolyg [i] [1];
+  }
+
+  int slopeNum, slopeDen, constTerm;
+  bool negativeSlope=false;
+  if (indZero != sizeOfNewtonPolygon - 1)
+  {
+    slopeNum= newtonPolyg[indZero+1][0]-newtonPolyg[indZero][0];
+    slopeDen= newtonPolyg[indZero+1][1];
+    constTerm= newtonPolyg[indZero][0];
+  }
+  else
+  {
+    slopeNum= newtonPolyg[0][0]-newtonPolyg[indZero][0];
+    slopeDen= newtonPolyg[0][1];
+    constTerm= newtonPolyg[indZero][0];
+  }
+  if (slopeNum < 0)
+  {
+    slopeNum= -slopeNum;
+    negativeSlope= true;
+  }
+  int k= 0;
+  for (int i= 0; i < n; i++)
+  {
+    if (((indZero+1) < sizeOfNewtonPolygon && (i+1) > newtonPolyg[indZero+1][1])
+        || ((indZero+1) >= sizeOfNewtonPolygon && (i+1) > newtonPolyg[0][1]))
+    {
+      if (indZero + 1 != sizeOfNewtonPolygon)
+        indZero++;
+      else
+        indZero= 0;
+      if (indZero != sizeOfNewtonPolygon - 1)
+      {
+        slopeNum= newtonPolyg[indZero+1][0]-newtonPolyg[indZero][0];
+        slopeDen= newtonPolyg[indZero+1][1]-newtonPolyg[indZero][1];
+        constTerm= newtonPolyg[indZero][0];
+      }
+      else
+      {
+        slopeNum= newtonPolyg[0][0]-newtonPolyg[indZero][0];
+        slopeDen= newtonPolyg[0][1]-newtonPolyg[indZero][1];
+        constTerm= newtonPolyg[indZero][0];
+      }
+      if (slopeNum < 0)
+      {
+        negativeSlope= true;
+        slopeNum= - slopeNum;
+        k= (int) -(((long) slopeNum*((i+1)-newtonPolyg[indZero][1])+slopeDen-1)/
+                   slopeDen) + constTerm;
+      }
+      else
+        k= (int) (((long) slopeNum*((i+1)-newtonPolyg[indZero][1])) / slopeDen)
+                  + constTerm;
+    }
+    else
+    {
+      if (negativeSlope)
+        k= (int) -(((long) slopeNum*((i+1)-newtonPolyg[indZero][1])+slopeDen-1)/
+                   slopeDen) + constTerm;
+      else
+        k= (int) ((long) slopeNum*((i+1)-newtonPolyg[indZero][1])) / slopeDen
+                  + constTerm;
+    }
+    if (i + 1 > maxY || i + 1 < minY)
+    {
+      result [i]= 0;
+      continue;
+    }
+    int* point= new int [2];
+    point [0]= k;
+    point [1]= i + 1;
+    if (!isInPolygon (newtonPolyg, sizeOfNewtonPolygon, point) && k > 0)
+      k= 0;
+    result [i]= k;
+    delete [] point;
+  }
+
+  for (int i= 0; i < sizeOfNewtonPolygon; i++)
+    delete [] newtonPolyg[i];
+  delete [] newtonPolyg;
+
+  return result;
+}
+
+int *
+computeBoundsWrtDiffMainvar (const CanonicalForm& F, int& n,
+                             bool& isIrreducible)
+{
+  n= degree (F, 2);
+  int* result= new int [n];
+  int sizeOfNewtonPolygon;
+  int** newtonPolyg= newtonPolygon (F, sizeOfNewtonPolygon);
+
+  isIrreducible= false;
+  if (sizeOfNewtonPolygon == 3)
+  {
+    bool check1=
+        (newtonPolyg[0][0]==0 || newtonPolyg[1][0]==0 || newtonPolyg[2][0]==0);
+    if (check1)
+    {
+      bool check2=
+        (newtonPolyg[0][1]==0 || newtonPolyg[1][1]==0 || newtonPolyg[2][0]==0);
+      if (check2)
+      {
+        int p=getCharacteristic();
+        int d=1;
+        char bufGFName='Z';
+        bool GF= (CFFactory::gettype()==GaloisFieldDomain);
+        if (GF)
+        {
+          d= getGFDegree();
+          bufGFName=gf_name;
+        }
+        setCharacteristic(0);
         CanonicalForm tmp= gcd (newtonPolyg[0][0],newtonPolyg[0][1]);
         tmp= gcd (tmp, newtonPolyg[1][0]);
         tmp= gcd (tmp, newtonPolyg[1][1]);
@@ -714,8 +898,19 @@ int * computeBounds (const CanonicalForm& F, int& n, bool& isIrreducible)
   minY= newtonPolyg [0] [1];
   maxX= minX;
   maxY= minY;
+  int indZero= 0;
   for (int i= 1; i < sizeOfNewtonPolygon; i++)
   {
+    if (newtonPolyg[i][0] == 0)
+    {
+      if (newtonPolyg[indZero][0] == 0)
+      {
+        if (newtonPolyg[indZero][1] < newtonPolyg[i][1])
+          indZero= i;
+      }
+      else
+        indZero= i;
+    }
     if (minX > newtonPolyg [i] [0])
       minX= newtonPolyg [i] [0];
     if (maxX < newtonPolyg [i] [0])
@@ -726,26 +921,84 @@ int * computeBounds (const CanonicalForm& F, int& n, bool& isIrreducible)
       maxY= newtonPolyg [i] [1];
   }
 
-  int k= maxX;
+  int slopeNum, slopeDen, constTerm;
+  bool negativeSlope=false;
+  if (indZero != sizeOfNewtonPolygon - 1)
+  {
+    slopeNum= newtonPolyg[indZero+1][1]-newtonPolyg[indZero][1];
+    slopeDen= newtonPolyg[indZero+1][0];
+    constTerm= newtonPolyg[indZero][1];
+  }
+  else
+  {
+    slopeNum= newtonPolyg[0][1]-newtonPolyg[indZero][1];
+    slopeDen= newtonPolyg[0][0];
+    constTerm= newtonPolyg[indZero][1];
+  }
+  if (slopeNum < 0)
+  {
+    slopeNum= -slopeNum;
+    negativeSlope= true;
+  }
+  int k= 0;
   for (int i= 0; i < n; i++)
   {
-    if (i + 1 > maxY || i + 1 < minY)
+    if (((indZero+1) < sizeOfNewtonPolygon && (i+1) > newtonPolyg[indZero+1][0])
+        || ((indZero+1) >= sizeOfNewtonPolygon && (i+1) > newtonPolyg[0][0]))
+    {
+      if (indZero + 1 != sizeOfNewtonPolygon)
+        indZero++;
+      else
+        indZero= 0;
+      if (indZero != sizeOfNewtonPolygon - 1)
+      {
+        slopeNum= newtonPolyg[indZero+1][1]-newtonPolyg[indZero][1];
+        slopeDen= newtonPolyg[indZero+1][0]-newtonPolyg[indZero][0];
+        constTerm= newtonPolyg[indZero][1];
+      }
+      else
+      {
+        slopeNum= newtonPolyg[0][1]-newtonPolyg[indZero][1];
+        slopeDen= newtonPolyg[0][0]-newtonPolyg[indZero][0];
+        constTerm= newtonPolyg[indZero][1];
+      }
+      if (slopeNum < 0)
+      {
+        negativeSlope= true;
+        slopeNum= - slopeNum;
+        k= (int) -(((long) slopeNum*((i+1)-newtonPolyg[indZero][0])+slopeDen-1)/
+                   slopeDen) + constTerm;
+      }
+      else
+        k= (int) (((long) slopeNum*((i+1)-newtonPolyg[indZero][0])) / slopeDen)
+                  + constTerm;
+    }
+    else
+    {
+      if (negativeSlope)
+        k= (int) -(((long) slopeNum*((i+1)-newtonPolyg[indZero][0])+slopeDen-1)/
+                   slopeDen) + constTerm;
+      else
+        k= (int) ((long) slopeNum*((i+1)-newtonPolyg[indZero][0])) / slopeDen
+                  + constTerm;
+    }
+    if (i + 1 > maxX || i + 1 < minX)
     {
       result [i]= 0;
       continue;
     }
     int* point= new int [2];
-    point [0]= k;
-    point [1]= i + 1;
-    while (!isInPolygon (newtonPolyg, sizeOfNewtonPolygon, point) && k > 0)
-    {
-      k--;
-      point [0]= k;
-    }
+    point [0]= i + 1;
+    point [1]= k;
+    if (!isInPolygon (newtonPolyg, sizeOfNewtonPolygon, point) && k > 0)
+      k= 0;
     result [i]= k;
-    k= maxX;
     delete [] point;
   }
+
+  for (int i= 0; i < sizeOfNewtonPolygon; i++)
+    delete [] newtonPolyg[i];
+  delete [] newtonPolyg;
 
   return result;
 }

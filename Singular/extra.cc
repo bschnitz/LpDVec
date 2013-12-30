@@ -7,14 +7,14 @@
 
 #define HAVE_WALK 1
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <misc/auxiliary.h>
 
-#ifdef HAVE_FACTORY
-// #define SI_DONT_HAVE_GLOBAL_VARS
+#define SI_DONT_HAVE_GLOBAL_VARS
 #include <factory/factory.h>
-#endif
 
 
 #include <stdlib.h>
@@ -46,6 +46,13 @@
 // #include <coeffs/ffields.h>
 #include <coeffs/coeffs.h>
 #include <coeffs/mpr_complex.h>
+#include "coeffs/AE.h"
+#include "coeffs/OPAE.h"
+#include "coeffs/AEp.h"
+#include "coeffs/OPAEp.h"
+#include "coeffs/AEQ.h"
+#include "coeffs/OPAEQ.h"
+
 
 #include <polys/monomials/ring.h>
 #include <kernel/polys.h>
@@ -61,7 +68,6 @@
 #include <kernel/fast_mult.h>
 #include <kernel/digitech.h>
 #include <kernel/stairc.h>
-#include <kernel/modulop.h>
 #include <kernel/febase.h>
 #include <kernel/ideals.h>
 #include <kernel/kstd1.h>
@@ -90,19 +96,15 @@
 
 #include "attrib.h"
 
-#include "silink.h"
+#include "links/silink.h"
 #include "walk.h"
 #include <Singular/newstruct.h>
-
+#include <Singular/blackbox.h>
+#include <Singular/pyobject_setup.h>
 
 
 #ifdef HAVE_RINGS
 #include <kernel/ringgb.h>
-#endif
-
-#ifdef HAVE_FANS
-#include <kernel/gfan.h>
-#include <gfanlib/gfanlib.h>
 #endif
 
 #ifdef HAVE_F5
@@ -117,11 +119,6 @@
 #ifdef HAVE_SPECTRUM
 #include <kernel/spectrum.h>
 #endif
-
-#if defined(HPUX_10) || defined(HPUX_9)
-extern "C" int setenv(const char *name, const char *value, int overwrite);
-#endif
-
 
 #ifdef HAVE_PLURAL
 #include <polys/nc/nc.h>
@@ -148,16 +145,8 @@ extern "C" int setenv(const char *name, const char *value, int overwrite);
 #define HAVE_EXTENDED_SYSTEM 1
 #endif
 
-#ifdef HAVE_FACTORY
-#define SI_DONT_HAVE_GLOBAL_VARS
-
-#ifdef HAVE_LIBFAC
-//#include <factory/libfac/libfac.h>
-#endif
-
 #include <polys/clapconv.h>
 #include <kernel/kstdfac.h>
-#endif
 
 #include <polys/clapsing.h>
 
@@ -167,6 +156,10 @@ extern "C" int setenv(const char *name, const char *value, int overwrite);
 
 #ifdef HAVE_GMS
 #include "gms.h"
+#endif
+
+#ifdef HAVE_SIMPLEIPC
+#include "Singular/links/simpleipc.h"
 #endif
 
 /*
@@ -306,15 +299,14 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
 /*==================== cpu ==================================*/
     if(strcmp(sys_cmd,"cpu")==0)
     {
-      res->rtyp=INT_CMD;
+      long cpu=1; //feOptValue(FE_OPT_CPUS);
       #ifdef _SC_NPROCESSORS_ONLN
-      res->data=(void *)sysconf(_SC_NPROCESSORS_ONLN);
+      cpu=sysconf(_SC_NPROCESSORS_ONLN);
       #elif defined(_SC_NPROCESSORS_CONF)
-      res->data=(void *)sysconf(_SC_NPROCESSORS_CONF);
-      #else
-      // dummy, if not defined:
-      res->data=(void *)1;
+      cpu=sysconf(_SC_NPROCESSORS_CONF);
       #endif
+      res->data=(void *)cpu;
+      res->rtyp=INT_CMD;
       return FALSE;
     }
     else
@@ -335,6 +327,10 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
 /*==================== sh ==================================*/
     if(strcmp(sys_cmd,"sh")==0)
     {
+      if (feOptValue(FE_OPT_NO_SHELL)) {
+       WerrorS("shell execution is disallowed in restricted mode");
+       return TRUE;
+       }
       res->rtyp=INT_CMD;
       if (h==NULL) res->data = (void *)(long) system("sh");
       else if (h->Typ()==STRING_CMD)
@@ -416,7 +412,7 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
       if (h==NULL)
       {
         res->rtyp=STRING_CMD;
-        res->data=(void *)omStrDup(versionString());
+        res->data=(void *)versionString();
         return FALSE;
       }
       else if (h->Typ()==STRING_CMD)
@@ -430,34 +426,32 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
           #ifdef HAVE_DLD
             TEST_FOR("DLD")
           #endif
-          #ifdef HAVE_FACTORY
-            TEST_FOR("factory")
+            //TEST_FOR("factory")
             //TEST_FOR("libfac")
-          #endif
           #ifdef HAVE_READLINE
             TEST_FOR("readline")
           #endif
           #ifdef TEST_MAC_ORDER
-            TEST_FOR("MAC_ORDER");
+            TEST_FOR("MAC_ORDER")
           #endif
           // unconditional since 3-1-0-6
-            TEST_FOR("Namespaces");
+            TEST_FOR("Namespaces")
           #ifdef HAVE_DYNAMIC_LOADING
-            TEST_FOR("DynamicLoading");
+            TEST_FOR("DynamicLoading")
           #endif
           #ifdef HAVE_EIGENVAL
-            TEST_FOR("eigenval");
+            TEST_FOR("eigenval")
           #endif
           #ifdef HAVE_GMS
-            TEST_FOR("gms");
+            TEST_FOR("gms")
           #endif
           #ifdef OM_NDEBUG
-            TEST_FOR("om_ndebug");
+            TEST_FOR("om_ndebug")
           #endif
           #ifdef NDEBUG
-            TEST_FOR("ndebug");
+            TEST_FOR("ndebug")
           #endif
-            ;
+            {};
           return FALSE;
           #undef TEST_FOR
         }
@@ -468,9 +462,9 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
       if (strcmp(sys_cmd,"browsers")==0)
       {
         res->rtyp = STRING_CMD;
-        char* b = StringSetS("");
+        StringSetS("");
         feStringAppendBrowsers(0);
-        res->data = omStrDup(b);
+        res->data = StringEndS();
         return FALSE;
       }
       else
@@ -629,9 +623,7 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
         {
           siRandomStart=(int)((long)h->Data());
           siSeed=siRandomStart;
-  #ifdef HAVE_FACTORY
           factoryseed(siRandomStart);
-  #endif
           return FALSE;
         }
         else if (h != NULL)
@@ -774,7 +766,7 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
                                      sizeof(int) * r) != 0))
             r--;
           res->rtyp = INT_CMD;
-          res->data = (void*)r;
+          res->data = (void*)(long)r;
           return FALSE;
         }
         else
@@ -939,14 +931,14 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
         if (solvable)
         {
           ll->Init(3);
-          ll->m[0].rtyp=INT_CMD;    ll->m[0].data=(void *)solvable;
+          ll->m[0].rtyp=INT_CMD;    ll->m[0].data=(void *)(long)solvable;
           ll->m[1].rtyp=MATRIX_CMD; ll->m[1].data=(void *)xVec;
           ll->m[2].rtyp=MATRIX_CMD; ll->m[2].data=(void *)homogSolSpace;
         }
         else
         {
           ll->Init(1);
-          ll->m[0].rtyp=INT_CMD;    ll->m[0].data=(void *)solvable;
+          ll->m[0].rtyp=INT_CMD;    ll->m[0].data=(void *)(long)solvable;
         }
         res->rtyp = LIST_CMD;
         res->data=(char*)ll;
@@ -962,7 +954,7 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
           int timeMillisec = (int)(long)h->next->Data();
           int n = slStatusSsiL(L, timeMillisec * 1000);
           res->rtyp = INT_CMD;
-          res->data = (void*)n;
+          res->data = (void*)(long)n;
           return FALSE;
         }
         else
@@ -973,10 +965,8 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
       }
   /*==================== neworder =============================*/
   // should go below
-  #ifdef HAVE_FACTORY
       if(strcmp(sys_cmd,"neworder")==0)
       {
-#if defined(HAVE_LIBFAC)
         if ((h!=NULL) &&(h->Typ()==IDEAL_CMD))
         {
           res->rtyp=STRING_CMD;
@@ -985,13 +975,8 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
         }
         else
           WerrorS("ideal expected");
-#else
-  Werror("Sorry: not yet re-factored: see libpolys/polys/clapsing.cc");
-  return FALSE;
-#endif
       }
       else
-  #endif
   //#ifndef HAVE_DYNAMIC_LOADING
   /*==================== pcv ==================================*/
   #ifdef HAVE_PCV
@@ -1243,9 +1228,9 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
       {
 
         if ((h!=NULL) && (h->Typ()==INT_CMD))
-          res->data=(void *)setNCExtensions( (int)((long)(h->Data())) );
+          res->data=(void *)(long)setNCExtensions( (int)((long)(h->Data())) );
         else
-          res->data=(void *)getNCExtensions();
+          res->data=(void *)(long)getNCExtensions();
 
         res->rtyp=INT_CMD;
         return FALSE;
@@ -1257,9 +1242,9 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
         res->rtyp=INT_CMD;
 
         if( rIsPluralRing(currRing) )
-          res->data=(void *)ncRingType(currRing);
+          res->data=(void *)(long)ncRingType(currRing);
         else
-          res->data=(void *)(-1);
+          res->data=(void *)(-1L);
 
         return FALSE;
       }
@@ -1434,7 +1419,7 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
         res->data = (void*) walkNextWeight(((intvec*) h->Data()),
                                            ((intvec*) h->next->Data()),
                                            (ideal) h->next->next->Data());
-        if (res->data == (void*) 0 || res->data == (void*) 1)
+        if (res->data == NULL || res->data == (void*) 1L)
         {
           res->rtyp = INT_CMD;
         }
@@ -2021,6 +2006,40 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
         return FALSE;
       }
       else
+      if (strcmp(sys_cmd, "Mrwalk") == 0)
+      { // Random Walk
+        if (h == NULL || h->Typ() != IDEAL_CMD ||
+            h->next == NULL || h->next->Typ() != INTVEC_CMD ||
+            h->next->next == NULL || h->next->next->Typ() != INTVEC_CMD ||
+            h->next->next->next == NULL || h->next->next->next->Typ() != INT_CMD ||
+            h->next->next->next->next == NULL || h->next->next->next->next->Typ() != INT_CMD)
+        {
+          Werror("system(\"Mrwalk\", ideal, intvec, intvec, int, int) expected");
+          return TRUE;
+        }
+
+        if (((intvec*) h->next->Data())->length() != currRing->N &&
+            ((intvec*) h->next->next->Data())->length() != currRing->N )
+        {
+          Werror("system(\"Mrwalk\" ...) intvecs not of length %d\n",
+                 currRing->N);
+          return TRUE;
+        }
+        ideal arg1 = (ideal) h->Data();
+        intvec* arg2 = (intvec*) h->next->Data();
+        intvec* arg3 =  (intvec*) h->next->next->Data();
+        int arg4 = (int)(long) h->next->next->next->Data();
+        int arg5 = (int)(long) h->next->next->next->next->Data();
+
+
+        ideal result = (ideal) Mrwalk(arg1, arg2, arg3, arg4, arg5);
+
+        res->rtyp = IDEAL_CMD;
+        res->data =  result;
+
+        return FALSE;
+      }
+      else
       if (strcmp(sys_cmd, "MAltwalk1") == 0)
       {
         if (h == NULL || h->Typ() != IDEAL_CMD ||
@@ -2112,6 +2131,37 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
         intvec* arg3   =  (intvec*) h->next->next->Data();
 
         ideal result = (ideal) Mfwalk(arg1, arg2, arg3);
+
+        res->rtyp = IDEAL_CMD;
+        res->data =  result;
+
+        return FALSE;
+      }
+      else
+      if (strcmp(sys_cmd, "Mfrwalk") == 0)
+      {
+        if (h == NULL || h->Typ() != IDEAL_CMD ||
+            h->next == NULL || h->next->Typ() != INTVEC_CMD ||
+            h->next->next == NULL || h->next->next->Typ() != INTVEC_CMD ||
+            h->next->next->next == NULL || h->next->next->next->Typ() != INT_CMD)
+        {
+          Werror("system(\"Mfrwalk\", ideal, intvec, intvec, int) expected");
+          return TRUE;
+        }
+
+        if (((intvec*) h->next->Data())->length() != currRing->N &&
+            ((intvec*) h->next->next->Data())->length() != currRing->N )
+        {
+          Werror("system(\"Mfrwalk\" ...) intvecs not of length %d\n",
+                 currRing->N);
+          return TRUE;
+        }
+        ideal arg1 = (ideal) h->Data();
+        intvec* arg2 = (intvec*) h->next->Data();
+        intvec* arg3 = (intvec*) h->next->next->Data();
+        int arg4 = (int)(long) h->next->next->next->Data();
+
+        ideal result = (ideal) Mfrwalk(arg1, arg2, arg3, arg4);
 
         res->rtyp = IDEAL_CMD;
         res->data =  result;
@@ -2213,6 +2263,41 @@ BOOLEAN jjSYSTEM(leftv res, leftv args)
         return FALSE;
       }
       else
+      if (strcmp(sys_cmd, "TranMrImprovwalk") == 0)
+      {
+        if (h == NULL || h->Typ() != IDEAL_CMD ||
+            h->next == NULL || h->next->Typ() != INTVEC_CMD ||
+            h->next->next == NULL || h->next->next->Typ() != INTVEC_CMD ||
+            h->next->next->next == NULL || h->next->next->next->Typ() != INT_CMD ||
+            h->next->next->next == NULL || h->next->next->next->next->Typ() != INT_CMD ||
+            h->next->next->next == NULL || h->next->next->next->next->next->Typ() != INT_CMD)
+        {
+          Werror("system(\"TranMrImprovwalk\", ideal, intvec, intvec) expected");
+          return TRUE;
+        }
+
+        if (((intvec*) h->next->Data())->length() != currRing->N &&
+            ((intvec*) h->next->next->Data())->length() != currRing->N )
+        {
+          Werror("system(\"TranMrImprovwalk\" ...) intvecs not of length %d\n", currRing->N);
+          return TRUE;
+        }
+        ideal arg1 = (ideal) h->Data();
+        intvec* arg2 = (intvec*) h->next->Data();
+        intvec* arg3 = (intvec*) h->next->next->Data();
+        int arg4 = (int)(long) h->next->next->next->Data();
+        int arg5 = (int)(long) h->next->next->next->next->Data();
+        int arg6 = (int)(long) h->next->next->next->next->next->Data();
+
+        ideal result = (ideal) TranMrImprovwalk(arg1, arg2, arg3, arg4, arg5, arg6);
+
+        res->rtyp = IDEAL_CMD;
+        res->data =  result;
+
+        return FALSE;
+      }
+      else
+
   #endif
   /*================= Extended system call ========================*/
      {
@@ -2296,7 +2381,7 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
            test_PosInT=NULL;
            test_PosInL=NULL;
          }
-         verbose|=Sy_bit(23);
+         si_opt_2|=Sy_bit(23);
          return FALSE;
       }
       else
@@ -2438,7 +2523,7 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
           }
           rComplete(currRing);
           res->rtyp = INT_CMD;
-          res->data = 0;
+          res->data = (void*)0L;
           return FALSE;
         }
         else
@@ -2581,7 +2666,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
 //       }
 //       else
   /*==================== isSqrFree =============================*/
-  #ifdef HAVE_FACTORY
       if(strcmp(sys_cmd,"isSqrFree")==0)
       {
         if ((h!=NULL) &&(h->Typ()==POLY_CMD))
@@ -2594,7 +2678,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
           WerrorS("poly expected");
       }
       else
-  #endif
   /*==================== pDivStat =============================*/
   #if defined(PDEBUG) || defined(PDIV_DEBUG)
       if(strcmp(sys_cmd,"pDivStat")==0)
@@ -2641,13 +2724,11 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
       }
       else
   #endif
-  #ifdef HAVE_FACTORY
   /*==================== fastcomb =============================*/
       if(strcmp(sys_cmd,"fastcomb")==0)
       {
         if ((h!=NULL) &&(h->Typ()==IDEAL_CMD))
         {
-          int i=0;
           if (h->next!=NULL)
           {
             if (h->next->Typ()!=POLY_CMD)
@@ -2669,7 +2750,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
       {
         if ((h!=NULL) &&(h->Typ()==IDEAL_CMD))
         {
-          int i=0;
           if (h->next!=NULL)
           {
             if (h->next->Typ()!=POLY_CMD)
@@ -2686,7 +2766,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
           WerrorS("ideal expected");
       }
       else
-  #endif
   #if 0 /* debug only */
   /*==================== listall ===================================*/
       if(strcmp(sys_cmd,"listall")==0)
@@ -2753,13 +2832,13 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
         L->m[0].rtyp=STRING_CMD;               // newtonnumber;
         L->m[0].data=(void *)omStrDup(r.nZahl);
         L->m[1].rtyp=INT_CMD;
-        L->m[1].data=(void *)r.achse;          // flag for unoccupied axes
+        L->m[1].data=(void *)(long)r.achse;          // flag for unoccupied axes
         L->m[2].rtyp=INT_CMD;
-        L->m[2].data=(void *)r.deg;            // #degenerations
+        L->m[2].data=(void *)(long)r.deg;            // #degenerations
         if ( r.deg != 0)              // only if degenerations exist
         {
           L->m[3].rtyp=INT_CMD;
-          L->m[3].data=(void *)r.anz_punkte;     // #points
+          L->m[3].data=(void *)(long)r.anz_punkte;     // #points
           //---<>--number of points------
           int anz = r.anz_punkte;    // number of points
           int dim = (currRing->N);     // dimension
@@ -2948,7 +3027,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
        }
        else
 
-
   /*==================== DLL =================*/
   #ifdef ix86_Win
   #ifdef HAVE_DL
@@ -3063,7 +3141,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
   /*==================== minor =================*/
       if (strcmp(sys_cmd, "minor")==0)
       {
-        ring r = currRing;
         matrix a = (matrix) h->Data();
         h = h->next;
         int ar = (int)(long) h->Data();
@@ -3160,7 +3237,7 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
         h = h->next;
         ideal GI = (ideal) h->Data();
         res->rtyp = INT_CMD;
-        res->data = (void *) testGB(I, GI);
+        res->data = (void *)(long) testGB(I, GI);
         return(FALSE);
       }
       else
@@ -3182,9 +3259,9 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
         if (rIsSCA(r))
         {
           if(strcmp(sys_cmd, "AltVarStart") == 0)
-            res->data = (void*)scaFirstAltVar(r);
+            res->data = (void*)(long)scaFirstAltVar(r);
           else
-            res->data = (void*)scaLastAltVar(r);
+            res->data = (void*)(long)scaLastAltVar(r);
           return FALSE;
         }
 
@@ -3320,7 +3397,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
       if (strcmp(sys_cmd, "ratVar") == 0)
       {
         int start,end;
-        int is;
         if ((h!=NULL) && (h->Typ()==POLY_CMD))
         {
           start=pIsPurePower((poly)h->Data());
@@ -3390,7 +3466,7 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
         {
           lV=(int)((long)(h->Data()));
           res->rtyp = INT_CMD;
-          res->data = (void*)pLastVblock(p, lV);
+          res->data = (void*)(long)pLastVblock(p, lV);
         }
         else return TRUE;
         return FALSE;
@@ -3425,7 +3501,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
   /*==================== t-rep-GB ==================================*/
       if (strcmp(sys_cmd, "unifastmult")==0)
       {
-        ring r = currRing;
         poly f = (poly)h->Data();
         h=h->next;
         poly g=(poly)h->Data();
@@ -3436,7 +3511,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
       else
       if (strcmp(sys_cmd, "multifastmult")==0)
       {
-        ring r = currRing;
         poly f = (poly)h->Data();
         h=h->next;
         poly g=(poly)h->Data();
@@ -3465,7 +3539,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
       else
       if (strcmp(sys_cmd, "normalpower")==0)
       {
-        ring r = currRing;
         poly f = (poly)h->Data();
         h=h->next;
         int n=(int)((long)h->Data());
@@ -3497,7 +3570,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
       }
       else
   /*==================== gcd-varianten =================*/
-  #ifdef HAVE_FACTORY
       if (strcmp(sys_cmd, "gcd") == 0)
       {
         if (h==NULL)
@@ -3534,7 +3606,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
         else return TRUE;
       }
       else
-  #endif
   /*==================== subring =================*/
       if (strcmp(sys_cmd, "subring") == 0)
       {
@@ -3549,7 +3620,6 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
       }
       else
   /*==================== HNF =================*/
-  #ifdef HAVE_FACTORY
   #ifdef HAVE_NTL
       if (strcmp(sys_cmd, "HNF") == 0)
       {
@@ -3591,7 +3661,38 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
         else return TRUE;
       }
       else
-      #endif
+  /*================= absBiFact ======================*/
+      if (strcmp(sys_cmd, "absFact") == 0)
+      {
+        if (h!=NULL)
+        {
+          res->rtyp=LIST_CMD;
+          if (h->Typ()==POLY_CMD)
+          {
+            intvec *v=NULL;
+            ideal mipos= NULL;
+            int n= 0;
+            ideal f=singclap_absFactorize((poly)(h->Data()), mipos, &v, n, currRing);
+            if (f==NULL) return TRUE;
+            ivTest(v);
+            lists l=(lists)omAllocBin(slists_bin);
+            l->Init(4);
+            l->m[0].rtyp=IDEAL_CMD;
+            l->m[0].data=(void *)f;
+            l->m[1].rtyp=INTVEC_CMD;
+            l->m[1].data=(void *)v;
+            l->m[2].rtyp=IDEAL_CMD;
+            l->m[2].data=(void*) mipos;
+            l->m[3].rtyp=INT_CMD;
+            l->m[3].data=(void*) (long) n;
+            res->data=(void *)l;
+            return FALSE;
+          }
+          else return TRUE;
+        }
+        else return TRUE;
+      }
+      else
   /*================= probIrredTest ======================*/
       if (strcmp (sys_cmd, "probIrredTest") == 0)
       {
@@ -3602,7 +3703,7 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
           double error= atof (s);
           int irred= probIrredTest (F, error);
           res->rtyp= INT_CMD;
-          res->data= (void*)irred;
+          res->data= (void*)(long)irred;
           return FALSE;
         }
         else return TRUE;
@@ -3664,57 +3765,28 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
                 */
 
   #endif
-
-#ifdef HAVE_FANS
-  /*======== GFAN ==============*/
-  /*
-   WILL HAVE TO CHANGE RETURN TYPE TO LIST_CMD
-  */
-  if (strcmp(sys_cmd,"grfan")==0)
-  {
-    /*
-    heuristic:
-    0 = keep all Gröbner bases in memory
-    1 = write all Gröbner bases to disk and read whenever necessary
-    2 = use a mixed heuristic, based on length of Gröbner bases
-    */
-    if( h!=NULL && h->Typ()==IDEAL_CMD && h->next!=NULL && h->next->Typ()==INT_CMD)
+/*==================== semaphore =================*/
+#ifdef HAVE_SIMPLEIPC
+    if (strcmp(sys_cmd,"semaphore")==0)
     {
-      int heuristic;
-      heuristic=(int)(long)h->next->Data();
-      ideal I=((ideal)h->Data());
-      #ifndef USE_ZFAN
-        #define USE_ZFAN
-      #endif
-      #ifndef USE_ZFAN
-        res->rtyp=LIST_CMD; //res->rtyp=coneID; res->data(char*)zcone;
-        res->data=(lists) grfan(I,heuristic,FALSE);
-      #else
-        extern int fanID;
-        res->rtyp=fanID;
-        res->data=(void*)(grfan(I,heuristic,FALSE));
-      #endif
-      return FALSE;
+      if((h!=NULL) && (h->Typ()==STRING_CMD) && (h->next!=NULL) && (h->next->Typ()==INT_CMD))
+      {
+        int v=1;
+        if ((h->next->next!=NULL)&& (h->next->next->Typ()==INT_CMD))
+          v=(int)(long)h->next->next->Data();
+        res->data=(char *)(long)simpleipc_cmd((char *)h->Data(),(int)(long)h->next->Data(),v);
+        res->rtyp=INT_CMD;
+        return FALSE;
+      }
+      else
+      {
+        WerrorS("Usage: system(\"semaphore\",<cmd>,int)");
+        return TRUE;
+      }
     }
     else
-    {
-      WerrorS("Usage: system(\"grfan\",I,int)");
-      return TRUE;
-    }
-  }
-  //Possibility to have only one Gröbner cone computed by specifying a weight vector FROM THE RELATIVE INTERIOR!
-  //Needs wp as ordering!
-//   if(strcmp(sys_cmd,"grcone")==0)
-//   {
-//     if(h!=NULL && h->Typ()==IDEAL_CMD && h->next!=NULL && h->next->Typ()==INT_CMD)
-//     {
-//       ideal I=((ideal)h->Data());
-//       res->rtyp=LIST_CMD;
-//       res->data=(lists)grcone_by_intvec(I);
-//     }
-//   }
-  else
 #endif
+/*======================= demon_list =====================*/
   if (strcmp(sys_cmd,"denom_list")==0)
   {
     res->rtyp=LIST_CMD;
@@ -3733,9 +3805,127 @@ static BOOLEAN jjEXTENDED_SYSTEM(leftv res, leftv h)
     {
       return newstruct_set_proc((char*)h->Data(),(char*)h->next->Data(),
                                 (int)(long)h->next->next->next->Data(),
-				(procinfov)h->next->next->Data());
+                                (procinfov)h->next->next->Data());
     }
     return TRUE;
+  }
+  else
+  if (strcmp(sys_cmd,"newstruct")==0)
+  {
+    if ((h!=NULL) && (h->Typ()==STRING_CMD))
+    {
+      int id=0;
+      blackboxIsCmd((char*)h->Data(),id);
+      if (id>0)
+      {
+        blackbox *bb=getBlackboxStuff(id);
+	if (BB_LIKE_LIST(bb))
+	{
+          newstruct_desc desc=(newstruct_desc)bb->data;
+          newstructShow(desc);
+          return FALSE;
+	}
+      }
+    }
+    return TRUE;
+  }
+  else
+  if (strcmp(sys_cmd,"blackbox")==0)
+  {
+    printBlackboxTypes();
+    return FALSE;
+  }
+  else
+/*==================== reserved port =================*/
+  if (strcmp(sys_cmd,"reserve")==0)
+  {
+    int ssiReservePort(int clients);
+    if ((h!=NULL) && (h->Typ()==INT_CMD))
+    {
+      res->rtyp=INT_CMD;
+      int p=ssiReservePort((int)(long)h->Data());
+      res->data=(void*)(long)p;
+      return (p==0);
+    }
+    else
+    {
+      WerrorS("system(\"reserve\",<int>)");
+    }
+    return TRUE;
+  }
+  else
+  if (strcmp(sys_cmd,"reservedLink")==0)
+  {
+    si_link ssiCommandLink();
+    res->rtyp=LINK_CMD;
+    si_link p=ssiCommandLink();
+    res->data=(void*)p;
+    return (p==NULL);
+  }
+  else
+  /*==================== Test Boos Epure ==================================*/
+  if (strcmp(sys_cmd, "Hallo")==0)
+  {
+    n_coeffType nae=nRegister(n_unknown,n_AEInitChar);
+    coeffs AE=nInitChar(nae,NULL);
+    ring r=currRing;
+    rUnComplete(r);
+    r->cf=AE;
+    rComplete(r,TRUE);
+    /*
+    // Ab hier wird gespielt
+    int_poly* f=new int_poly;
+    f->poly_insert();
+    int_poly* g=new int_poly;
+    g->poly_insert();
+    // Ab hier gerechnet
+    number a=reinterpret_cast<number> (f);
+    number b=reinterpret_cast<number> (g);
+    number erg=n_Gcd(a,b,AE);
+    int_poly* h= reinterpret_cast<int_poly*> (erg);
+    h->poly_print();
+*/
+    return FALSE;
+  }
+  else
+  /*==================== Test Boos Epure 2 ==================================*/
+  if (strcmp(sys_cmd, "Hallo2")==0)
+  {
+    n_coeffType naeq=nRegister(n_unknown,n_QAEInitChar);
+    coeffs AEQ=nInitChar(naeq,NULL);
+    ring r=currRing;
+    rUnComplete(r);
+    r->cf=AEQ;
+    rComplete(r,TRUE);
+
+    return FALSE;
+  }
+  else
+  /*==================== Test Boos Epure 3==================================*/
+  if (strcmp(sys_cmd, "Hallo3")==0)
+  {
+    n_coeffType naep=nRegister(n_unknown,n_pAEInitChar);
+    coeffs AEp=nInitChar(naep,NULL);
+    ring r=currRing;
+    rUnComplete(r);
+    r->cf=AEp;
+    rComplete(r,TRUE);
+    //JETZT WOLLEN WIR DOCH MAL SPIELEN
+
+    // Ab hier wird gespielt
+    p_poly* f=new p_poly;
+    f->p_poly_insert();
+
+    p_poly* g=new p_poly;
+    g->p_poly_insert();
+    // Ab hier gerechnet
+    number a=reinterpret_cast<number> (f);
+    number b=reinterpret_cast<number> (g);
+    number erg=n_Add(a,b,AEp);
+    p_poly* h= reinterpret_cast<p_poly*> (erg);
+    h->p_poly_print();
+
+    return FALSE;
   }
   else
 /*==================== Error =================*/

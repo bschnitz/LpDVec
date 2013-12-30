@@ -6,7 +6,9 @@
 */
 
 // #define PDEBUG 2
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <misc/options.h>
 #include <kernel/kutil.h>
@@ -52,8 +54,8 @@ int ksReducePoly(LObject* PR,
 #endif
   int ret = 0;
   ring tailRing = PR->tailRing;
-  kTest_L(PR);
-  kTest_T(PW);
+  assume(kTest_L(PR));
+  assume(kTest_T(PW));
 
   poly p1 = PR->GetLmTailRing();   // p2 | p1
   poly p2 = PW->GetLmTailRing();   // i.e. will reduce p1 with p2; lm = LT(p1) / LM(p2)
@@ -73,10 +75,10 @@ int ksReducePoly(LObject* PR,
   if (rIsPluralRing(currRing))
   {
     // for the time being: we know currRing==strat->tailRing
-    // no exp-bound checking needed 
+    // no exp-bound checking needed
     // (only needed if exp-bound(tailring)<exp-b(currRing))
     if (PR->bucket!=NULL)  nc_kBucketPolyRed(PR->bucket, p2,coef);
-    else 
+    else
     {
       poly _p = (PR->t_p != NULL ? PR->t_p : PR->p);
       assume(_p != NULL);
@@ -147,12 +149,12 @@ int ksReducePoly(LObject* PR,
     PR->GetP();
     poly qq = p_Shrink(PR->p, currRing->isLPring, currRing);
     PR->Clear(); // does the right things
-    PR->p = qq; 
+    PR->p = qq;
     PR->t_p = NULL;
     PR->SetShortExpVector();
   }
 #endif
-  
+
 #if defined(KDEBUG) && defined(TEST_OPT_DEBUG_RED)
   if (TEST_OPT_DEBUG)
   {
@@ -170,7 +172,7 @@ int ksReducePoly(LObject* PR,
  ***************************************************************/
 int ksReducePolySig(LObject* PR,
                  TObject* PW,
-                 long idx,
+                 long /*idx*/,
                  poly spNoether,
                  number *coef,
                  kStrategy strat)
@@ -187,8 +189,8 @@ int ksReducePolySig(LObject* PR,
 #endif
   int ret = 0;
   ring tailRing = PR->tailRing;
-  kTest_L(PR);
-  kTest_T(PW);
+  assume(kTest_L(PR));
+  assume(kTest_T(PW));
 
   // signature-based stuff:
   // checking for sig-safeness first
@@ -198,18 +200,18 @@ int ksReducePolySig(LObject* PR,
    *
    * TODO:
    * --------------------------------------------
-   * if strat->incremental
-   * Since we are subdividing lower index and 
+   * if strat->sbaOrder == 1
+   * Since we are subdividing lower index and
    * current index reductions it is enough to
    * look at the polynomial part of the signature
    * for a check. This should speed-up checking
    * a lot!
-   * if !strat->incremental
+   * if !strat->sbaOrder == 0
    * We are not subdividing lower and current index
    * due to the fact that we are using the induced
    * Schreyer order
    *
-   * nevertheless, this different behaviour is 
+   * nevertheless, this different behaviour is
    * taken care of by is_sigsafe
    * => one reduction procedure can be used for
    * both, the incremental and the non-incremental
@@ -220,10 +222,7 @@ int ksReducePolySig(LObject* PR,
   //printf("COMPARE IDX: %ld -- %ld\n",idx,strat->currIdx);
   if (!PW->is_sigsafe)
   {
-    poly f1 = p_Copy(PR->GetLmCurrRing(),currRing);
-    poly f2 = PW->GetLmCurrRing();
     poly sigMult = pCopy(PW->sig);   // copy signature of reducer
-    p_ExpVectorSub(f1, f2, currRing); // Calculate the Monomial we must multiply to p2
 //#if 1
 #ifdef DEBUGF5
     printf("IN KSREDUCEPOLYSIG: \n");
@@ -232,7 +231,7 @@ int ksReducePolySig(LObject* PR,
     pWrite(sigMult);
     printf("--------------\n");
 #endif
-    sigMult = pp_Mult_qq(f1,sigMult,currRing);
+    p_ExpVectorAddSub(sigMult,PR->GetLmCurrRing(),PW->GetLmCurrRing(),currRing);
 //#if 1
 #ifdef DEBUGF5
     printf("------------------- IN KSREDUCEPOLYSIG: --------------------\n");
@@ -250,16 +249,16 @@ int ksReducePolySig(LObject* PR,
     printf("%d -- %d sig\n",sigSafe,PW->is_sigsafe);
 
 #endif
-    pDelete(&f1);
+    //pDelete(&f1);
     pDelete(&sigMult);
     // go on with the computations only if the signature of p2 is greater than the
     // signature of fm*p1
     if(sigSafe != 1)
-    { 
+    {
       PR->is_redundant = TRUE;
       return 3;
     }
-    PW->is_sigsafe  = TRUE;
+    //PW->is_sigsafe  = TRUE;
   }
   PR->is_redundant = FALSE;
   poly p1 = PR->GetLmTailRing();   // p2 | p1
@@ -280,10 +279,10 @@ int ksReducePolySig(LObject* PR,
   if (rIsPluralRing(currRing))
   {
     // for the time being: we know currRing==strat->tailRing
-    // no exp-bound checking needed 
+    // no exp-bound checking needed
     // (only needed if exp-bound(tailring)<exp-b(currRing))
     if (PR->bucket!=NULL)  nc_kBucketPolyRed(PR->bucket, p2,coef);
-    else 
+    else
     {
       poly _p = (PR->t_p != NULL ? PR->t_p : PR->p);
       assume(_p != NULL);
@@ -354,7 +353,7 @@ int ksReducePolySig(LObject* PR,
     PR->GetP();
     poly qq = p_Shrink(PR->p, currRing->isLPring, currRing);
     PR->Clear(); // does the right things
-    PR->p = qq; 
+    PR->p = qq;
     PR->t_p = NULL;
     PR->SetShortExpVector();
   }
@@ -382,7 +381,7 @@ void ksCreateSpoly(LObject* Pair,   poly spNoether,
 #ifdef KDEBUG
   create_count++;
 #endif
-  kTest_L(Pair);
+  assume(kTest_L(Pair));
   poly p1 = Pair->p1;
   poly p2 = Pair->p2;
   Pair->tailRing = tailRing;
@@ -393,7 +392,8 @@ void ksCreateSpoly(LObject* Pair,   poly spNoether,
 
   poly a1 = pNext(p1), a2 = pNext(p2);
   number lc1 = pGetCoeff(p1), lc2 = pGetCoeff(p2);
-  int co=0, ct = ksCheckCoeff(&lc1, &lc2, currRing->cf); // gcd and zero divisors
+  int co=0/*, ct = ksCheckCoeff(&lc1, &lc2, currRing->cf)*/; // gcd and zero divisors
+  (void) ksCheckCoeff(&lc1, &lc2, currRing->cf);
 
   int l1=0, l2=0;
 
@@ -481,7 +481,7 @@ void ksCreateSpoly(LObject* Pair,   poly spNoether,
     Pair->GetP();
     poly qq = p_Shrink(Pair->p, currRing->isLPring, currRing);
     Pair->Clear(); // does the right things
-    Pair->p = qq; 
+    Pair->p = qq;
     Pair->t_p = NULL;
     Pair->SetShortExpVector();
   }
@@ -496,8 +496,8 @@ int ksReducePolyTail(LObject* PR, TObject* PW, poly Current, poly spNoether)
   poly Lp =     PR->GetLmCurrRing();
   poly Save =   PW->GetLmCurrRing();
 
-  kTest_L(PR);
-  kTest_T(PW);
+  assume(kTest_L(PR));
+  assume(kTest_T(PW));
   pAssume(pIsMonomOf(Lp, Current));
 
   assume(Lp != NULL && Current != NULL && pNext(Current) != NULL);
@@ -536,7 +536,7 @@ int ksReducePolyTail(LObject* PR, TObject* PW, poly Current, poly spNoether)
     PR->GetP();
     poly qq = p_Shrink(PR->p, currRing->isLPring, currRing);
     PR->Clear(); // does the right things
-    PR->p = qq; 
+    PR->p = qq;
     PR->t_p = NULL;
     PR->SetShortExpVector();
   }

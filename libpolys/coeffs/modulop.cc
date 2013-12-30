@@ -5,12 +5,12 @@
 * ABSTRACT: numbers modulo p (<=32003)
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
-#ifdef HAVE_FACTORY
 #include <factory/factory.h>
-#endif
 
 #include <string.h>
 #include <omalloc/omalloc.h>
@@ -32,13 +32,13 @@ static const n_coeffType ID = n_Zp;
 static inline number nvMultM(number a, number b, const coeffs r)
 {
   assume( getCoeffType(r) == ID );
-  
+
 #if SIZEOF_LONG == 4
 #define ULONG64 (unsigned long long)(unsigned long)
 #else
 #define ULONG64 (unsigned long)
 #endif
-  return (number) 
+  return (number)
       (unsigned long)((ULONG64 a)*(ULONG64 b) % (ULONG64 r->ch));
 }
 number  nvMult        (number a, number b, const coeffs r);
@@ -53,7 +53,7 @@ void    nvPower       (number a, int i, number * result, const coeffs r);
 BOOLEAN npGreaterZero (number k, const coeffs r)
 {
   assume( n_Test(k, r) );
-  
+
   int h = (int)((long) k);
   return ((int)h !=0) && (h <= (r->ch>>1));
 }
@@ -75,7 +75,7 @@ number npMult (number a,number b, const coeffs r)
     return (number)0;
   number c = npMultM(a,b, r);
   assume( n_Test(c, r) );
-  return c;  
+  return c;
 }
 
 /*2
@@ -89,7 +89,7 @@ number npInit (long i, const coeffs r)
   number c = (number)ii;
   assume( n_Test(c, r) );
   return c;
-  
+
 }
 
 
@@ -99,7 +99,7 @@ number npInit (long i, const coeffs r)
 int npInt(number &n, const coeffs r)
 {
   assume( n_Test(n, r) );
-  
+
   if ((long)n > (((long)r->ch) >>1)) return (int)((long)n -((long)r->ch));
   else                               return (int)((long)n);
 }
@@ -108,11 +108,11 @@ number npAdd (number a, number b, const coeffs r)
 {
   assume( n_Test(a, r) );
   assume( n_Test(b, r) );
-  
+
   number c = npAddM(a,b, r);
 
   assume( n_Test(c, r) );
-  
+
   return c;
 }
 
@@ -120,7 +120,7 @@ number npSub (number a, number b, const coeffs r)
 {
   assume( n_Test(a, r) );
   assume( n_Test(b, r) );
-  
+
   number c = npSubM(a,b,r);
 
   assume( n_Test(c, r) );
@@ -131,21 +131,21 @@ number npSub (number a, number b, const coeffs r)
 BOOLEAN npIsZero (number  a, const coeffs r)
 {
   assume( n_Test(a, r) );
-  
+
   return 0 == (long)a;
 }
 
 BOOLEAN npIsOne (number a, const coeffs r)
 {
   assume( n_Test(a, r) );
-  
+
   return 1 == (long)a;
 }
 
 BOOLEAN npIsMOne (number a, const coeffs r)
 {
   assume( n_Test(a, r) );
-  
+
   return ((r->npPminus1M == (long)a)&&((long)1!=(long)a));
 }
 
@@ -228,14 +228,14 @@ number npDiv (number a,number b, const coeffs r)
   if ((long)a==0)
     return (number)0;
   number d;
-  
+
 #ifndef HAVE_DIV_MOD
   if ((long)b==0)
   {
     WerrorS(nDivBy0);
     return (number)0;
   }
-  
+
   int s = r->npLogTable[(long)a] - r->npLogTable[(long)b];
   if (s < 0)
     s += r->npPminus1M;
@@ -247,39 +247,39 @@ number npDiv (number a,number b, const coeffs r)
 
   assume( n_Test(d, r) );
   return d;
-  
+
 }
 number  npInvers (number c, const coeffs r)
 {
   assume( n_Test(c, r) );
-  
+
   if ((long)c==0)
   {
     WerrorS("1/0");
     return (number)0;
   }
   number d = npInversM(c,r);
-  
+
   assume( n_Test(d, r) );
   return d;
-  
+
 }
 
 number npNeg (number c, const coeffs r)
 {
   assume( n_Test(c, r) );
-  
+
   if ((long)c==0) return c;
 
-#if 0  
-  number d = npNegM(c,r);  
+#if 0
+  number d = npNegM(c,r);
   assume( n_Test(d, r) );
   return d;
 #else
-  c = npNegM(c,r);  
+  c = npNegM(c,r);
   assume( n_Test(c, r) );
   return c;
-#endif  
+#endif
 }
 
 BOOLEAN npGreater (number a,number b, const coeffs r)
@@ -295,16 +295,16 @@ BOOLEAN npEqual (number a,number b, const coeffs r)
 {
   assume( n_Test(a, r) );
   assume( n_Test(b, r) );
-  
+
 //  return (long)a == (long)b;
-  
+
   return npEqualM(a,b,r);
 }
 
 void npWrite (number &a, const coeffs r)
 {
   assume( n_Test(a, r) );
-  
+
   if ((long)a>(((long)r->ch) >>1)) StringAppend("-%d",(int)(((long)r->ch)-((long)a)));
   else                             StringAppend("%d",(int)((long)a));
 }
@@ -361,7 +361,7 @@ const char * npRead (const char *s, number *a, const coeffs r)
     s = npEati(s, &n, r);
   }
   if (n == 1)
-    *a = (number)z;
+    *a = (number)(long)z;
   else
   {
     if ((z==0)&&(n==0)) WerrorS(nDivBy0);
@@ -369,10 +369,10 @@ const char * npRead (const char *s, number *a, const coeffs r)
     {
 #ifdef NV_OPS
       if (r->ch>NV_MAX_PRIME)
-        *a = nvDiv((number)z,(number)n,r);
+        *a = nvDiv((number)(long)z,(number)(long)n,r);
       else
 #endif
-        *a = npDiv((number)z,(number)n,r);
+        *a = npDiv((number)(long)z,(number)(long)n,r);
     }
   }
   assume( n_Test(*a, r) );
@@ -404,7 +404,6 @@ static BOOLEAN npCoeffsEqual(const coeffs r, n_coeffType n, void * parameter)
   /* test, if r is an instance of nInitCoeffs(n,parameter) */
   return (n==n_Zp) && (r->ch==(int)(long)parameter);
 }
-#ifdef HAVE_FACTORY
 CanonicalForm npConvSingNFactoryN( number n, BOOLEAN setChar, const coeffs r )
 {
   if (setChar) setCharacteristic( r->ch );
@@ -424,8 +423,13 @@ number npConvFactoryNSingN( const CanonicalForm n, const coeffs r)
     return NULL;
   }
 }
-#endif
 
+static char* npCoeffString(const coeffs r)
+{
+  char *s=(char*)omAlloc(11);
+  snprintf(s,11,"%d",r->ch);
+  return s;
+}
 
 BOOLEAN npInitChar(coeffs r, void* p)
 {
@@ -433,7 +437,7 @@ BOOLEAN npInitChar(coeffs r, void* p)
   const int c = (int) (long) p;
 
   assume( c > 0 );
-  
+
   int i, w;
 
   r->ch = c;
@@ -442,6 +446,7 @@ BOOLEAN npInitChar(coeffs r, void* p)
   //r->cfInitChar=npInitChar;
   r->cfKillChar=npKillChar;
   r->nCoeffIsEqual=npCoeffsEqual;
+  r->cfCoeffString=npCoeffString;
 
   r->cfMult  = npMult;
   r->cfSub   = npSub;
@@ -500,11 +505,9 @@ BOOLEAN npInitChar(coeffs r, void* p)
   r->cfDBTest=npDBTest;
 #endif
 
-#ifdef HAVE_FACTORY
   r->convSingNFactoryN=npConvSingNFactoryN;
   r->convFactoryNSingN=npConvFactoryNSingN;
-#endif
-  
+
   // the variables:
   r->nNULL = (number)0;
   r->type = n_Zp;
@@ -536,7 +539,7 @@ BOOLEAN npInitChar(coeffs r, void* p)
           r->npExpTable[i] =(int)(((long)w * (long)r->npExpTable[i-1])
                                % r->ch);
           r->npLogTable[r->npExpTable[i]] = i;
-          if (/*(i == r->ch - 1 ) ||*/ (r->npExpTable[i] == 1))
+          if /*(i == r->ch - 1 ) ||*/ (/*(*/ r->npExpTable[i] == 1 /*)*/)
             break;
         }
         if (i == r->ch - 1)
@@ -614,7 +617,7 @@ static number npMapLongR(number from, const coeffs /*src*/, const coeffs dst_r)
 #endif
   dest = res->z;
 
-  int in=0;
+  long in=0;
   if (e<0)
   {
     al = dest->_mp_size = size;
@@ -679,14 +682,12 @@ number npMapMachineInt(number from, const coeffs /*src*/,const coeffs dst)
 }
 #endif
 
-#ifdef HAVE_FACTORY
 number npMapCanonicalForm (number a, const coeffs /*src*/, const coeffs dst)
 {
   setCharacteristic (dst ->ch);
   CanonicalForm f= CanonicalForm ((InternalCF*)(a));
   return (number) (f.intval());
 }
-#endif
 
 nMapFunc npSetMap(const coeffs src, const coeffs dst)
 {
@@ -719,12 +720,10 @@ nMapFunc npSetMap(const coeffs src, const coeffs dst)
   {
     return npMapLongR;
   }
-#ifdef HAVE_FACTORY
   if (nCoeff_is_CF (src))
   {
     return npMapCanonicalForm;
   }
-#endif
   return NULL;      /* default */
 }
 
@@ -754,10 +753,10 @@ inline long nvInvMod(long a, const coeffs R)
   return InvMod(a, R);
 #else
 /// TODO: use "long InvMod(long a, const coeffs R)"?!
-  
+
    long  s;
 
-   long  u, u0, u1, u2, q, r; // v0, v1, v2, 
+   long  u, u0, u1, u2, q, r; // v0, v1, v2,
 
    u1=1; // v1=0;
    u2=0; // v2=1;

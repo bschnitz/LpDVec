@@ -32,21 +32,26 @@ BACKUP_LIBS=${LIBS}
 
 AC_MSG_CHECKING(for GMP >= $min_gmp_version)
 
+AC_LANG_PUSH([C])
+
 for GMP_HOME in ${GMP_HOME_PATH} 
   do	
-	if test -r "$GMP_HOME/include/gmp.h"; then
+#	if test -r "$GMP_HOME/include/gmp.h"; then
 
 		if test "x$GMP_HOME" != "x/usr"; then
 			GMP_CFLAGS="-I${GMP_HOME}/include"
 			GMP_LIBS="-L${GMP_HOME}/lib -lgmp"	
 		else
-			GMP_CFLAGS=
-			GMP_LIBS="-lgmp"		
+			GMP_CFLAGS=""
+			GMP_LIBS="-lgmp"
 		fi
 	
-		CFLAGS="${CFLAGS} ${GMP_CFLAGS}"
-		LIBS="${LIBS} ${GMP_LIBS}"
+		CFLAGS="${BACKUP_CFLAGS} ${GMP_CFLAGS}"
+		LIBS="${BACKUP_LIBS} ${GMP_LIBS}"
 
+    # According to C. Fieker this would link but would not RUN
+    # (AC_TRY_RUN) due to missing SHARED libgmp.so :(
+    # TODO: set LD_LIBRARY_PATH???
 		AC_TRY_LINK(
 		[#include <gmp.h>],
 		[mpz_t a; mpz_init (a);],
@@ -90,6 +95,8 @@ for GMP_HOME in ${GMP_HOME_PATH}
 				echo "whether your GMP version is new enough. I am assuming it is."
 				AC_SUBST(GMP_CFLAGS)
 				AC_SUBST(GMP_LIBS)
+				AC_SUBST(GMP_HOME)
+				HAVE_GMP=yes
 				AC_DEFINE(HAVE_GMP,1,[Define if GMP is installed])	
 				ifelse([$2], , :, [$2])
 				break
@@ -100,10 +107,16 @@ for GMP_HOME in ${GMP_HOME_PATH}
 		unset GMP_LIBS	
 		])
 
-	else
-		gmp_found="no"	
-	fi
+#	else
+#		gmp_found="no"	
+#	fi
 done
+AC_LANG_POP([C])
+
+CFLAGS=${BACKUP_CFLAGS}
+LIBS=${BACKUP_LIBS}
+#unset LD_LIBRARY_PATH
+
 
 if test "x$gmp_found" != "xyes"; then
 	if test -n "$gmp_problem"; then
@@ -115,9 +128,5 @@ if test "x$gmp_found" != "xyes"; then
 	ifelse($3, , :, $3)
 fi
 
-
-CFLAGS=${BACKUP_CFLAGS}
-LIBS=${BACKUP_LIBS}
-#unset LD_LIBRARY_PATH
-
+AM_CONDITIONAL(SING_HAVE_GMP, test "x$HAVE_GMP" = "xyes")
 ])

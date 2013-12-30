@@ -6,7 +6,9 @@
 * ABSTRACT - initialize SINGULARs components, run Script and start SHELL
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include "countedref.h"
 #include <omalloc/omalloc.h>
@@ -14,35 +16,31 @@
 #include <misc/auxiliary.h>
 #include <misc/options.h>
 
-#ifdef HAVE_FACTORY
 #define SI_DONT_HAVE_GLOBAL_VARS
 #include <factory/factory.h>
-#endif
 
 #include <kernel/febase.h>
 #include <kernel/timer.h>
 
-#ifdef HAVE_FANS
-#include <kernel/bbcone.h>
-#include <kernel/bbfan.h>
-#endif
+// #ifdef HAVE_FANS
+// #include <callgfanlib/bbcone.h>
+// #include <callgfanlib/bbpolytope.h>
+// #include <callgfanlib/bbfan.h>
+// #include <callgfanlib/gitfan.h>
+// #endif
 
 #include "ipshell.h"
 #include "cntrlc.h"
-#include "silink.h"
+#include "links/silink.h"
 #include "ipid.h"
 #include "sdb.h"
 #include "feOpt.h"
 #include "distrib.h"
-#include "version.h"
-#include "slInit.h"
-#include  <Singular/links/ssiLink.h>
-#include "bigintm.h"
 #include "mmalloc.h"
 #include "tok.h"
 #include "fegetopt.h"
 
-// #include "pyobject_setup.h"
+#include "pyobject_setup.h"
 
 #include <unistd.h>
 #include <string.h>
@@ -52,16 +50,11 @@
 #include <errno.h>
 
 
-
 extern int siInit(char *);
 
-#if ! defined(LIBSINGULAR)
-
-#ifdef HAVE_FACTORY
 int initializeGMP(){ return 1; }
-#endif
 
-int mmInit2( void )
+int mmInit( void )
 {
 #if defined(OMALLOC_USES_MALLOC) || defined(X_OMALLOC)
     /* in mmstd.c, for some architectures freeSize() unconditionally uses the *system* free() */
@@ -72,14 +65,6 @@ int mmInit2( void )
     mp_set_memory_functions(malloc,reallocSize,freeSize);
 #endif
   return 1;
-}
-int mmInit( void )
-{
-#ifndef SI_THREADS
-  return mmInit2();
-#else
-  return 1;
-#endif
 }
 
 /*0 implementation*/
@@ -135,8 +120,6 @@ int main(          /* main entry to Singular */
   }
 
   /* say hello */
-  //for official version: not active
-  //bigintm_setup();
 
   if (TEST_V_QUIET)
   {
@@ -150,13 +133,13 @@ int main(          /* main entry to Singular */
 "                                                           0<\n"
 " by: W. Decker, G.-M. Greuel, G. Pfister, H. Schoenemann     \\   %s\n"
 "FB Mathematik der Universitaet, D-67653 Kaiserslautern        \\\n"
-, S_VERSION1,S_VERSION2);
+, PACKAGE_VERSION, VERSION_DATE);
+  if (feOptValue(FE_OPT_NO_SHELL)) Warn("running in restricted mode:"
+    " shell invocation and links are disallowed");
   }
   else
   {
-#ifdef HAVE_FACTORY
     if (feOptValue(FE_OPT_SORT)) On(SW_USE_NTL_SORT);
-#endif
 #ifdef HAVE_SDB
     sdb_flags = 0;
 #endif
@@ -172,12 +155,18 @@ int main(          /* main entry to Singular */
 #ifdef SI_COUNTEDREF_AUTOLOAD
   countedref_init();
 #endif
-#ifdef HAVE_FANS
-  bbcone_setup();
-  bbfan_setup();
-#endif /* HAVE_FANS */
+// #ifdef HAVE_FANS
+//   bbcone_setup();
+//   bbpolytope_setup();
+//   bbfan_setup();
+//   gitfan_setup();
+// #endif /* HAVE_FANS */
   errorreported = 0;
 
+  // -- example for "static" modules ------
+  //load_builtin("huhu.so",FALSE,(SModulFunc_t)huhu_mod_init);
+  //module_help_main("huhu.so","Help for huhu\nhaha\n");
+  //module_help_proc("huhu.so","p","Help for huhu::p\nhaha\n");
   setjmp(si_start_jmpbuf);
 
   // Now, put things on the stack of stuff to do
@@ -244,5 +233,4 @@ int main(          /* main entry to Singular */
   m2_end(0);
   return 0;
 }
-#endif // not LIBSINGULAR
 

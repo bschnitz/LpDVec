@@ -1,6 +1,8 @@
 #define PLURAL_INTERNAL_DECLARATIONS
-   
-#include "config.h"
+
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include "mod2.h"
 #include <misc/auxiliary.h>
 
@@ -173,10 +175,11 @@ ideal twostd(ideal I) // works in currRing only!
     id_Delete(&K, currRing); id_Delete(&J, currRing);
 
 #if 1
-    BITSET save_test=test;
-    test|=Sy_bit(OPT_SB_1); // ring independent
+    BITSET save1;
+    SI_SAVE_OPT1(save1);
+    si_opt_1|=Sy_bit(OPT_SB_1); // ring independent
     J = kStd(id_tmp, currQuotient, testHomog, NULL, NULL, 0, iSize); // J = J + K, J - std // in currRing!
-    test = save_test;
+    SI_RESTORE_OPT1(save1);
 #else
     J=kStd(id_tmp, currQuotient,testHomog,NULL,NULL,0,0,NULL);
 #endif
@@ -254,7 +257,6 @@ ideal Approx_Step(ideal L)
   int i,j; // k=syzcomp
   int flag, flagcnt=0, syzcnt=0;
   int syzcomp = 0;
-  int k=1; // for ideals not modules
   ideal I = kStd(L, currQuotient,testHomog,NULL,NULL,0,0,NULL);
   idSkipZeroes(I);
   ideal s_I;
@@ -274,8 +276,8 @@ ideal Approx_Step(ideal L)
   matrix MI;
   poly x=pOne();
   var[0]=x;
-  ideal   h2, h3, s_h2, s_h3;
-  poly    p,q,qq;
+  ideal   h2, s_h2, s_h3;
+  poly    p,q;
   // init vars
   for (i=1; i<=N; i++ )
   {
@@ -284,7 +286,7 @@ ideal Approx_Step(ideal L)
     pSetm(x);
     var[i]=pCopy(x);
   }
-  // init NF's 
+  // init NF's
   for (i=1; i<=N; i++ )
   {
     h2 = idInit(idI,1);
@@ -303,7 +305,7 @@ ideal Approx_Step(ideal L)
       else
     h2->m[j]=0;
     }
-    // W[1..idElems(I)] 
+    // W[1..idElems(I)]
     if (flag >0)
     {
       // compute syzygies with values in I
@@ -334,15 +336,16 @@ ideal Approx_Step(ideal L)
       //      idTest(s_trickyQuotient);
       Print(".proceeding with the variable %d\n",i);
       s_h3 = idPrepareStd(s_I, s_h2, 1);
-      BITSET save_test=test;
-      test|=Sy_bit(OPT_SB_1);
+      BITSET save1;
+      SI_SAVE_OPT1(save1);
+      si_opt_1|=Sy_bit(OPT_SB_1);
       idTest(s_h3);
       idDelete(&s_h2);
       s_h2=idCopy(s_h3);
       idDelete(&s_h3);
       Print("...computing Syz");
       s_h3 = kStd(s_h2, currQuotient,(tHomog)FALSE,NULL,NULL,syzcomp,idI);
-      test=save_test;
+      SI_RESTORE_OPT1(save1);
       //idShow(s_h3);
       if (orig_ring != syz_ring)
       {
@@ -368,7 +371,7 @@ ideal Approx_Step(ideal L)
       S[syzcnt]=kStd(s_h3,currQuotient,(tHomog)FALSE,NULL,NULL);
       syzcnt++;
       idDelete(&s_h3);
-    } // end if flag >0 
+    } // end if flag >0
     else
     {
       flagcnt++;

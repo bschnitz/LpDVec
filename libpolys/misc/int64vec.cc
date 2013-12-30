@@ -4,6 +4,12 @@
 /*
 * ABSTRACT: class int64vec: lists/vectors of int64
 */
+
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
+
+
 #include <misc/int64vec.h>
 #include <misc/intvec.h>
 #include <omalloc/omalloc.h>
@@ -88,23 +94,27 @@ char * int64vec::iv64String(int not_mat, int /*mat*/, int spaces, int dim)
       }
     }
   }
-  return StringAppendS("");
+  return StringEndS();
 }
 
 char * int64vec::String(int dim)
 {
-  return omStrDup(iv64String(0, 0, dim));
+  return iv64String(0, 0, dim);
 }
 
-void int64vec::show(int mat,int spaces)
+void int64vec::show(int notmat,int spaces)
 {
+  char *s=iv64String(notmat,spaces);
   if (spaces>0)
   {
     PrintNSpaces(spaces);
-    PrintS(iv64String(mat,spaces));
+    PrintS(s);
   }
   else
-    PrintS(iv64String(mat,0));
+  {
+    PrintS(s);
+  }
+  omFree(s);
 }
 
 void int64vec::operator*=(int64 intop)

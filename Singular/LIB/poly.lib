@@ -1,5 +1,5 @@
-///////////////////////////////////////////////////////////////////////////////
-version="$Id$";
+////////////////////////////////////////////////////////////////////////////
+version="version poly.lib 4.0.0.0 Jun_2013 "; // $Id$
 category="General purpose";
 info="
 LIBRARY:  poly.lib      Procedures for Manipulating Polys, Ideals, Modules
@@ -70,9 +70,10 @@ EXAMPLE: example hilbPoly; shows an example
    int n=1;
    for(i=2;i<=s-1;i++){n=n*i;}
    p=n*p;
-   for(i=1;i<=s;i++)
+   hp[s]=int(leadcoef(p));
+   for(i=2;i<=size(p);i++)
    {
-      hp[i]=int(leadcoef(p[s-i+1]));
+      hp[leadexp(p[i])+1]=int(leadcoef(p[i]));
    }
    setring R;
    return(hp);
@@ -734,7 +735,10 @@ EXAMPLE: example rad_con; shows an example
   {
     execute("ring R=("+charstr(br)+"),(@z,@x(1..n)),(dp(1),"+ordstr(br)+");");
   }
-  execute("minpoly=number("+mp+");");
+  if (mp!="0")
+  {
+    execute("minpoly=number("+mp+");");
+  }
   ideal irrel=@x(1..n);
   map f=br,irrel;
   poly p=f(g);
@@ -844,7 +848,7 @@ EXAMPLE: example lcm; shows an example
          break;
        }
      }
-     if(deg(p)==-1)
+     if(p==0)
      {
        return(1);
      }
@@ -855,12 +859,12 @@ EXAMPLE: example lcm; shows an example
            q=gcd(p,i[k]);
            if(maxdeg(q)==0)
            {
-                 p=p*i[k];
+             p=p*i[k];
            }
            else
            {
-              p=p/q;
-              p=p*i[k];
+             p=p/q;
+             p=p*i[k];
            }
         }
      }

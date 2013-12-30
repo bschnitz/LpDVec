@@ -6,7 +6,9 @@
 */
 #define PLURAL_INTERNAL_DECLARATIONS
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include "mod2.h"
 
 #ifdef HAVE_PLURAL
@@ -271,7 +273,7 @@ int redGrRatGB (LObject* h,kStrategy strat)
     //          c_p=nc_rat_ReduceSpolyNew(strat->S[c_j],pCopy((*h).p), currRing->real_var_start-1,currRing);
     //        Print("nach nc_rat_ReduceSpolyNew ");wrp(c_p);PrintLn();
     //        pDelete(&((*h).p));
-    
+
         c_p=nc_rat_ReduceSpolyNew(strat->S[c_j],(*h).p, currRing->real_var_start-1,currRing);
         (*h).p=c_p;
         if (!TEST_OPT_INTSTRATEGY)
@@ -967,11 +969,15 @@ static int nc_redBest (LObject*  h,kStrategy strat)
 
 #endif
 
+#ifdef HAVE_RATGRING
 void nc_gr_initBba(ideal F, kStrategy strat)
+#else
+void nc_gr_initBba(ideal, kStrategy strat)
+#endif
 {
   assume(rIsPluralRing(currRing));
 
-  int i;
+  // int i;
 //  idhdl h;
  /* setting global variables ------------------- */
   strat->enterS = enterSBba;
@@ -1069,11 +1075,11 @@ ideal gnc_gr_bba(const ideal F, const ideal Q, const intvec *, const intvec *, k
 
   assume(currRing->OrdSgn != -1); // no mora!!! it terminates only for global ordering!!! (?)
 
-  intvec *w=NULL;
-  intvec *hilb=NULL;
+  // intvec *w=NULL;
+  // intvec *hilb=NULL;
   int   olddeg,reduc;
   int red_result=1;
-  int hilbeledeg=1,hilbcount=0,minimcnt=0;
+  int /*hilbeledeg=1,*/hilbcount=0/*,minimcnt=0*/;
 
   initBuchMoraCrit(strat); /*set Gebauer, honey, sugarCrit*/
   // initHilbCrit(F,Q,&hilb,strat);

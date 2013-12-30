@@ -3,25 +3,26 @@ ACLOCAL_AMFLAGS = -I ../m4
 PACKAGES=include/factory libfac
 SUBDIRS=$(PACKAGES)
 
-CXXTEMPLFLAGS=
+# CXXTEMPLFLAGS=-ftrapv 
 ## -fno-implicit-templates
 
-AM_CPPFLAGS = -I${builddir}/include -I${srcdir}/include $(FLINT_CFLAGS) ${GMP_CFLAGS} ${NTL_CFLAGS} ${OMALLOC_CFLAGS}
+AM_CPPFLAGS = -I${builddir}/include -I${srcdir}/include $(FLINT_CFLAGS) ${GMP_CFLAGS} ${NTL_CFLAGS} ${OMALLOC_CFLAGS} -DHAVE_CONFIG_H
 
-if WANT_DEBUG
-  LIB_G=libfactory_g.la
-else
-  LIB_G=
-endif
+# if WANT_DEBUG
+#   LIB_G=libfactory_g.la
+# else
+#   LIB_G=
+# endif
 
-lib_LTLIBRARIES = libfactory.la ${LIB_G}
+lib_LTLIBRARIES = libfactory.la
+#  ${LIB_G}
 
-libfactory_la_CXXFLAGS   = -O3 -fomit-frame-pointer ${CXXTEMPLFLAGS}
-libfactory_la_LIBADD     = ${abs_builddir}/libfac/libfac.la $(FLINT_LIBS) ${GMP_LIBS} ${NTL_LIBS}
-libfactory_la_LDFLAGS    = -release ${PACKAGE_VERSION}
-libfactory_g_la_CXXFLAGS = -g -Wextra -Winline -Wall -pedantic -Wno-long-long ${CXXTEMPLFLAGS}
-libfactory_g_la_LIBADD   = ${abs_builddir}/libfac/libfac_g.la $(FLINT_LIBS) ${GMP_LIBS} ${NTL_LIBS}
-libfactory_g_la_LDFLAGS  = -release ${PACKAGE_VERSION}
+# libfactory_la_CXXFLAGS   = -O3 -fomit-frame-pointer ${CXXTEMPLFLAGS}
+libfactory_la_LIBADD     = ${builddir}/libfac/libfac.la $(FLINT_LIBS) ${GMP_LIBS} ${NTL_LIBS}
+### libfactory_la_LDFLAGS    = -release ${PACKAGE_VERSION}
+# libfactory_g_la_CXXFLAGS = -g -Wextra -Wall -pedantic -Wno-long-long ${CXXTEMPLFLAGS}
+#libfactory_g_la_LIBADD   = ${builddir}/libfac/libfac_g.la $(FLINT_LIBS) ${GMP_LIBS} ${NTL_LIBS}
+#libfactory_g_la_LDFLAGS  = -release ${PACKAGE_VERSION}
 
 
 
@@ -61,6 +62,8 @@ SOURCES = \
 		debug.cc \
 		DegreePattern.cc \
 		ExtensionInfo.cc \
+		facAbsBiFact.cc \
+		facAbsFact.cc \
 		facAlgExt.cc \
 		facBivar.cc \
 		fac_berlekamp.cc \
@@ -82,6 +85,7 @@ SOURCES = \
 		facHensel.cc \
 		facIrredTest.cc \
 		facMul.cc \
+		facNTLzzpEXGCD.cc \
 		facSparseHensel.cc \
 		ffops.cc \
 		FLINTconvert.cc \
@@ -105,13 +109,13 @@ if WITH_PARSER_FOR_CANONICAL_FORM
 endif
 
 libfactory_la_SOURCES = $(SOURCES)
-libfactory_g_la_SOURCES = $(SOURCES)
+# libfactory_g_la_SOURCES = $(SOURCES)
 
-libfactory_la_CPPFLAGS  = ${AM_CPPFLAGS} -DHAVE_CONFIG_H -DOM_NDEBUG -DNDEBUG
-libfactory_g_la_CPPFLAGS= ${AM_CPPFLAGS} -DHAVE_CONFIG_H 
+# libfactory_la_CPPFLAGS  = ${AM_CPPFLAGS} -DHAVE_CONFIG_H -DOM_NDEBUG -DNDEBUG
+# libfactory_la_CPPFLAGS= ${AM_CPPFLAGS} -DHAVE_CONFIG_H 
 
 nodist_libfactory_la_SOURCES = cplusplus.h factory.h factoryconf.h
-nodist_libfactory_g_la_SOURCES = cplusplus.h factory.h factoryconf.h
+# nodist_libfactory_g_la_SOURCES = cplusplus.h factory.h factoryconf.h
 
 # factory header files
 factory_headers = \
@@ -142,6 +146,8 @@ factory_headers = \
 		debug.h \
 		DegreePattern.h \
 		ExtensionInfo.h \
+		facAbsBiFact.h \
+		facAbsFact.h \
 		facAlgExt.h \
 		facBivar.h \
 		fac_berlekamp.h \
@@ -161,6 +167,7 @@ factory_headers = \
 		facHensel.h \
 		facIrredTest.h \
 		facMul.h \
+		facNTLzzpEXGCD.h \
 		facSparseHensel.h \
 		ffops.h \
 		FLINTconvert.h \
@@ -189,7 +196,7 @@ nodist_libfactory_include_HEADERS = cplusplus.h factory.h factoryconf.h
 
 ####################################################
 # Documentation
-include $(top_srcdir)/aminclude.am
+include $(srcdir)/aminclude.am
 
 doxysrc = $(SOURCES) parseutil.cc
 doxyincl = $(factory_headers) parseutil.h
@@ -204,7 +211,7 @@ doxyclean:
 ####################################################
 # the precomputed GF(q)-tables
 
-gftablesdir=$(datadir)/gftables
+gftablesdir=$(datadir)/factory/gftables
 dist_gftables_DATA = gftables/10201 gftables/1024 gftables/10609 gftables/11449 \
 gftables/11881 gftables/121 gftables/12167 gftables/125 gftables/12769 \
 gftables/128 gftables/1331 gftables/1369 gftables/14641 \
@@ -245,6 +252,7 @@ gengftables_LDADD = -L${builddir} -lfactory $(FLINT_LIBS) $(GMP_LIBS) $(NTL_LIBS
 # the distribution. So they will be tacked on to EXTRA_DIST.
 
 templatesrc =	templates/ftmpl_array.cc \
+		templates/ftmpl_afactor.cc \
 		templates/ftmpl_factor.cc \
 		templates/ftmpl_functions.h \
 		templates/ftmpl_list.cc \
@@ -276,8 +284,8 @@ distclean-local:
 
 cplusplus_SOURCES = cplusplus.cc
 
-cplusplus.h: cplusplus
-	./cplusplus >$@
+cplusplus.h: cplusplus$(EXEEXT) 
+	./cplusplus$(EXEEXT)  >$@
 	cp $@ include/factory/
 
 .template.h:
@@ -294,14 +302,14 @@ all-local:
 ####################################################
 ## Test program
 ##
-if WANT_DEBUG
-TESTS = test-s-g test-s-r test-d-g test-d-r
-else
+#if WANT_DEBUG
+# TESTS = test-s-g test-s-r test-d-g test-d-r
+#else
 TESTS = test-s-r test-d-r
-endif
+#endif
 check_PROGRAMS = $(TESTS)
 
-AMLDFLAGS =  -L${abs_builddir}
+AM_LDFLAGS =  -L${builddir}
 
 TESTSSOURCES = test.cc
 
@@ -310,28 +318,28 @@ TESTADDLIBDIRS = ${OMALLOC_LDFLAGS}
 TESTADDLIB = $(TESTADDLIBDIRS) $(OMALLOC_R_LDADD)
 TESTADDLIBDEBUG = $(TESTADDLIBDIRS) $(OMALLOC_G_LDADD)
 
-test_s_g_SOURCES = $(TESTSSOURCES)
-test_s_g_CFLAGS = -g -Wextra -Winline -Wall -pedantic -Wno-long-long -fomit-frame-pointer 
-#ftmpl_inst.o
-test_s_g_LDADD = -lfactory_g $(FLINT_LIBS) $(GMP_LIBS) $(NTL_LIBS) $(TESTADDLIBDEBUG)
+# test_s_g_SOURCES = $(TESTSSOURCES)
+# test_s_g_CFLAGS = -g -Wextra -Wall -pedantic -Wno-long-long -fomit-frame-pointer 
+# #ftmpl_inst.o
+# test_s_g_LDADD = -lfactory $(FLINT_LIBS) $(GMP_LIBS) $(NTL_LIBS) $(TESTADDLIBDEBUG)
 
 test_s_r_SOURCES = $(TESTSSOURCES)
-test_s_r_CFLAGS = -O3 -fomit-frame-pointer 
+#test_s_r_CFLAGS = -O3 -fomit-frame-pointer 
 #ftmpl_inst.o
 test_s_r_LDADD = -lfactory $(FLINT_LIBS) $(GMP_LIBS) $(NTL_LIBS) $(TESTADDLIB)
 
-test_s_r_LDFLAGS = -static ${AMLDFLAGS}
-test_s_g_LDFLAGS = -static ${AMLDFLAGS}
+test_s_r_LDFLAGS = -static ${AM_LDFLAGS}
+# test_s_g_LDFLAGS = -static ${AM_LDFLAGS}
 
-test_d_g_SOURCES = $(TESTSSOURCES)
-test_d_g_CFLAGS = -g -Wextra -Winline -Wall -pedantic -Wno-long-long -fomit-frame-pointer 
-#ftmpl_inst.o
-test_d_g_LDADD = -lfactory_g $(FLINT_LIBS) $(GMP_LIBS) $(NTL_LIBS) $(TESTADDLIBDEBUG)
+# test_d_g_SOURCES = $(TESTSSOURCES)
+# test_d_g_CFLAGS = -g -Wextra -Wall -pedantic -Wno-long-long -fomit-frame-pointer 
+# #ftmpl_inst.o
+# test_d_g_LDADD = -lfactory $(FLINT_LIBS) $(GMP_LIBS) $(NTL_LIBS) $(TESTADDLIBDEBUG)
 
 test_d_r_SOURCES = $(TESTSSOURCES)
-test_d_r_CFLAGS = -O3 -fomit-frame-pointer 
+# test_d_r_CFLAGS = -O3 -fomit-frame-pointer 
 #ftmpl_inst.o
 test_d_r_LDADD = -lfactory $(FLINT_LIBS) $(GMP_LIBS) $(NTL_LIBS) $(TESTADDLIB)
 
-test_d_r_LDFLAGS = ${AMLDFLAGS}
-test_d_g_LDFLAGS = ${AMLDFLAGS}
+test_d_r_LDFLAGS = ${AM_LDFLAGS}
+# test_d_g_LDFLAGS = ${AM_LDFLAGS}

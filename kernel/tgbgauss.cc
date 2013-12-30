@@ -4,7 +4,9 @@
 /*
 * ABSTRACT: gauss implementation for F4
 */
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <misc/options.h>
 #include <kernel/tgbgauss.h>
@@ -124,16 +126,16 @@ void mac_destroy(mac_poly p)
   }
 }
 
-void simple_gauss(tgb_sparse_matrix* mat, slimgb_alg* c)
+void simple_gauss(tgb_sparse_matrix* mat, slimgb_alg* /*c*/)
 {
   int col, row;
-  int* row_cache=(int*) omalloc(mat->get_rows()*sizeof(int));
+  int* row_cache=(int*) omAlloc(mat->get_rows()*sizeof(int));
   col=0;
   row=0;
   int i;
   int pn=mat->get_rows();
   int matcol=mat->get_columns();
-  int* area=(int*) omalloc(sizeof(int)*((matcol-1)/bundle_size+1));
+  int* area=(int*) omAlloc(sizeof(int)*((matcol-1)/bundle_size+1));
   const int max_area_index=(matcol-1)/bundle_size;
     //rows are divided in areas
   //if row begins with columns col, it is located in [area[col/bundle_size],area[col/bundle_size+1]-1]
@@ -224,10 +226,11 @@ void simple_gauss(tgb_sparse_matrix* mat, slimgb_alg* c)
       for(i=found_in_row+1;i<=max_in_area;i++)
       {
         assume(mat->min_col_not_zero_in_row(i)>=col);
-        int first;
         assume(row_cache[i]==mat->min_col_not_zero_in_row(i));
-        first=row_cache[i];
+#ifndef NDEBUG
+        int first=row_cache[i];
         assume(first!=matcol);
+#endif
         //      if((!(mat->is_zero_entry(i,col)))&&(mat->non_zero_entries(i)<act_l))
         int nz;
         if((row_cache[i]==col)&&((nz=nSize(mat->get(i,col))*mat->non_zero_entries(i))<act_l))
@@ -259,10 +262,11 @@ void simple_gauss(tgb_sparse_matrix* mat, slimgb_alg* c)
       int col_area_index=col/bundle_size;
       assume(col_area_index<=max_area_index);
       assume(mat->min_col_not_zero_in_row(i)>=col);
-      int first;
       assume(row_cache[i]==mat->min_col_not_zero_in_row(i));
-      first=row_cache[i];
+#ifndef NDEBUG
+      int first=row_cache[i];
       assume(first!=matcol);
+#endif
       if(row_cache[i]==col)
       {
 
@@ -358,8 +362,8 @@ void simple_gauss(tgb_sparse_matrix* mat, slimgb_alg* c)
 #endif
     row++;
   }
-  omfree(area);
-  omfree(row_cache);
+  omFree(area);
+  omFree(row_cache);
 }
 
 void simple_gauss2(tgb_matrix* mat)
@@ -457,12 +461,12 @@ void simple_gauss2(tgb_matrix* mat)
 
 tgb_matrix::tgb_matrix(int i, int j)
 {
-  n=(number**) omalloc(i*sizeof (number*));;
+  n=(number**) omAlloc(i*sizeof (number*));;
   int z;
   int z2;
   for(z=0;z<i;z++)
   {
-    n[z]=(number*)omalloc(j*sizeof(number));
+    n[z]=(number*)omAlloc(j*sizeof(number));
     for(z2=0;z2<j;z2++)
     {
       n[z][z2]=nInit(0);
@@ -488,7 +492,7 @@ tgb_matrix::~tgb_matrix()
           nDelete(&(n[z][z2]));
         }
       }
-      omfree(n[z]);
+      omFree(n[z]);
     }
   }
   omfree(n);
@@ -506,7 +510,9 @@ void tgb_matrix::print()
     {
       StringSetS("");
       n_Write(n[i][j],currRing);
-      PrintS(StringAppendS(""));
+      char *s=StringEndS();
+      PrintS(s);
+      omFree(s);
       PrintS("\t");
     }
     PrintS(")\n");
@@ -635,13 +641,13 @@ void tgb_matrix::free_row(int row, BOOLEAN free_non_zeros)
   for(i=0;i<columns;i++)
     if((free_non_zeros)||(!(nIsZero(n[row][i]))))
       nDelete(&(n[row][i]));
-  omfree(n[row]);
+  omFree(n[row]);
   n[row]=NULL;
 }
 
 tgb_sparse_matrix::tgb_sparse_matrix(int i, int j, ring rarg)
 {
-  mp=(mac_poly*) omalloc(i*sizeof (mac_poly));;
+  mp=(mac_poly*) omAlloc(i*sizeof (mac_poly));;
   int z;
   for(z=0;z<i;z++)
   {
@@ -705,7 +711,9 @@ void tgb_sparse_matrix::print()
       StringSetS("");
       number n=get(i,j);
       n_Write(n,currRing);
-      PrintS(StringAppendS(""));
+      char *s=StringEndS();
+      PrintS(s);
+      omFree(s);
       PrintS("\t");
     }
     PrintS(")\n");

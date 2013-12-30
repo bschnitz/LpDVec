@@ -101,14 +101,10 @@ Ports of @sc{Singular} to different systems do not always implement all
 possible parts of @sc{Singular}:
 @itemize @bullet
 @item
-MP links are available only for 32bit unix systems.
-@item
 dynamic modules are implemented for
   @itemize @bullet
   @item
-  unix systems with ELF format for executables (Linux, Solaris)
-  @item
-  HPUX
+  unix systems with ELF format for executables (Linux, Solaris, FreeBSD)
   @end itemize
 @end itemize
 @c -------------------------------------------------------------------------
@@ -435,7 +431,11 @@ It also apllies for large numerical constants which are of type @code{bigint}.
 @item monomials and precedence
 @cindex monomials and precedence
 
-The formation of a monomial has precedence over all operators:
+The formation of a monomial has precedence over all operators
+(a monomial is here an optional coefficient followed by any sequence
+of ring variables (possibly followed by
+an exponent) which only conssist of letters, digits 
+and (over the rationals) @code{/} without any whitespace):
 @smallexample
 @c example
   ring r=0,(x,y),dp;

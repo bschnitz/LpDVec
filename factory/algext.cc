@@ -1,4 +1,6 @@
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #ifndef NOSTREAMIO
 #ifdef HAVE_CSTDIO
@@ -14,6 +16,7 @@
 #endif
 
 #include "cf_assert.h"
+#include "timing.h"
 
 #include "templates/ftmpl_functions.h"
 #include "cf_defs.h"
@@ -24,10 +27,27 @@
 #include "algext.h"
 #include "cf_map.h"
 #include "cf_generator.h"
+#include "facMul.h"
+#include "facNTLzzpEXGCD.h"
 
 #ifdef HAVE_NTL
 #include "NTLconvert.h"
 #endif
+
+#ifdef HAVE_FLINT
+#include "FLINTconvert.h"
+#endif
+
+TIMING_DEFINE_PRINT(alg_content_p)
+TIMING_DEFINE_PRINT(alg_content)
+TIMING_DEFINE_PRINT(alg_compress)
+TIMING_DEFINE_PRINT(alg_termination)
+TIMING_DEFINE_PRINT(alg_termination_p)
+TIMING_DEFINE_PRINT(alg_reconstruction)
+TIMING_DEFINE_PRINT(alg_newton_p)
+TIMING_DEFINE_PRINT(alg_recursion_p)
+TIMING_DEFINE_PRINT(alg_gcd_p)
+TIMING_DEFINE_PRINT(alg_euclid_p)
 
 /// compressing two polynomials F and G, M is used for compressing,
 /// N to reverse the compression
@@ -348,7 +368,6 @@ CanonicalForm firstLC(const CanonicalForm & f);
 static CanonicalForm trycontent ( const CanonicalForm & f, const Variable & x, const CanonicalForm & M, bool & fail );
 static CanonicalForm tryvcontent ( const CanonicalForm & f, const Variable & x, const CanonicalForm & M, bool & fail );
 static CanonicalForm trycf_content ( const CanonicalForm & f, const CanonicalForm & g, const CanonicalForm & M, bool & fail );
-static void tryDivide( const CanonicalForm & f, const CanonicalForm & g, const CanonicalForm & M, CanonicalForm & result, bool & divides, bool & fail );
 
 static inline CanonicalForm
 tryNewtonInterp (const CanonicalForm alpha, const CanonicalForm u,
@@ -429,6 +448,7 @@ void tryBrownGCD( const CanonicalForm & F, const CanonicalForm & G, const Canoni
     result = 1;
     return;
   }
+  TIMING_START (alg_compress)
   CFMap MM,NN;
   int lev= myCompress (F, G, MM, NN, topLevel);
   if (lev == 0)
@@ -438,20 +458,47 @@ void tryBrownGCD( const CanonicalForm & F, const CanonicalForm & G, const Canoni
   }
   CanonicalForm f=MM(F);
   CanonicalForm g=MM(G);
+  TIMING_END_AND_PRINT (alg_compress, "time to compress in alg gcd: ")
   // here: f,g are compressed
   // compute largest variable in f or g (least one is Variable(1))
   int mv = f.level();
   if(g.level() > mv)
     mv = g.level();
   // here: mv is level of the largest variable in f, g
+  Variable v1= Variable (1);
+#ifdef HAVE_NTL
+  Variable v= M.mvar();
+  if (fac_NTL_char != getCharacteristic())
+  {
+    fac_NTL_char= getCharacteristic();
+    zz_p::init (getCharacteristic());
+  }
+  zz_pX NTLMipo= convertFacCF2NTLzzpX (M);
+  zz_pE::init (NTLMipo);
+  zz_pEX NTLResult;
+  zz_pEX NTLF;
+  zz_pEX NTLG;
+#endif
   if(mv == 1) // f,g univariate
   {
+    TIMING_START (alg_euclid_p)
+#ifdef HAVE_NTL
+    NTLF= convertFacCF2NTLzz_pEX (f, NTLMipo);
+    NTLG= convertFacCF2NTLzz_pEX (g, NTLMipo);
+    tryNTLGCD (NTLResult, NTLF, NTLG, fail);
+    if (fail)
+      return;
+    result= convertNTLzz_pEX2CF (NTLResult, f.mvar(), v);
+#else
     tryEuclid(f,g,M,result,fail);
     if(fail)
       return;
+#endif
+    TIMING_END_AND_PRINT (alg_euclid_p, "time for euclidean alg mod p: ")
     result= NN (reduce (result, M)); // do not forget to map back
     return;
   }
+  TIMING_START (alg_content_p)
   // here: mv > 1
   CanonicalForm cf = tryvcontent(f, Variable(2), M, fail); // cf is univariate poly in var(1)
   if(fail)
@@ -460,9 +507,18 @@ void tryBrownGCD( const CanonicalForm & F, const CanonicalForm & G, const Canoni
   if(fail)
     return;
   CanonicalForm c;
+#ifdef HAVE_NTL
+  NTLF= convertFacCF2NTLzz_pEX (cf, NTLMipo);
+  NTLG= convertFacCF2NTLzz_pEX (cg, NTLMipo);
+  tryNTLGCD (NTLResult, NTLF, NTLG, fail);
+  if (fail)
+    return;
+  c= convertNTLzz_pEX2CF (NTLResult, v1, v);
+#else
   tryEuclid(cf,cg,M,c,fail);
   if(fail)
     return;
+#endif
   // f /= cf
   f.tryDiv (cf, M, fail);
   if(fail)
@@ -471,6 +527,7 @@ void tryBrownGCD( const CanonicalForm & F, const CanonicalForm & G, const Canoni
   g.tryDiv (cg, M, fail);
   if(fail)
     return;
+  TIMING_END_AND_PRINT (alg_content_p, "time for content in alg gcd mod p: ")
   if(f.inCoeffDomain())
   {
     tryInvert(f,M,result,fail);
@@ -494,9 +551,20 @@ void tryBrownGCD( const CanonicalForm & F, const CanonicalForm & G, const Canoni
   L = leadDeg(f, L);
   N = leadDeg(g, N);
   CanonicalForm gamma;
+  TIMING_START (alg_euclid_p)
+#ifdef HAVE_NTL
+  NTLF= convertFacCF2NTLzz_pEX (firstLC (f), NTLMipo);
+  NTLG= convertFacCF2NTLzz_pEX (firstLC (g), NTLMipo);
+  tryNTLGCD (NTLResult, NTLF, NTLG, fail);
+  if (fail)
+    return;
+  gamma= convertNTLzz_pEX2CF (NTLResult, v1, v);
+#else
   tryEuclid( firstLC(f), firstLC(g), M, gamma, fail );
   if(fail)
     return;
+#endif
+  TIMING_END_AND_PRINT (alg_euclid_p, "time for gcd of lcs in alg mod p: ")
   for(int i=2; i<=mv; i++) // entries at i=0,1 not visited
     if(N[i] < L[i])
       L[i] = N[i];
@@ -516,7 +584,10 @@ void tryBrownGCD( const CanonicalForm & F, const CanonicalForm & G, const Canoni
     gamma_image = reduce(gamma(alpha, x),M); // plug in alpha for var(1)
     if(gamma_image.isZero()) // skip lc-bad points var(1)-alpha
       continue;
+    TIMING_START (alg_recursion_p)
     tryBrownGCD( f(alpha, x), g(alpha, x), M, g_image, fail, false ); // recursive call with one var less
+    TIMING_END_AND_PRINT (alg_recursion_p,
+                         "time for recursive calls in alg gcd mod p: ")
     if(fail)
       return;
     g_image = reduce(g_image, M);
@@ -540,20 +611,24 @@ void tryBrownGCD( const CanonicalForm & F, const CanonicalForm & G, const Canoni
       g_image *= inv;
       g_image *= gamma_image; // multiply by multiple of image lc(gcd)
       g_image= reduce (g_image, M);
+      TIMING_START (alg_newton_p)
       gnew= tryNewtonInterp (alpha, g_image, m, gm, x, M, fail);
+      TIMING_END_AND_PRINT (alg_newton_p,
+                            "time for Newton interpolation in alg gcd mod p: ")
       // gnew = gm mod m
       // gnew = g_image mod var(1)-alpha
       // mnew = m * (var(1)-alpha)
       if(fail)
         return;
       m *= (x - alpha);
-      if(gnew == gm) // gnew did not change
+      if((firstLC(gnew) == gamma) || (gnew == gm)) // gnew did not change
       {
-        cf = tryvcontent(gm, Variable(2), M, fail);
+        TIMING_START (alg_termination_p)
+        cf = tryvcontent(gnew, Variable(2), M, fail);
         if(fail)
           return;
         divides = true;
-        g_image= gm;
+        g_image= gnew;
         g_image.tryDiv (cf, M, fail);
         if(fail)
           return;
@@ -568,9 +643,13 @@ void tryBrownGCD( const CanonicalForm & F, const CanonicalForm & G, const Canoni
           if(divides2)
           {
             result = NN(reduce (c*g_image, M));
+            TIMING_END_AND_PRINT (alg_termination_p,
+                      "time for successful termination test in alg gcd mod p: ")
             return;
           }
         }
+        TIMING_END_AND_PRINT (alg_termination_p,
+                    "time for unsuccessful termination test in alg gcd mod p: ")
       }
       gm = gnew;
       continue;
@@ -605,6 +684,20 @@ myicontent ( const CanonicalForm & f, const CanonicalForm & c )
               (f.inBaseDomain() && c.inCoeffDomain()))
     {
       if (c.isZero()) return abs (f);
+#ifdef HAVE_FLINT
+      fmpz_poly_t FLINTf, FLINTc;
+      convertFacCF2Fmpz_poly_t (FLINTf, f);
+      convertFacCF2Fmpz_poly_t (FLINTc, c);
+      fmpz_poly_gcd (FLINTc, FLINTc, FLINTf);
+      CanonicalForm result;
+      if (f.inCoeffDomain())
+        result= convertFmpz_poly_t2FacCF (FLINTc, f.mvar());
+      else
+        result= convertFmpz_poly_t2FacCF (FLINTc, c.mvar());
+      fmpz_poly_clear (FLINTc);
+      fmpz_poly_clear (FLINTf);
+      return result;
+#else
       ZZX NTLf= convertFacCF2NTLZZX (f);
       ZZX NTLc= convertFacCF2NTLZZX (c);
       NTLc= GCD (NTLc, NTLf);
@@ -612,6 +705,7 @@ myicontent ( const CanonicalForm & f, const CanonicalForm & c )
         return convertNTLZZX2CF(NTLc,f.mvar());
       else
         return convertNTLZZX2CF(NTLc,c.mvar());
+#endif
     }
     else
     {
@@ -664,11 +758,13 @@ CanonicalForm QGCD( const CanonicalForm & F, const CanonicalForm & G )
   On( SW_RATIONAL ); // needed by bCommonDen
   f = F * bCommonDen(F);
   g = G * bCommonDen(G);
+  TIMING_START (alg_content)
   CanonicalForm contf= myicontent (f);
   CanonicalForm contg= myicontent (g);
   f /= contf;
   g /= contg;
   CanonicalForm gcdcfcg= myicontent (contf, contg);
+  TIMING_END_AND_PRINT (alg_content, "time for content in alg gcd: ")
   Variable a, b;
   if(hasFirstAlgVar(f,a))
   {
@@ -691,7 +787,6 @@ CanonicalForm QGCD( const CanonicalForm & F, const CanonicalForm & G )
     }
   }
   // here: a is the biggest alg. var in f and g AND some of f,g is in extension
-  // (in the sequel b is used to swap alg/poly vars)
   setReduce(a,false); // do not reduce expressions modulo mipo
   tmp = getMipo(a);
   M = tmp * bCommonDen(tmp);
@@ -702,7 +797,6 @@ CanonicalForm QGCD( const CanonicalForm & F, const CanonicalForm & G )
   if(i > mv)
     mv = i;
   // here: mv is level of the largest variable in f, g
-  b = Variable(mv+1);
   bound = new int[mv+1]; // 'bound' could be indexed from 0 to mv, but we will only use from 1 to mv
   other = new int[mv+1];
   for(int i=1; i<=mv; i++) // initialize 'bound', 'other' with zeros
@@ -728,7 +822,9 @@ CanonicalForm QGCD( const CanonicalForm & F, const CanonicalForm & G )
     mipo = mapinto(M);
     mipo /= mipo.lc();
     // here: mipo is monic
+    TIMING_START (alg_gcd_p)
     tryBrownGCD( mapinto(f), mapinto(g), mipo, Dp, fail );
+    TIMING_END_AND_PRINT (alg_gcd_p, "time for alg gcd mod p: ")
     if( fail ) // mipo splits in char p
       continue;
     if( Dp.inCoeffDomain() ) // early termination
@@ -749,7 +845,7 @@ CanonicalForm QGCD( const CanonicalForm & F, const CanonicalForm & G )
 
     if(isEqual(bound, other, 1, mv)) // equal
     {
-      chineseRemainder( D, q, replacevar( mapinto(Dp), a, b ), p, tmp, newq );
+      chineseRemainder( D, q, mapinto(Dp), p, tmp, newq );
       // tmp = Dp mod p
       // tmp = D mod q
       // newq = p*q
@@ -757,20 +853,57 @@ CanonicalForm QGCD( const CanonicalForm & F, const CanonicalForm & G )
       if( D != tmp )
         D = tmp;
       On( SW_RATIONAL );
-      tmp = replacevar( Farey( D, q ), b, a ); // Farey and switch back to alg var
+      TIMING_START (alg_reconstruction)
+      tmp = Farey( D, q ); // Farey
+      tmp *= bCommonDen (tmp);
+      TIMING_END_AND_PRINT (alg_reconstruction,
+                            "time for rational reconstruction in alg gcd: ")
       setReduce(a,true); // reduce expressions modulo mipo
       On( SW_RATIONAL ); // needed by fdivides
       if (test != tmp)
         test= tmp;
       else
         equal= true; // modular image did not add any new information
+      TIMING_START (alg_termination)
+#ifdef HAVE_NTL
+#ifdef HAVE_FLINT
+      if (equal && tmp.isUnivariate() && f.isUnivariate() && g.isUnivariate()
+          && f.level() == tmp.level() && tmp.level() == g.level())
+      {
+        CanonicalForm Q, R, sf, sg, stmp;
+        Variable x= Variable (1);
+        sf= swapvar (f, f.mvar(), x);
+        sg= swapvar (g, f.mvar(), x);
+        stmp= swapvar (tmp, f.mvar(), x);
+        newtonDivrem (sf, stmp, Q, R);
+        if (R.isZero())
+        {
+          newtonDivrem (sg, stmp, Q, R);
+          if (R.isZero())
+          {
+            Off (SW_RATIONAL);
+            setReduce (a,true);
+            if (off_rational) Off(SW_RATIONAL); else On(SW_RATIONAL);
+            TIMING_END_AND_PRINT (alg_termination,
+                                 "time for successful termination test in alg gcd: ")
+            return tmp*gcdcfcg;
+          }
+        }
+      }
+      else
+#endif
+#endif
       if(equal && fdivides( tmp, f ) && fdivides( tmp, g )) // trial division
       {
         Off( SW_RATIONAL );
         setReduce(a,true);
         if (off_rational) Off(SW_RATIONAL); else On(SW_RATIONAL);
+        TIMING_END_AND_PRINT (alg_termination,
+                            "time for successful termination test in alg gcd: ")
         return tmp*gcdcfcg;
       }
+      TIMING_END_AND_PRINT (alg_termination,
+                          "time for unsuccessful termination test in alg gcd: ")
       Off( SW_RATIONAL );
       setReduce(a,false); // do not reduce expressions modulo mipo
       continue;
@@ -779,7 +912,7 @@ CanonicalForm QGCD( const CanonicalForm & F, const CanonicalForm & G )
       continue;
     // here: isLess(other, bound, 1, mv) ) ==> all previous primes unlucky
     q = p;
-    D = replacevar( mapinto(Dp), a, b ); // shortcut CRA // shortcut CRA
+    D = mapinto(Dp); // shortcut CRA // shortcut CRA
     for(int i=1; i<=mv; i++) // tighten bound
       bound[i] = other[i];
   }
@@ -955,58 +1088,6 @@ static CanonicalForm trycf_content ( const CanonicalForm & f, const CanonicalFor
     return result;
   }
   return abs( f );
-}
-
-
-static void tryDivide( const CanonicalForm & f, const CanonicalForm & g, const CanonicalForm & M, CanonicalForm & result, bool & divides, bool & fail )
-{ // M "univariate" monic polynomial
-  // f, g polynomials with coeffs modulo M.
-  // if f is divisible by g, 'divides' is set to 1 and 'result' == f/g mod M coefficientwise.
-  // 'fail' is set to 1, iff a zero divisor is encountered.
-  // divides==1 implies fail==0
-  // required: getReduce(M.mvar())==0
-  if(g.inBaseDomain())
-  {
-    result = f/g;
-    divides = true;
-    return;
-  }
-  if(g.inCoeffDomain())
-  {
-    tryInvert(g,M,result,fail);
-    if(fail)
-      return;
-    result = reduce(f*result, M);
-    divides = true;
-    return;
-  }
-  // here: g NOT inCoeffDomain
-  Variable x = g.mvar();
-  if(f.degree(x) < g.degree(x))
-  {
-    divides = false;
-    return;
-  }
-  // here: f.degree(x) > 0 and f.degree(x) >= g.degree(x)
-  CanonicalForm F = f;
-  CanonicalForm q, leadG = LC(g);
-  result = 0;
-  while(!F.isZero())
-  {
-    tryDivide(F.LC(x),leadG,M,q,divides,fail);
-    if(fail || !divides)
-      return;
-    if(F.degree(x)<g.degree(x))
-    {
-      divides = false;
-      return;
-    }
-    q *= power(x,F.degree(x)-g.degree(x));
-    result += q;
-    F = reduce(F-q*g, M);
-  }
-  result = reduce(result, M);
-  divides = true;
 }
 
 void tryExtgcd( const CanonicalForm & F, const CanonicalForm & G, CanonicalForm & result, CanonicalForm & s, CanonicalForm & t, bool & fail )

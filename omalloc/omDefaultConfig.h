@@ -88,7 +88,7 @@
    but the more unused memory the application might have allocated from the operating system
 */
 #ifndef OM_DEFAULT_PAGES_PER_REGION
-#define OM_DEFAULT_PAGES_PER_REGION 128
+#define OM_DEFAULT_PAGES_PER_REGION 512
 #endif
 
 /* This is called if nothing goes any more, i.e., if
@@ -144,25 +144,25 @@ while(0)
    Not settable at run-time (makes no sense for thise to be functions, for they would
    be called each time the underlying malloc/valloc is called !) */
 #ifndef OM_MALLOC_HOOK
-#define OM_MALLOC_HOOK(size) ((void)0)
+#define OM_MALLOC_HOOK(size) do {} while (0)
 #endif
 #ifndef OM_REALLOC_HOOK
-#define OM_REALLOC_HOOK(oldsize, newsize) ((void)0)
+#define OM_REALLOC_HOOK(oldsize, newsize) do {} while (0)
 #endif
 #ifndef OM_VALLOC_HOOK
-#define OM_VALLOC_HOOK(size) ((void)0)
+#define OM_VALLOC_HOOK(size) do {} while (0)
 #endif
 #ifndef OM_FREE_HOOK
-#define OM_FREE_HOOK(size) ((void)0)
+#define OM_FREE_HOOK(size) do {} while (0)
 #endif
 #ifndef OM_VFREE_HOOK
-#define OM_VFREE_HOOK(size) ((void)0)
+#define OM_VFREE_HOOK(size) do {} while (0)
 #endif
 #ifndef OM_ALLOC_BINPAGE_HOOK
-#define OM_ALLOC_BINPAGE_HOOK ((void)0)
+#define OM_ALLOC_BINPAGE_HOOK do {} while (0)
 #endif
 #ifndef OM_FREE_BINPAGE_HOOK
-#define OM_FREE_BINPAGE_HOOK ((void)0)
+#define OM_FREE_BINPAGE_HOOK do {} while (0)
 #endif
 
 /*

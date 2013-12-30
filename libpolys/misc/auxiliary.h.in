@@ -16,6 +16,11 @@
 #ifndef MISC_AUXILIARY_H
 #define MISC_AUXILIARY_H
 
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
+
+
 // ----------------- which parts/extensions of Singular to build
 #ifndef HAVE_RINGS
 #undef HAVE_RINGS
@@ -160,7 +165,6 @@ typedef short BOOLEAN;
 #endif
 // #endif
 
-static const int MAX_INT_LEN= 11;
 typedef void* ADDRESS;
 
 #define loop for(;;)

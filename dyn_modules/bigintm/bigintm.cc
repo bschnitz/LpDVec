@@ -1,8 +1,12 @@
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
+
 #include <kernel/mod2.h>
 
 #include <omalloc/omalloc.h>
 #include <coeffs/coeffs.h>
-#include <kernel/longrat.h>
+#include <coeffs/longrat.h>
 
 #include <kernel/febase.h>
 
@@ -29,29 +33,29 @@ static int bigintm_type_id = -1;
 #endif
 
 #ifdef HAVE_BIGINTM
-static char * bigintm_String(blackbox *b, void *d)
+static char * bigintm_String(blackbox */*b*/, void *d)
 { if (d==NULL) return omStrDup("oo");
    else
    {
      StringSetS("");
      number n=(number)d; n_Write(n, coeffs_BIGINT); d=(void*)n;
-     return omStrDup(StringAppendS(""));
+     return StringEndS();
     }
 }
-static void * bigintm_Copy(blackbox*b, void *d)
+static void * bigintm_Copy(blackbox*/*b*/, void *d)
 {  number n=(number)d; return n_Copy(n, coeffs_BIGINT); }
 
 static BOOLEAN bigintm_Assign(leftv l, leftv r)
 {
   assume( l->Typ() == bigintm_type_id );
   
-  blackbox *ll=getBlackboxStuff(l->Typ());
+  // blackbox *ll=getBlackboxStuff(l->Typ());
   
   if (r->Typ()>MAX_TOK)
   {
     if (bigintm_type_id == r->Typ())
     {
-      blackbox *rr=getBlackboxStuff(r->Typ());
+      // blackbox *rr=getBlackboxStuff(r->Typ());
       
       if (l->Data()!=NULL) { number n1=(number)l->Data(); n_Delete(&n1,coeffs_BIGINT); }
       number n2=(number)r->CopyD();
@@ -125,7 +129,7 @@ static BOOLEAN bigintm_Op2(int op, leftv res, leftv a1, leftv a2)
   // interpreter: a1 is ist bigintm
   assume( a1->Typ() == bigintm_type_id );
   
-  blackbox *a=getBlackboxStuff(a1->Typ());
+  // blackbox *a=getBlackboxStuff(a1->Typ());
   number n1=(number)a1->Data(); 
   switch(op)
   {
@@ -218,19 +222,19 @@ static BOOLEAN bigintm_Op2(int op, leftv res, leftv a1, leftv a2)
       if (a2->Typ()==INT_CMD)
       {
         number n2=n_Init((int)(long)a2->Data(), coeffs_BIGINT);
-        res->data=(void *) n_Equal(n1,n2, coeffs_BIGINT);
+        res->data=(void *) (long) n_Equal(n1,n2, coeffs_BIGINT);
         res->rtyp= INT_CMD;
         return FALSE;
       }
       else if (a2->Typ()==a1->Typ())
       {
         number n2=(number)a2->Data(); 
-        res->data=(void *) n_Equal(n1,n2, coeffs_BIGINT);
+        res->data=(void *) (long) n_Equal(n1,n2, coeffs_BIGINT);
         res->rtyp= INT_CMD;
         return FALSE;
       }
 
-      Werror("bigintm_Op2: Op: '==': Sorry unsupported 2nd argument-type: '%d' in", Tok2Cmdname(a2->Typ()));
+      Werror("bigintm_Op2: Op: '==': Sorry unsupported 2nd argument-type: '%s' in", Tok2Cmdname(a2->Typ()));
       WrongOp("bigintm_Op2", op, a1);
       return TRUE;
     }
@@ -286,7 +290,7 @@ static BOOLEAN bigintm_OpM(int op, leftv res, leftv args)
   return blackbox_default_OpM(op, res, args);
 }
 
-static void bigintm_destroy(blackbox *b, void *d)
+static void bigintm_destroy(blackbox */*b*/, void *d)
 {
   if (d!=NULL)
   {

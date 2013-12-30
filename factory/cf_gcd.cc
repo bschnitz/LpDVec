@@ -1,7 +1,10 @@
 /* emacs edit mode for this file is -*- C++ -*- */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
+#include "timing.h"
 #include "cf_assert.h"
 #include "debug.h"
 
@@ -24,8 +27,10 @@
 #include <NTL/ZZX.h>
 #include "NTLconvert.h"
 bool isPurePoly(const CanonicalForm & );
+#ifndef HAVE_FLINT
 static CanonicalForm gcd_univar_ntl0( const CanonicalForm &, const CanonicalForm & );
 static CanonicalForm gcd_univar_ntlp( const CanonicalForm &, const CanonicalForm & );
+#endif
 #endif
 
 #ifdef HAVE_FLINT
@@ -41,8 +46,9 @@ void out_cf(const char *s1,const CanonicalForm &f,const char *s2);
 CanonicalForm chinrem_gcd(const CanonicalForm & FF,const CanonicalForm & GG);
 
 bool
-gcd_test_one ( const CanonicalForm & f, const CanonicalForm & g, bool swap )
+gcd_test_one ( const CanonicalForm & f, const CanonicalForm & g, bool swap, int & d )
 {
+    d= 0;
     int count = 0;
     // assume polys have same level;
 
@@ -110,7 +116,11 @@ gcd_test_one ( const CanonicalForm & f, const CanonicalForm & g, bool swap )
       CanonicalForm primElem, imPrimElem;
       if (p == 2 && d < 6)
       {
-        zz_p::init (p);
+        if (fac_NTL_char != 2)
+        {
+          fac_NTL_char= 2;
+          zz_p::init (p);
+        }
         bool primFail= false;
         Variable vBuf;
         primElem= primitiveElement (v, vBuf, primFail);
@@ -134,7 +144,11 @@ gcd_test_one ( const CanonicalForm & f, const CanonicalForm & g, bool swap )
       }
       else if ((p == 3 && d < 4) || ((p == 5 || p == 7) && d < 3))
       {
-        zz_p::init (p);
+        if (fac_NTL_char != p)
+        {
+          fac_NTL_char= p;
+          zz_p::init (p);
+        }
         bool primFail= false;
         Variable vBuf;
         primElem= primitiveElement (v, vBuf, primFail);
@@ -214,17 +228,11 @@ gcd_test_one ( const CanonicalForm & f, const CanonicalForm & g, bool swap )
       eval2= e (G);
     }
 
-    if ( eval1.taildegree() > 0 && eval2.taildegree() > 0 )
-    {
-        if (passToGF)
-          setCharacteristic (p);
-        if (k > 1)
-          setCharacteristic (p, k, gf_name);
-        return false;
-    }
-
     CanonicalForm c= gcd (eval1, eval2);
-    bool result= c.degree() < 1;
+    d= c.degree();
+    bool result= d < 1;
+    if (d < 0)
+      d= 0;
 
     if (passToGF)
       setCharacteristic (p);
@@ -305,36 +313,36 @@ extgcd ( const CanonicalForm & f, const CanonicalForm & g, CanonicalForm & a, Ca
     return f;
   }
 #ifdef HAVE_NTL
+#ifdef HAVE_FLINT
+  if (( getCharacteristic() > 0 ) && (CFFactory::gettype() != GaloisFieldDomain)
+  &&  (f.level()==g.level()) && isPurePoly(f) && isPurePoly(g))
+  {
+    nmod_poly_t F1, G1, A, B, R;
+    convertFacCF2nmod_poly_t (F1, f);
+    convertFacCF2nmod_poly_t (G1, g);
+    nmod_poly_init (R, getCharacteristic());
+    nmod_poly_init (A, getCharacteristic());
+    nmod_poly_init (B, getCharacteristic());
+    nmod_poly_xgcd (R, A, B, F1, G1);
+    a= convertnmod_poly_t2FacCF (A, f.mvar());
+    b= convertnmod_poly_t2FacCF (B, f.mvar());
+    CanonicalForm r= convertnmod_poly_t2FacCF (R, f.mvar());
+    nmod_poly_clear (F1);
+    nmod_poly_clear (G1);
+    nmod_poly_clear (A);
+    nmod_poly_clear (B);
+    nmod_poly_clear (R);
+    return r;
+  }
+#else
   if (isOn(SW_USE_NTL_GCD_P) && ( getCharacteristic() > 0 ) && (CFFactory::gettype() != GaloisFieldDomain)
   &&  (f.level()==g.level()) && isPurePoly(f) && isPurePoly(g))
   {
     if (fac_NTL_char!=getCharacteristic())
     {
       fac_NTL_char=getCharacteristic();
-      #ifdef NTL_ZZ
-      ZZ r;
-      r=getCharacteristic();
-      ZZ_pContext ccc(r);
-      #else
-      zz_pContext ccc(getCharacteristic());
-      #endif
-      ccc.restore();
-      #ifdef NTL_ZZ
-      ZZ_p::init(r);
-      #else
       zz_p::init(getCharacteristic());
-      #endif
     }
-    #ifdef NTL_ZZ
-    ZZ_pX F1=convertFacCF2NTLZZpX(f);
-    ZZ_pX G1=convertFacCF2NTLZZpX(g);
-    ZZ_pX R;
-    ZZ_pX A,B;
-    XGCD(R,A,B,F1,G1);
-    a=convertNTLZZpX2CF(A,f.mvar());
-    b=convertNTLZZpX2CF(B,f.mvar());
-    return convertNTLZZpX2CF(R,f.mvar());
-    #else
     zz_pX F1=convertFacCF2NTLzzpX(f);
     zz_pX G1=convertFacCF2NTLzzpX(g);
     zz_pX R;
@@ -343,8 +351,31 @@ extgcd ( const CanonicalForm & f, const CanonicalForm & g, CanonicalForm & a, Ca
     a=convertNTLzzpX2CF(A,f.mvar());
     b=convertNTLzzpX2CF(B,f.mvar());
     return convertNTLzzpX2CF(R,f.mvar());
-    #endif
   }
+#endif
+#ifdef HAVE_FLINT
+  if (( getCharacteristic() ==0) && (f.level()==g.level())
+       && isPurePoly(f) && isPurePoly(g))
+  {
+    fmpq_poly_t F1, G1;
+    convertFacCF2Fmpq_poly_t (F1, f);
+    convertFacCF2Fmpq_poly_t (G1, g);
+    fmpq_poly_t R, A, B;
+    fmpq_poly_init (R);
+    fmpq_poly_init (A);
+    fmpq_poly_init (B);
+    fmpq_poly_xgcd (R, A, B, F1, G1);
+    a= convertFmpq_poly_t2FacCF (A, f.mvar());
+    b= convertFmpq_poly_t2FacCF (B, f.mvar());
+    CanonicalForm r= convertFmpq_poly_t2FacCF (R, f.mvar());
+    fmpq_poly_clear (F1);
+    fmpq_poly_clear (G1);
+    fmpq_poly_clear (A);
+    fmpq_poly_clear (B);
+    fmpq_poly_clear (R);
+    return r;
+  }
+#else
   if (isOn(SW_USE_NTL_GCD_0) && ( getCharacteristic() ==0)
   && (f.level()==g.level()) && isPurePoly(f) && isPurePoly(g))
   {
@@ -360,27 +391,50 @@ extgcd ( const CanonicalForm & f, const CanonicalForm & g, CanonicalForm & a, Ca
     {
       XGCD(RR,A,B,F1,G1,1);
       CanonicalForm rr=convertZZ2CF(RR);
-      ASSERT (!rr.isZero(), "NTL:XGCD failed");
-      a=convertNTLZZX2CF(A,f.mvar())*fc/rr;
-      b=convertNTLZZX2CF(B,f.mvar())*gc/rr;
-      return CanonicalForm(1);
+      if(!rr.isZero())
+      {
+        a=convertNTLZZX2CF(A,f.mvar())*fc/rr;
+        b=convertNTLZZX2CF(B,f.mvar())*gc/rr;
+        return CanonicalForm(1);
+      }
+      else
+      {
+        Off(SW_USE_NTL_GCD_0);
+        r=extgcd(f,g,a,b);
+        if (isOn(SW_RATIONAL))
+        {
+          a/=r.lc();
+          b/=r.lc();
+          r/=r.lc();
+        }
+        On(SW_USE_NTL_GCD_0);
+      }
     }
     else
     {
-      fc=bCommonDen(f);
-      gc=bCommonDen(g);
-      F1=convertFacCF2NTLZZX(f*fc/r);
-      G1=convertFacCF2NTLZZX(g*gc/r);
       XGCD(RR,A,B,F1,G1,1);
-      a=convertNTLZZX2CF(A,f.mvar())*fc;
-      b=convertNTLZZX2CF(B,f.mvar())*gc;
       CanonicalForm rr=convertZZ2CF(RR);
-      ASSERT (!rr.isZero(), "NTL:XGCD failed");
-      r*=rr;
-      if ( r.sign() < 0 ) { r= -r; a= -a; b= -b; }
+      if (!rr.isZero())
+      {
+        a=convertNTLZZX2CF(A,f.mvar())*fc;
+        b=convertNTLZZX2CF(B,f.mvar())*gc;
+      }
+      else
+      {
+        Off(SW_USE_NTL_GCD_0);
+        r=extgcd(f,g,a,b);
+        if (isOn(SW_RATIONAL))
+        {
+          a/=r.lc();
+          b/=r.lc();
+          r/=r.lc();
+        }
+        On(SW_USE_NTL_GCD_0);
+      }
       return r;
     }
   }
+#endif
 #endif
   // may contain bug in the co-factors, see track 107
   CanonicalForm contf = content( f );
@@ -412,10 +466,10 @@ extgcd ( const CanonicalForm & f, const CanonicalForm & g, CanonicalForm & a, Ca
 }
 //}}}
 
-//{{{ static CanonicalForm balance ( const CanonicalForm & f, const CanonicalForm & q )
+//{{{ static CanonicalForm balance_p ( const CanonicalForm & f, const CanonicalForm & q )
 //{{{ docu
 //
-// balance() - map f from positive to symmetric representation
+// balance_p() - map f from positive to symmetric representation
 //   mod q.
 //
 // This makes sense for univariate polynomials over Z only.
@@ -424,7 +478,38 @@ extgcd ( const CanonicalForm & f, const CanonicalForm & g, CanonicalForm & a, Ca
 // Used by gcd_poly_univar0().
 //
 //}}}
+
 static CanonicalForm
+balance_p ( const CanonicalForm & f, const CanonicalForm & q, const CanonicalForm & qh )
+{
+    Variable x = f.mvar();
+    CanonicalForm result = 0;
+    CanonicalForm c;
+    CFIterator i;
+    for ( i = f; i.hasTerms(); i++ )
+    {
+        c = i.coeff();
+        if ( c.inCoeffDomain())
+        {
+          if ( c > qh )
+            result += power( x, i.exp() ) * (c - q);
+          else
+            result += power( x, i.exp() ) * c;
+        }
+        else
+          result += power( x, i.exp() ) * balance_p(c,q,qh);
+    }
+    return result;
+}
+
+static CanonicalForm
+balance_p ( const CanonicalForm & f, const CanonicalForm & q )
+{
+    CanonicalForm qh = q / 2;
+    return balance_p (f, q, qh);
+}
+
+/*static CanonicalForm
 balance ( const CanonicalForm & f, const CanonicalForm & q )
 {
     Variable x = f.mvar();
@@ -439,7 +524,7 @@ balance ( const CanonicalForm & f, const CanonicalForm & q )
             result += power( x, i.exp() ) * c;
     }
     return result;
-}
+}*/
 //}}}
 
 static CanonicalForm gcd_poly_univar0( const CanonicalForm & F, const CanonicalForm & G, bool primitive )
@@ -515,7 +600,7 @@ static CanonicalForm gcd_poly_univar0( const CanonicalForm & F, const CanonicalF
     if ( i >= 0 )
     {
       // now balance D mod q
-      D = pp( balance( D, q ) );
+      D = pp( balance_p( D, q ) );
       if ( fdivides( D, f ) && fdivides( D, g ) )
         return D * c;
       else
@@ -530,9 +615,11 @@ static CanonicalForm gcd_poly_univar0( const CanonicalForm & F, const CanonicalF
 static CanonicalForm
 gcd_poly_p( const CanonicalForm & f, const CanonicalForm & g )
 {
+    if (f.inCoeffDomain() || g.inCoeffDomain()) //zero case should be caught by gcd
+      return 1;
     CanonicalForm pi, pi1;
     CanonicalForm C, Ci, Ci1, Hi, bi, pi2;
-    bool bpure;
+    bool bpure, ezgcdon= isOn (SW_USE_EZGCD_P);
     int delta = degree( f ) - degree( g );
 
     if ( delta >= 0 )
@@ -543,12 +630,33 @@ gcd_poly_p( const CanonicalForm & f, const CanonicalForm & g )
     {
         pi = g; pi1 = f; delta = -delta;
     }
-    Ci = content( pi ); Ci1 = content( pi1 );
-    pi1 = pi1 / Ci1; pi = pi / Ci;
+    if (pi.isUnivariate())
+      Ci= 1;
+    else
+    {
+      if (!ezgcdon)
+        On (SW_USE_EZGCD_P);
+      Ci = content( pi );
+      if (!ezgcdon)
+        Off (SW_USE_EZGCD_P);
+      pi = pi / Ci;
+    }
+    if (pi1.isUnivariate())
+      Ci1= 1;
+    else
+    {
+      if (!ezgcdon)
+        On (SW_USE_EZGCD_P);
+      Ci1 = content( pi1 );
+      if (!ezgcdon)
+        Off (SW_USE_EZGCD_P);
+      pi1 = pi1 / Ci1;
+    }
     C = gcd( Ci, Ci1 );
+    int d= 0;
     if ( !( pi.isUnivariate() && pi1.isUnivariate() ) )
     {
-        if ( gcd_test_one( pi1, pi, true ) )
+        if ( gcd_test_one( pi1, pi, true, d ) )
         {
           C=abs(C);
           //out_cf("GCD:",C,"\n");
@@ -571,12 +679,24 @@ gcd_poly_p( const CanonicalForm & f, const CanonicalForm & g )
     }
     Variable v = f.mvar();
     Hi = power( LC( pi1, v ), delta );
+    int maxNumVars= tmax (getNumVars (pi), getNumVars (pi1));
+
+    if (!(pi.isUnivariate() && pi1.isUnivariate()))
+    {
+      if (size (Hi)*size (pi)/(maxNumVars*3) > 500) //maybe this needs more tuning
+      {
+        On (SW_USE_FF_MOD_GCD);
+        C *= gcd (pi, pi1);
+        Off (SW_USE_FF_MOD_GCD);
+        return C;
+      }
+    }
+
     if ( (delta+1) % 2 )
         bi = 1;
     else
         bi = -1;
-    int maxNumVars= tmax (getNumVars (pi), getNumVars (pi1));
-    CanonicalForm oldPi= pi, oldPi1= pi1;
+    CanonicalForm oldPi= pi, oldPi1= pi1, powHi;
     while ( degree( pi1, v ) > 0 )
     {
         if (!(pi.isUnivariate() && pi1.isUnivariate()))
@@ -593,7 +713,7 @@ gcd_poly_p( const CanonicalForm & f, const CanonicalForm & g )
         pi2 = pi2 / bi;
         pi = pi1; pi1 = pi2;
         maxNumVars= tmax (getNumVars (pi), getNumVars (pi1));
-        if (!(pi1.isUnivariate()) && (size (pi1)/maxNumVars > 500))
+        if (!pi1.isUnivariate() && (size (pi1)/maxNumVars > 500))
         {
             On (SW_USE_FF_MOD_GCD);
             C *= gcd (oldPi, oldPi1);
@@ -603,11 +723,22 @@ gcd_poly_p( const CanonicalForm & f, const CanonicalForm & g )
         if ( degree( pi1, v ) > 0 )
         {
             delta = degree( pi, v ) - degree( pi1, v );
+            powHi= power (Hi, delta-1);
             if ( (delta+1) % 2 )
-                bi = LC( pi, v ) * power( Hi, delta );
+                bi = LC( pi, v ) * powHi*Hi;
             else
-                bi = -LC( pi, v ) * power( Hi, delta );
-            Hi = power( LC( pi1, v ), delta ) / power( Hi, delta-1 );
+                bi = -LC( pi, v ) * powHi*Hi;
+            Hi = power( LC( pi1, v ), delta ) / powHi;
+            if (!(pi.isUnivariate() && pi1.isUnivariate()))
+            {
+              if (size (Hi)*size (pi)/(maxNumVars*3) > 1500) //maybe this needs more tuning
+              {
+                On (SW_USE_FF_MOD_GCD);
+                C *= gcd (oldPi, oldPi1);
+                Off (SW_USE_FF_MOD_GCD);
+                return C;
+              }
+            }
         }
     }
     if ( degree( pi1, v ) == 0 )
@@ -616,7 +747,17 @@ gcd_poly_p( const CanonicalForm & f, const CanonicalForm & g )
       //out_cf("GCD:",C,"\n");
       return C;
     }
-    pi /= content( pi );
+    if (!pi.isUnivariate())
+    {
+      if (!ezgcdon)
+        On (SW_USE_EZGCD_P);
+      Ci= gcd (LC (oldPi,v), LC (oldPi1,v));
+      pi /= LC (pi,v)/Ci;
+      Ci= content (pi);
+      pi /= Ci;
+      if (!ezgcdon)
+        Off (SW_USE_EZGCD_P);
+    }
     if ( bpure )
         pi /= pi.lc();
     C=abs(C*pi);
@@ -642,20 +783,21 @@ gcd_poly_0( const CanonicalForm & f, const CanonicalForm & g )
     Ci = content( pi ); Ci1 = content( pi1 );
     pi1 = pi1 / Ci1; pi = pi / Ci;
     C = gcd( Ci, Ci1 );
+    int d= 0;
     if ( pi.isUnivariate() && pi1.isUnivariate() )
     {
-/*#ifdef HAVE_FLINT
+#ifdef HAVE_FLINT
         if (isPurePoly(pi) && isPurePoly(pi1) )
             return gcd_univar_flint0(pi, pi1 ) * C;
-#else*/
+#else
 #ifdef HAVE_NTL
         if ( isOn(SW_USE_NTL_GCD_0) && isPurePoly(pi) && isPurePoly(pi1) )
             return gcd_univar_ntl0(pi, pi1 ) * C;
 #endif
-//#endif
+#endif
         return gcd_poly_univar0( pi, pi1, true ) * C;
     }
-    else if ( gcd_test_one( pi1, pi, true ) )
+    else if ( gcd_test_one( pi1, pi, true, d ) )
       return C;
     Variable v = f.mvar();
     Hi = power( LC( pi1, v ), delta );
@@ -968,7 +1110,7 @@ lcm ( const CanonicalForm & f, const CanonicalForm & g )
 //}}}
 
 #ifdef HAVE_NTL
-
+#ifndef HAVE_FLINT
 static CanonicalForm
 gcd_univar_ntl0( const CanonicalForm & F, const CanonicalForm & G )
 {
@@ -984,33 +1126,14 @@ gcd_univar_ntlp( const CanonicalForm & F, const CanonicalForm & G )
   if (fac_NTL_char!=getCharacteristic())
   {
     fac_NTL_char=getCharacteristic();
-    #ifdef NTL_ZZ
-    ZZ r;
-    r=getCharacteristic();
-    ZZ_pContext ccc(r);
-    #else
-    zz_pContext ccc(getCharacteristic());
-    #endif
-    ccc.restore();
-    #ifdef NTL_ZZ
-    ZZ_p::init(r);
-    #else
     zz_p::init(getCharacteristic());
-    #endif
   }
-  #ifdef NTL_ZZ
-  ZZ_pX F1=convertFacCF2NTLZZpX(F);
-  ZZ_pX G1=convertFacCF2NTLZZpX(G);
-  ZZ_pX R=GCD(F1,G1);
-  return  convertNTLZZpX2CF(R,F.mvar());
-  #else
   zz_pX F1=convertFacCF2NTLzzpX(F);
   zz_pX G1=convertFacCF2NTLzzpX(G);
   zz_pX R=GCD(F1,G1);
   return  convertNTLzzpX2CF(R,F.mvar());
-  #endif
 }
-
+#endif
 #endif
 
 #ifdef HAVE_FLINT
@@ -1131,33 +1254,12 @@ cf_prepgcd( const CanonicalForm & f, const CanonicalForm & g, int & cc, int & p1
     delete [] degsg;
 }*/
 
-
-static CanonicalForm
-balance_p ( const CanonicalForm & f, const CanonicalForm & q )
-{
-    Variable x = f.mvar();
-    CanonicalForm result = 0, qh = q / 2;
-    CanonicalForm c;
-    CFIterator i;
-    for ( i = f; i.hasTerms(); i++ )
-    {
-        c = i.coeff();
-        if ( c.inCoeffDomain())
-        {
-          if ( c > qh )
-            result += power( x, i.exp() ) * (c - q);
-          else
-            result += power( x, i.exp() ) * c;
-        }
-        else
-          result += power( x, i.exp() ) * balance_p(c,q);
-    }
-    return result;
-}
+TIMING_DEFINE_PRINT(chinrem_termination)
+TIMING_DEFINE_PRINT(chinrem_recursion)
 
 CanonicalForm chinrem_gcd ( const CanonicalForm & FF, const CanonicalForm & GG )
 {
-  CanonicalForm f, g, cl, q(0), Dp, newD, D, newq;
+  CanonicalForm f, g, cl, q(0), Dp, newD, D, newq, newqh;
   int p, i, dp_deg, d_deg=-1;
 
   CanonicalForm cd ( bCommonDen( FF ));
@@ -1177,6 +1279,9 @@ CanonicalForm chinrem_gcd ( const CanonicalForm & FF, const CanonicalForm & GG )
   //g /=vcontent(g,Variable(1));
 
   CanonicalForm Dn, test= 0;
+  CanonicalForm lcf, lcg;
+  lcf= f.lc();
+  lcg= g.lc();
   cl =  gcd (f.lc(),g.lc());
   CanonicalForm gcdcfcg= gcd (cf, cg);
   CanonicalForm fp, gp;
@@ -1206,7 +1311,7 @@ CanonicalForm chinrem_gcd ( const CanonicalForm & FF, const CanonicalForm & GG )
   bool equal= false;
   i = cf_getNumBigPrimes() - 1;
 
-  CanonicalForm cof, cog, cofp, cogp, newCof, newCog, cofn, cogn;
+  CanonicalForm cof, cog, cofp, cogp, newCof, newCog, cofn, cogn, cDn;
   int maxNumVars= tmax (getNumVars (f), getNumVars (g));
   //Off (SW_RATIONAL);
   while ( true )
@@ -1222,6 +1327,7 @@ CanonicalForm chinrem_gcd ( const CanonicalForm & FF, const CanonicalForm & GG )
     setCharacteristic( p );
     fp= mapinto (f);
     gp= mapinto (g);
+    TIMING_START (chinrem_recursion)
 #ifdef HAVE_NTL
     if (size (fp)/maxNumVars > 500 && size (gp)/maxNumVars > 500)
       Dp = GCD_small_p (fp, gp, cofp, cogp);
@@ -1236,9 +1342,14 @@ CanonicalForm chinrem_gcd ( const CanonicalForm & FF, const CanonicalForm & GG )
     cofp= fp/Dp;
     cogp= gp/Dp;
 #endif
+    TIMING_END_AND_PRINT (chinrem_recursion,
+                          "time for gcd mod p in modular gcd: ");
     Dp /=Dp.lc();
+    Dp *= mapinto (cl);
     cofp /= lc (cofp);
+    cofp *= mapinto (lcf);
     cogp /= lc (cogp);
+    cogp *= mapinto (lcg);
     setCharacteristic( 0 );
     dp_deg=totaldegree(Dp);
     if ( dp_deg == 0 )
@@ -1253,6 +1364,9 @@ CanonicalForm chinrem_gcd ( const CanonicalForm & FF, const CanonicalForm & GG )
       cog= mapinto (cogp);
       d_deg=dp_deg;
       q = p;
+      Dn= balance_p (D, p);
+      cofn= balance_p (cof, p);
+      cogn= balance_p (cog, p);
     }
     else
     {
@@ -1263,6 +1377,14 @@ CanonicalForm chinrem_gcd ( const CanonicalForm & FF, const CanonicalForm & GG )
         chineseRemainder( cog, q, mapinto (cogp), p, newCog, newq);
         cof= newCof;
         cog= newCog;
+        newqh= newq/2;
+        Dn= balance_p (newD, newq, newqh);
+        cofn= balance_p (newCof, newq, newqh);
+        cogn= balance_p (newCog, newq, newqh);
+        if (test != Dn) //balance_p (newD, newq))
+          test= balance_p (newD, newq);
+        else
+          equal= true;
         q = newq;
         D = newD;
       }
@@ -1277,6 +1399,9 @@ CanonicalForm chinrem_gcd ( const CanonicalForm & FF, const CanonicalForm & GG )
         d_deg=dp_deg;
         test= 0;
         equal= false;
+        Dn= balance_p (D, p);
+        cofn= balance_p (cof, p);
+        cogn= balance_p (cog, p);
       }
       else
       {
@@ -1286,28 +1411,23 @@ CanonicalForm chinrem_gcd ( const CanonicalForm & FF, const CanonicalForm & GG )
     }
     if ( i >= 0 )
     {
-      Dn= Farey(D,q);
-      cofn= Farey(cof,q);
-      cogn= Farey(cog,q);
-      int is_rat= isOn (SW_RATIONAL);
-      On (SW_RATIONAL);
-      cd = bCommonDen( Dn ); // we need On(SW_RATIONAL)
-      cofn *= bCommonDen (cofn);
-      cogn *= bCommonDen (cogn);
-      if (!is_rat)
-        Off (SW_RATIONAL);
-      Dn *=cd;
-      if (test != Dn)
-        test= Dn;
-      else
-        equal= true;
-      //Dn /=vcontent(Dn,Variable(1));
+      cDn= icontent (Dn);
+      Dn /= cDn;
+      cofn /= cl/cDn;
+      //cofn /= icontent (cofn);
+      cogn /= cl/cDn;
+      //cogn /= icontent (cogn);
+      TIMING_START (chinrem_termination);
       if ((terminationTest (f,g, cofn, cogn, Dn)) ||
           ((equal || q > b) && fdivides (Dn, f) && fdivides (Dn, g)))
       {
+        TIMING_END_AND_PRINT (chinrem_termination,
+                            "time for successful termination in modular gcd: ");
         //printf(" -> success\n");
         return Dn*gcdcfcg;
       }
+      TIMING_END_AND_PRINT (chinrem_termination,
+                          "time for unsuccessful termination in modular gcd: ");
       equal= false;
       //else: try more primes
     }

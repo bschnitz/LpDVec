@@ -4,12 +4,14 @@
  *  tmult.cc: p_Mult_nn with pthreads - experimental
  *
  *******************************************************************/
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <kernel/structs.h>
 #include <kernel/numbers.h>
 #include <kernel/polys.h>
-#include <kernel/longrat.h>
+#include <libpolys/coeffs/longrat.h>
 #ifdef SI_THREADS
 #include <pthread.h>
 #include <stdlib.h>
@@ -82,7 +84,7 @@ poly p_Mult_nn_pthread(poly p, const number n, const ring r)
       thread_data_array[t].n = n;
       thread_data_array[t].r = r;
       //p_Mult_nn_doMult(&(thread_data_array[t]));
-      rc = pthread_create(&threads[t], &attr, p_Mult_nn_doMult, 
+      rc = pthread_create(&threads[t], &attr, p_Mult_nn_doMult,
         (void *) &thread_data_array[t]);
       if (rc)
       {
@@ -105,7 +107,7 @@ poly p_Mult_nn_pthread(poly p, const number n, const ring r)
         exit(-1);
       }
     }
- 
+
     return q;
   }
   else

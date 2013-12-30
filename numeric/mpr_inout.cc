@@ -7,7 +7,9 @@
 * ABSTRACT - multipolynomial resultant
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 //#ifdef HAVE_MPR
@@ -104,12 +106,12 @@ void mprPrintError( mprState state, const char * name )
 
 //-> mprState mprIdealCheck()
 mprState mprIdealCheck( const ideal theIdeal,
-                        const char * name,
+                        const char * /*name*/,
                         uResultant::resMatType mtype,
                         BOOLEAN rmatrix )
 {
   mprState state = mprOk;
-  int power;
+  // int power;
   int k;
 
   int numOfVars= mtype == uResultant::denseResMat?(currRing->N)-1:(currRing->N);

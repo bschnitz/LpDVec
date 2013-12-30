@@ -15,9 +15,7 @@
 
 #include <coeffs/Enumerator.h>
 
-#ifdef HAVE_FACTORY
 class CanonicalForm;
-#endif
 
 enum n_coeffType
 {
@@ -36,7 +34,7 @@ enum n_coeffType
   n_long_C, /**< complex (GMP) numbers */
   n_Z, /**< only used if HAVE_RINGS is defined: ? */
   n_Zn, /**< only used if HAVE_RINGS is defined: ? */
-  n_Zpn, /**< only used if HAVE_RINGS is defined: does no longer exist? */
+  n_Znm, /**< only used if HAVE_RINGS is defined: ? */
   n_Z2m, /**< only used if HAVE_RINGS is defined: ? */
   n_CF /**< ? */
 };
@@ -76,7 +74,7 @@ typedef void (*nCoeffsEnumeratorFunc)(ICoeffsEnumerator& numberCollectionEnumera
 
 
 /// Creation data needed for finite fields
-typedef struct 
+typedef struct
 {
   int GFChar;
   int GFDegree;
@@ -93,7 +91,7 @@ typedef struct
 struct n_Procs_s
 {
    coeffs next;
-   unsigned int ringtype;  /* =0 => coefficient field,
+   /*unsigned int ringtype;   =0 => coefficient field,
                              !=0 => coeffs from one of the rings:
                               =1 => Z/2^mZ
                               =2 => Z/nZ, n not a prime
@@ -113,6 +111,9 @@ struct n_Procs_s
    /// output of coeff description via Print
    void (*cfCoeffWrite)(const coeffs r, BOOLEAN details);
 
+   /// string output of coeff description
+   char* (*cfCoeffString)(const coeffs r);
+
    // ?
    // initialisation:
    //void (*cfInitChar)(coeffs r, int parameter); // do one-time initialisations
@@ -122,27 +123,21 @@ struct n_Procs_s
                                 // or NULL
    // general stuff
    numberfunc cfMult, cfSub ,cfAdd ,cfDiv, cfIntDiv, cfIntMod, cfExactDiv;
-   
+
    /// init with an integer
    number  (*cfInit)(long i,const coeffs r);
 
    /// init with a GMP integer
    number  (*cfInitMPZ)(mpz_t i, const coeffs r);
-   
+
    /// how complicated, (0) => 0, or positive
    int     (*cfSize)(number n, const coeffs r);
-   
+
    /// convertion to int, 0 if impossible
    int     (*cfInt)(number &n, const coeffs r);
 
    /// Converts a non-negative number n into a GMP number, 0 if impossible
    void     (*cfMPZ)(mpz_t result, number &n, const coeffs r);
-   
-#ifdef HAVE_RINGS
-   int     (*cfDivComp)(number a,number b,const coeffs r);
-   BOOLEAN (*cfIsUnit)(number a,const coeffs r);
-   number  (*cfGetUnit)(number a,const coeffs r);
-#endif
 
    /// changes argument  inline: a:= -a
    /// return -a! (no copy is returned)
@@ -157,17 +152,17 @@ struct n_Procs_s
 
    /// print a given number (long format)
    void    (*cfWriteLong)(number &a, const coeffs r);
-   
+
    /// print a given number in a shorter way, if possible
    /// e.g. in K(a): a2 instead of a^2
    void    (*cfWriteShort)(number &a, const coeffs r);
-   
+
    const char *  (*cfRead)(const char * s, number * a, const coeffs r);
    void    (*cfNormalize)(number &a, const coeffs r);
+
+
+
    BOOLEAN (*cfGreater)(number a,number b, const coeffs r),
-#ifdef HAVE_RINGS
-           (*cfDivBy)(number a, number b, const coeffs r),
-#endif
             /// tests
            (*cfEqual)(number a,number b, const coeffs r),
            (*cfIsZero)(number a, const coeffs r),
@@ -190,6 +185,9 @@ struct n_Procs_s
    /// Inplace: a *= b
    void    (*cfInpMult)(number &a, number b, const coeffs r);
 
+   /// Inplace: a += b
+   void    (*cfInpAdd)(number &a, number b, const coeffs r);
+
    /// maps the bigint i (from dummy == coeffs_BIGINT!!!) into the
    /// coeffs dst
    /// TODO: to be exchanged with a map!!!
@@ -200,33 +198,26 @@ struct n_Procs_s
 
    /// chinese remainder
    /// returns X with X mod q[i]=x[i], i=0..rl-1
-   number  (*cfChineseRemainder)(number *x, number *q,int rl, const coeffs);
+   number  (*cfChineseRemainder)(number *x, number *q,int rl, BOOLEAN sym,const coeffs);
 
    /// degree for coeffcients: -1 for 0, 0 for "constants", ...
    int (*cfParDeg)(number x,const coeffs r);
 
    /// create i^th parameter or NULL if not possible
    number  (*cfParameter)(const int i, const coeffs r);
-       
+
    /// function pointer behind n_ClearContent
    nCoeffsEnumeratorFunc cfClearContent;
 
    /// function pointer behind n_ClearDenominators
    nCoeffsEnumeratorFunc cfClearDenominators;
 
-#ifdef HAVE_FACTORY
    number (*convFactoryNSingN)( const CanonicalForm n, const coeffs r);
    CanonicalForm (*convSingNFactoryN)( number n, BOOLEAN setChar, const coeffs r );
-#endif
 
-
-#ifdef LDEBUG
-   /// Test: is "a" a correct number?
-   BOOLEAN (*cfDBTest)(number a, const char *f, const int l, const coeffs r);
-#endif
 
    /// the 0 as constant, NULL by default
-   number nNULL; 
+   number nNULL;
    int     char_flag;
    int     ref;
    /// how many variables of factort are already used by this coeff
@@ -256,8 +247,48 @@ struct n_Procs_s
   //                     //< extRing->qideal->[0]
 
 
+  int        ch;  /* characteristic, set by the local *InitChar methods;
+                     In field extensions or extensions towers, the
+                     characteristic can be accessed from any of the
+                     intermediate extension fields, i.e., in this case
+                     it is redundant along the chain of field extensions;
+                     CONTRARY to SINGULAR as it was, we do NO LONGER use
+                     negative values for ch;
+                     for rings, ch will also be set and is - per def -
+                     the smallest number of 1's that sum up to zero;
+                     however, in this case ch may not fit in an int,
+                     thus ch may contain a faulty value */
+
+  short      float_len; /* additional char-flags, rInit */
+  short      float_len2; /* additional char-flags, rInit */
+
+//  BOOLEAN   CanShortOut; //< if the elements can be printed in short format
+//                       // this is set to FALSE if a parameter name has >2 chars
+//  BOOLEAN   ShortOut; //< if the elements should print in short format
+
+// ---------------------------------------------------
+  // for n_GF
+
+  int m_nfCharQ;  ///< the number of elements: q
+  int m_nfM1;       ///< representation of -1
+  int m_nfCharP;  ///< the characteristic: p
+  int m_nfCharQ1; ///< q-1
+  unsigned short *m_nfPlus1Table;
+  int *m_nfMinPoly;
+
+// ---------------------------------------------------
+// for Zp:
+  unsigned short *npInvTable;
+  unsigned short *npExpTable;
+  unsigned short *npLogTable;
+   //   int npPrimeM; // NOTE: npPrimeM is deprecated, please use ch instead!
+  int npPminus1M; ///< characteristic - 1
 //-------------------------------------------
 #ifdef HAVE_RINGS
+   int     (*cfDivComp)(number a,number b,const coeffs r);
+   BOOLEAN (*cfIsUnit)(number a,const coeffs r);
+   number  (*cfGetUnit)(number a,const coeffs r);
+   BOOLEAN (*cfDivBy)(number a, number b, const coeffs r);
   /* The following members are for representing the ring Z/n,
      where n is not a prime. We distinguish four cases:
      1.) n has at least two distinct prime factors. Then
@@ -282,46 +313,11 @@ struct n_Procs_s
   int_number    modNumber;
   unsigned long mod2mMask;
 #endif
-  int        ch;  /* characteristic, set by the local *InitChar methods;
-                     In field extensions or extensions towers, the
-                     characteristic can be accessed from any of the
-                     intermediate extension fields, i.e., in this case
-                     it is redundant along the chain of field extensions;
-                     CONTRARY to SINGULAR as it was, we do NO LONGER use
-                     negative values for ch;
-                     for rings, ch will also be set and is - per def -
-                     the smallest number of 1's that sum up to zero;
-                     however, in this case ch may not fit in an int,
-                     thus ch may contain a faulty value */
-
-  short      float_len; /* additional char-flags, rInit */
-  short      float_len2; /* additional char-flags, rInit */
-
-//  BOOLEAN   CanShortOut; //< if the elements can be printed in short format
-//		       // this is set to FALSE if a parameter name has >2 chars
-//  BOOLEAN   ShortOut; //< if the elements should print in short format
-
-// ---------------------------------------------------
-  // for n_GF
-
-  int m_nfCharQ;  ///< the number of elements: q
-  int m_nfM1;       ///< representation of -1
-  int m_nfCharP;  ///< the characteristic: p
-  int m_nfCharQ1; ///< q-1
-  unsigned short *m_nfPlus1Table;
-  int *m_nfMinPoly;
-  
-// ---------------------------------------------------
-// for Zp:
-#ifdef HAVE_DIV_MOD
-  unsigned short *npInvTable;
+#ifdef LDEBUG
+   // must be last entry:
+   /// Test: is "a" a correct number?
+   BOOLEAN (*cfDBTest)(number a, const char *f, const int l, const coeffs r);
 #endif
-#if !defined(HAVE_DIV_MOD) || !defined(HAVE_MULT_MOD)
-  unsigned short *npExpTable;
-  unsigned short *npLogTable;
-#endif
-   //   int npPrimeM; // NOTE: npPrimeM is deprecated, please use ch instead!
-  int npPminus1M; ///< characteristic - 1
 };
 //
 // test properties and type
@@ -427,15 +423,12 @@ static inline BOOLEAN n_Greater(number a, number b, const coeffs r)
 { assume(r != NULL); assume(r->cfGreater!=NULL); return r->cfGreater(a,b,r); }
 
 #ifdef HAVE_RINGS
+static inline int n_DivComp(number a, number b, const coeffs r)
+{ assume(r != NULL); assume(r->cfDivComp!=NULL); return r->cfDivComp (a,b,r); }
+
 /// TRUE iff n has a multiplicative inverse in the given coeff field/ring r
 static inline BOOLEAN n_IsUnit(number n, const coeffs r)
 { assume(r != NULL); assume(r->cfIsUnit!=NULL); return r->cfIsUnit(n,r); }
-
-static inline number n_ExtGcd(number a, number b, number *s, number *t, const coeffs r)
-{ assume(r != NULL); assume(r->cfExtGcd!=NULL); return r->cfExtGcd (a,b,s,t,r); }
-
-static inline int n_DivComp(number a, number b, const coeffs r)
-{ assume(r != NULL); assume(r->cfDivComp!=NULL); return r->cfDivComp (a,b,r); }
 
 /// in Z: 1
 /// in Z/kZ (where k is not a prime): largest divisor of n (taken in Z) that
@@ -534,6 +527,11 @@ static inline number n_Mult(number a, number b, const coeffs r)
 static inline void n_InpMult(number &a, number b, const coeffs r)
 { assume(r != NULL); assume(r->cfInpMult!=NULL); r->cfInpMult(a,b,r); }
 
+/// addition of 'a' and 'b';
+/// replacement of 'a' by the sum a+b
+static inline void n_InpAdd(number &a, number b, const coeffs r)
+{ assume(r != NULL); assume(r->cfInpAdd!=NULL); r->cfInpAdd(a,b,r); }
+
 /// return the difference of 'a' and 'b', i.e., a-b
 static inline number n_Sub(number a, number b, const coeffs r)
 { assume(r != NULL); assume(r->cfSub!=NULL); return r->cfSub(a, b, r); }
@@ -576,6 +574,11 @@ static inline number n_ExactDiv(number a, number b, const coeffs r)
 static inline number n_Gcd(number a, number b, const coeffs r)
 { assume(r != NULL); assume(r->cfGcd!=NULL); return r->cfGcd(a,b,r); }
 
+/// beware that ExtGCD is only relevant for a few chosen coeff. domains
+/// and may perform something unexpected in some cases...
+static inline number n_ExtGcd(number a, number b, number *s, number *t, const coeffs r)
+{ assume(r != NULL); assume(r->cfExtGcd!=NULL); return r->cfExtGcd (a,b,s,t,r); }
+
 /// in Z: return the lcm of 'a' and 'b'
 /// in Z/nZ, Z/2^kZ: computed as in the case Z
 /// in Z/pZ, C, R: not implemented
@@ -591,11 +594,15 @@ static inline nMapFunc n_SetMap(const coeffs src, const coeffs dst)
 
 /// test whether n is a correct number;
 /// only used if LDEBUG is defined
-static inline BOOLEAN n_DBTest(number n, const char *filename, const int linenumber, const coeffs r)
-{
-  assume(r != NULL); 
 #ifdef LDEBUG
-  assume(r->cfDBTest != NULL); 
+static inline BOOLEAN n_DBTest(number n, const char *filename, const int linenumber, const coeffs r)
+#else
+static inline BOOLEAN n_DBTest(number, const char*, const int, const coeffs)
+#endif
+{
+  assume(r != NULL);
+#ifdef LDEBUG
+  assume(r->cfDBTest != NULL);
   return r->cfDBTest(n, filename, linenumber, r);
 #else
   return TRUE;
@@ -608,26 +615,26 @@ static inline void   n_CoeffWrite(const coeffs r, BOOLEAN details = TRUE)
 
 // Tests:
 static inline BOOLEAN nCoeff_is_Ring_2toM(const coeffs r)
-{ assume(r != NULL); return (r->ringtype == 1); }
+{ assume(r != NULL); return (getCoeffType(r)==n_Z2m); }
 
 static inline BOOLEAN nCoeff_is_Ring_ModN(const coeffs r)
-{ assume(r != NULL); return (r->ringtype == 2); }
+{ assume(r != NULL); return (getCoeffType(r)==n_Zn); }
 
 static inline BOOLEAN nCoeff_is_Ring_PtoM(const coeffs r)
-{ assume(r != NULL); return (r->ringtype == 3); }
+{ assume(r != NULL); return (getCoeffType(r)==n_Znm); }
 
 static inline BOOLEAN nCoeff_is_Ring_Z(const coeffs r)
-{ assume(r != NULL); return (r->ringtype == 4); }
+{ assume(r != NULL); return (getCoeffType(r)==n_Z); }
 
 static inline BOOLEAN nCoeff_is_Ring(const coeffs r)
-{ assume(r != NULL); return (r->ringtype != 0); }
+{ assume(r != NULL); return ((getCoeffType(r)==n_Z) || (getCoeffType(r)==n_Z2m) || (getCoeffType(r)==n_Zn) || (getCoeffType(r)==n_Znm)); }
 
 /// returns TRUE, if r is not a field and r has no zero divisors (i.e is a domain)
 static inline BOOLEAN nCoeff_is_Domain(const coeffs r)
 {
-  assume(r != NULL); 
+  assume(r != NULL);
 #ifdef HAVE_RINGS
-  return (r->ringtype == 4 || r->ringtype == 0);
+  return (getCoeffType(r)==n_Z || ((getCoeffType(r)!=n_Z2m) && (getCoeffType(r)!=n_Zn) && (getCoeffType(r)!=n_Znm)));
 #else
   return TRUE;
 #endif
@@ -653,9 +660,9 @@ static inline BOOLEAN n_DivBy(number a, number b, const coeffs r)
   return !n_IsZero(b, r);
 }
 
-static inline number n_ChineseRemainder(number *a, number *b, int rl, const coeffs r)
+static inline number n_ChineseRemainderSym(number *a, number *b, int rl, BOOLEAN sym,const coeffs r)
 {
-  assume(r != NULL); assume(r->cfChineseRemainder != NULL); return r->cfChineseRemainder(a,b,rl,r);
+  assume(r != NULL); assume(r->cfChineseRemainder != NULL); return r->cfChineseRemainder(a,b,rl,sym,r);
 }
 
 static inline number n_Farey(number a, number b, const coeffs r)
@@ -664,8 +671,8 @@ static inline number n_Farey(number a, number b, const coeffs r)
 }
 
 static inline int n_ParDeg(number n, const coeffs r)
-{ 
-  assume(r != NULL); assume(r->cfParDeg != NULL); return r->cfParDeg(n,r); 
+{
+  assume(r != NULL); assume(r->cfParDeg != NULL); return r->cfParDeg(n,r);
 }
 
 /// Returns the number of parameters
@@ -682,37 +689,36 @@ static inline number n_Param(const int iParameter, const coeffs r)
   assume(r != NULL);
   assume((iParameter >= 1) || (iParameter <= n_NumberOfParameters(r)));
   assume(r->cfParameter != NULL);
-  return r->cfParameter(iParameter, r);  
+  return r->cfParameter(iParameter, r);
 }
 
-
 static inline number  n_Init_bigint(number i, const coeffs dummy,
-		const coeffs dst)
+                const coeffs dst)
 {
-  assume(dummy != NULL && dst != NULL); assume(dst->cfInit_bigint!=NULL); 
+  assume(dummy != NULL && dst != NULL); assume(dst->cfInit_bigint!=NULL);
   return dst->cfInit_bigint(i, dummy, dst);
 }
 
 static inline number  n_RePart(number i, const coeffs cf)
 {
-  assume(cf != NULL); assume(cf->cfRePart!=NULL); 
+  assume(cf != NULL); assume(cf->cfRePart!=NULL);
   return cf->cfRePart(i,cf);
 }
 static inline number  n_ImPart(number i, const coeffs cf)
 {
-  assume(cf != NULL); assume(cf->cfImPart!=NULL); 
+  assume(cf != NULL); assume(cf->cfImPart!=NULL);
   return cf->cfImPart(i,cf);
 }
 
 /// returns TRUE, if r is not a field and r has non-trivial units
 static inline BOOLEAN nCoeff_has_Units(const coeffs r)
-{ assume(r != NULL); return ((r->ringtype == 1) || (r->ringtype == 2) || (r->ringtype == 3)); }
+{ assume(r != NULL); return ((getCoeffType(r)==n_Zn) || (getCoeffType(r)==n_Z2m) || (getCoeffType(r)==n_Znm)); }
 
 static inline BOOLEAN nCoeff_is_Zp(const coeffs r)
 { assume(r != NULL); return getCoeffType(r)==n_Zp; }
 
 static inline BOOLEAN nCoeff_is_Zp(const coeffs r, int p)
-{ assume(r != NULL); return (getCoeffType(r)  && (r->ch == p)); }
+{ assume(r != NULL); return ((getCoeffType(r)==n_Zp) && (r->ch == p)); }
 
 static inline BOOLEAN nCoeff_is_Q(const coeffs r)
 { assume(r != NULL); return getCoeffType(r)==n_Q; }
@@ -814,7 +820,9 @@ static inline BOOLEAN nCoeff_is_transExt(const coeffs r)
 
 // Missing wrappers for: (TODO: review this?)
 // cfIntMod, cfRead, cfName, cfInit_bigint
-// HAVE_RINGS: cfDivComp, cfExtGcd... 
+
+// HAVE_RINGS: cfDivComp, cfIsUnit, cfGetUnit, cfDivBy
+// BUT NOT cfExtGcd...!
 
 
 /// Computes the content and (inplace) divides it out on a collection
@@ -861,6 +869,9 @@ static inline void n_ClearDenominators(ICoeffsEnumerator& numberCollectionEnumer
   n_Delete(&d, r);
 }
 
+/// print a number (BEWARE of string buffers!)
+/// mostly for debugging
+void   n_Print(number& a,  const coeffs r);
 
 #endif
 

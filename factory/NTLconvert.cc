@@ -1,4 +1,6 @@
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include "cf_assert.h"
 
@@ -124,7 +126,7 @@ zz_pX convertFacCF2NTLzzpX(CanonicalForm f)
     NTLcurrentExp=i.exp();
 
     CanonicalForm c=i.coeff();
-    if (!c.isImm()) c.mapinto(); //c%= getCharacteristic();
+    if (!c.isImm()) c=c.mapinto(); //c%= getCharacteristic();
     if (!c.isImm())
     {  //This case will never happen if the characteristic is in fact a prime
        // number, since all coefficients are represented as immediates
@@ -669,7 +671,7 @@ ZZ convertFacCF2NTLZZ(const CanonicalForm f)
     mpz_t gmp_val;
     char* stringtemp;
 
-    gmp_val[0]=*getmpi(f.getval());
+    f.mpzval (gmp_val);
     int l=mpz_sizeinbase(gmp_val,10)+2;
     stringtemp=(char*)Alloc(l);
     stringtemp=mpz_get_str(stringtemp,10,gmp_val);

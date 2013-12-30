@@ -8,10 +8,11 @@
 *  to find linear dependecies of fglmVectors.
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
-#ifdef  HAVE_FACTORY
 #include <kernel/structs.h>
 #include <coeffs/numbers.h>
 #include <polys/monomials/ring.h>
@@ -72,11 +73,10 @@ gaussReducer::gaussReducer( int dimen )
 
 gaussReducer::~gaussReducer()
 {
-    int k;
-
 #ifndef HAVE_EXPLICIT_CONSTR
     delete [] elems;
 #else
+    int k;
     for ( k= size; k > 0; k-- )
         elems[k].~gaussElem();
     omFreeSize( (ADDRESS)elems, (max+1)*sizeof( gaussElem ) );
@@ -158,7 +158,7 @@ void
 gaussReducer::store()
 {
     // fglmASSERT( size < max );
-    number fac;
+    // number fac;
     // find the pivot-element in v:
 
     size++;
@@ -208,4 +208,3 @@ gaussReducer::getDependence()
 // page-delimiter: "^\\(\\|//!\\)" ***
 // fold-internal-margins: nil ***
 // End: ***
-#endif // HAVE_FACTORY

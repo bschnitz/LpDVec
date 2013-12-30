@@ -12,6 +12,27 @@
 #include <ostream>
 #include "gmp.h"
 
+#if (__GNU_MP_VERSION == 4) && (__GNU_MP_VERSION_MINOR<2)
+extern void *  (*__gmp_allocate_func) _PROTO ((size_t));
+extern void *  (*__gmp_reallocate_func) _PROTO ((void *, size_t, size_t));
+extern void    (*__gmp_free_func) _PROTO ((void *, size_t));
+
+static inline void
+mp_get_memory_functions (void *(**alloc_func) (size_t),
+                         void *(**realloc_func) (void *, size_t, size_t),
+                         void (**free_func) (void *, size_t))
+{
+  if (alloc_func != NULL)
+    *alloc_func = __gmp_allocate_func;
+
+  if (realloc_func != NULL)
+    *realloc_func = __gmp_reallocate_func;
+
+  if (free_func != NULL)
+    *free_func = __gmp_free_func;
+}
+#endif
+
 #include "gfanlib_z.h"
 
 namespace gfan{
@@ -30,8 +51,8 @@ public:
   Rational(signed long int value_)
   {
     mpq_init(value);
-    mpz_init_set_si(mpq_numref(value), value_);
-    mpz_init_set_ui(mpq_denref(value), 1);
+    mpz_set_si(mpq_numref(value), value_);
+    mpz_set_ui(mpq_denref(value), 1);
     mpq_canonicalize(value);
   }
   Rational(Rational const & value_)
@@ -47,8 +68,8 @@ public:
   explicit Rational(Integer const & value_)
   {
     mpq_init(value);
-    mpz_init_set(mpq_numref(value), value_.value);
-    mpz_init_set_ui(mpq_denref(value), 1);
+    mpz_set(mpq_numref(value), value_.value);
+    mpz_set_ui(mpq_denref(value), 1);
     mpq_canonicalize(value);
   }
   ~Rational()
@@ -155,7 +176,7 @@ public:
   {
     return mpq_sgn(value);
   }
-  static Rational gcd(Rational const &a, Rational const &b, Rational &s, Rational &t)
+  static Rational gcd(Rational const &a, Rational const /*&b*/, Rational /*&s*/, Rational /*t*/)
   {
 /*    mpz_t r;
     mpz_init(r);

@@ -1,5 +1,5 @@
-///////////////////////////////////////////////////////////////////////////////
-version="$Id$";
+///////////////////////////////////////////////////////////////////////////
+version="version sheafcoh.lib 4.0.0.0 Jun_2013 "; // $Id$
 category="Commutative Algebra";
 info="
 LIBRARY:  sheafcoh.lib   Procedures for Computing Sheaf Cohomology
@@ -542,6 +542,7 @@ EXAMPLE: example sheafCohBGG; shows an example
   //--- to the exterior algebra
   def AR = Exterior();
   setring AR;
+  intvec saveopt=option(get);
   option(redSB);
   option(redTail);
   module EM=imap(R,SS);
@@ -586,10 +587,9 @@ EXAMPLE: example sheafCohBGG; shows an example
     }
   }
   displayCohom(newBetti,l,h,n);
+  option(set,saveopt);
   setring R;
   return(newBetti);
-  option(noredSB);
-  option(noredTail);
 }
 example
 {"EXAMPLE:";

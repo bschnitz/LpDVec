@@ -82,7 +82,6 @@ and @code{LIB} no brackets are allowed.
 * ERROR::
 * example::
 * execute::
-* exit::
 * extgcd::
 * facstd::
 * factmodd::
@@ -169,6 +168,7 @@ and @code{LIB} no brackets are allowed.
 * prune::
 * qhweight::
 * qrds::
+* quit::
 * quote::
 * quotient::
 * random::
@@ -315,6 +315,7 @@ value of type int is the multiplicity (see @ref{mult})
 @node bareiss, betti, attrib, Functions
 @subsection bareiss
 @cindex bareiss
+@cindex linear algebra
 
 @table @code
 @item @strong{Syntax:}
@@ -663,7 +664,7 @@ See
 ideal resp. bigint
 @item @strong{Purpose:}
 applies chinese remainder theorem to the first argument w.r.t. the moduli given in the second.
-The elements in the first list must be of same type which can be @code{ideal},
+The elements in the first list must be of same type which can be @code{bigint}/@code{int}, @code{ideal},
 @code{module} or @code{matrix}.
 The moduli, if given by a list, must be of type @code{bigint} or @code{int}.
 @*If data depending on a ring are involved, the coeffcient field must be @code{Q}.
@@ -671,6 +672,7 @@ The moduli, if given by a list, must be of type @code{bigint} or @code{int}.
 @smallexample
 @c example
   chinrem(intvec(2,-3),intvec(7,11));
+  chinrem(list(2,-3),list(7,11));
   ring r=0,(x,y),dp;
   ideal i1=5x+2y,x2+3y2+xy;
   ideal i2=2x-3y,2x2+4y2+5xy;
@@ -726,7 +728,7 @@ none
 closes a link.
 @item @strong{Example:}
 @smallexample
-link l="MPtcp:launch";
+link l="ssi:tcp localhost:"+system("Singular");
 open(l); // start SINGULAR "server" on localhost in batchmode
 close(l); // shut down SINGULAR server
 @end smallexample
@@ -1330,7 +1332,7 @@ returns the denominator of a number.
 @smallexample
 @c example
   ring r = 0, x, dp;
-  number n = 3/2; 
+  number n = 3/2;
   denominator(n);
 @c example
 @end smallexample
@@ -1393,12 +1395,18 @@ the same as the type of the first argument
 @code{diff (} ideal_expression@code{,} ideal_expression @code{)}
 @item @strong{Type:}
 matrix
+@item @strong{Syntax:}
+@code{diff (} number_expression@code{,} ring_parameter @code{)}
+@item @strong{Type:}
+number
 @item @strong{Purpose:}
 computes the partial derivative of a polynomial object by a ring variable
 (first forms)
 @*respectively differentiates each polynomial (1..n) of the second ideal
 by the differential operator corresponding to each polynomial (1..m) in the first
 ideal, producing an m x n matrix.
+@*respectively if the coefficient ring is a transcendental field extension, differentiates a
+  number (that is, a rational function) by a transcendental variable (ring parameter).
 @item @strong{Example:}
 @smallexample
 @c example
@@ -1412,6 +1420,10 @@ ideal, producing an m x n matrix.
   // corresponds to differential operators
   // d2/dx2, d2/dx2+d2/dydz, d3/dxdydz:
   print(diff(i,j));
+  // differentiation of rational functions:
+  ring R=(0,t),(x),dp;
+  number f = t^2/(1-t)^2;
+  diff(f,t);
 @c example
 @end smallexample
 @end table
@@ -1534,7 +1546,7 @@ none
 @item @strong{Purpose:}
 dumps (i.e., writes in a "message" or "block") the state of the @sc{Singular}
 session (i.e., all defined variables and their values) to the specified
-link (which must be either an ASCII or MP link) such that a
+link (which must be either an ASCII or ssi link) such that a
 @code{getdump} can retrieve it later on.
 @item @strong{Example:}
 @smallexample
@@ -1629,16 +1641,16 @@ none
 evaluates (quoted) expressions. Within a quoted expression, the
 quote can be "undone" by an @code{eval} (i.e., each eval "undoes" the
 effect of exactly one quote). Used only when receiving a quoted expression
-from an MPfile link,
+from an ssi link,
 with @code{quote} and @code{write} to
-prevent local evaluations  when writing to an MPtcp link.
+prevent local evaluations  when writing to an ssi link.
 @item @strong{Example:}
 @smallexample
 @c example unix_only
-  link l="MPfile:w example.mp";
+  link l="ssi:w example.ssi";
   ring r=0,(x,y,z),ds;
   ideal i=maxideal(3);
-  ideal j=x7,x2,z;
+  ideal j=x7+x3,x2,z;
   // compute i+j before writing, but not std
   // this writes 'std(ideal(x3,...,z))'
   write (l, quote(std(eval(i+j))));
@@ -1653,7 +1665,7 @@ prevent local evaluations  when writing to an MPtcp link.
 @end table
 @c ref
 See
-@ref{MPfile links};
+@ref{Ssi links};
 @ref{quote};
 @ref{write}.
 @c ref
@@ -1744,6 +1756,7 @@ provide in the future).
 @table @code
 @item @strong{Syntax:}
 @code{extgcd (} int_expression@code{,} int_expression @code{)}
+@*@code{extgcd (} bigint_expression@code{,} bigint_expression @code{)}
 @*@code{extgcd (} poly_expression@code{,} poly_expression @code{)}
 @item @strong{Type:}
 list of 3 objects of the same type as the type of the arguments
@@ -1964,7 +1977,9 @@ number, poly, vector, ideal, module, matrix or list
 maps objects between rings.
 @code{fetch} is the identity map between rings and qrings,
 the i-th variable of the source ring is mapped to the i-th
-variable of the basering.  The coefficient fields must be compatible.
+variable of the basering.
+If the basering has less variables than the source ring these variables are mapped to zero.
+The coefficient fields must be compatible.
 (See @ref{map} for a description of possible mappings between
 different ground fields).
 @*@code{fetch} offers a convenient way to change
@@ -2341,7 +2356,7 @@ none
 @item @strong{Purpose:}
 reads the content of the entire file, resp.@: link, and restores all variables
 from it. For ASCII links, @code{getdump} is equivalent to an
-@code{execute(read(} link @code{))} command. For MP links,
+@code{execute(read(} link @code{))} command. For ssi links,
 @code{getdump} should only be used on data which were previously
 @code{dump}`ed.
 @item @strong{Example:}
@@ -2564,7 +2579,7 @@ If a weight vector w is a given as 3rd argument, then the Hilbert series is comp
 w.r.t.@: these weights w (by default all weights are set to 1).
 @item @strong{Caution:}
 The last entry of the returned intvec is not part of the actual Hilbert series,
-but is used in the Hilbert driven standard basis computation (see @ref{stdhilb}).
+but is used in the Hilbert driven standard basis computation (see @ref{stdhilb}). (It is the minimum weight of the module generators or 0).
 @item @strong{Syntax:}
 @code{hilb (} intvec_expression @code{)}
 @item @strong{Type:}
@@ -2744,6 +2759,8 @@ Useful for mapping from a homogenized ring to the original ring or
 for mappings from/to rings with/without parameters. Compared with
 @code{fetch}, @code{imap} uses the names of variables and parameters.
 Unlike @code{map} and @code{fetch} @code{imap} can map parameters to variables.
+@*Mapping rational functions which are not polynomials to polynomials is undefined
+(i.e. the result depends on the version).
 @item @strong{Example:}
 @smallexample
 @c example
@@ -3713,15 +3730,15 @@ See
 @item @strong{Type:}
 none
 @item @strong{Purpose:}
-lists all (user-)defined names in the current namespace:
+lists all (user-)defined names:
 @itemize @bullet
-@item @code{listvar()}: all currently visible names except procedures,
+@item @code{listvar()}: all currently visible names except procedures in the current namespace,
 @item @code{listvar(}type@code{)}: all currently visible names of the given
 type,
 @item @code{listvar(}ring_name@code{)}: all names which belong to the given
 ring,
 @item @code{listvar(}name@code{)}: the object with the given name,
-@item @code{listvar(all)}: all names except procedures.
+@item @code{listvar(all)}: all names except procedures in the current and @code{Top} namespace.
 @end itemize
 The current basering is marked with a @code{*}.  The nesting level of
 variables in procedures is shown in square brackets.
@@ -3834,6 +3851,7 @@ See
 @subsection ludecomp
 @cindex ludecomp
 @cindex LU-decomposition of a matrix of numbers
+@cindex linear algebra
 
 @table @code
 @item @strong{Syntax:}
@@ -3885,6 +3903,7 @@ See
 @subsection luinverse
 @cindex luinverse
 @cindex inverse of a matrix via its LU-decomposition
+@cindex linear algebra
 
 @table @code
 @item @strong{Syntax:}
@@ -3956,6 +3975,7 @@ See
 @subsection lusolve
 @cindex lusolve
 @cindex solve a linear equation system A*x = b via the LU-decomposition of A
+@cindex linear algebra
 
 @table @code
 @item @strong{Syntax:}
@@ -4073,11 +4093,11 @@ also @ref{option}).
   poly p=(x(1)+x(500))^50;
   proc ReportMemoryUsage()
   {  "Memory currently used by SINGULAR     :",memory(0),"Byte (",
-     int(memory(0)/1023), "KByte)" +newline+
+     int(memory(0) div 1024), "KByte)" +newline+
      "Memory currently allocated from system:",memory(1), "Byte (",
-     int(memory(1)/1023), "KByte)";
+     int(memory(1) div 1024), "KByte)";
      "Maximal memory allocated from system  :",memory(2), "Byte (",
-     int(memory(2)/1023), "KByte)";
+     int(memory(2) div 1024), "KByte)";
   }
   ReportMemoryUsage();
   kill p;
@@ -4398,6 +4418,7 @@ See
 @node mpresmat, mres, monomial, Functions
 @subsection mpresmat
 @cindex mpresmat
+@cindex resultant
 @table @code
 @item @strong{Syntax:}
 @code{mpresmat (} ideal_expression@code{,} int_expression @code{)}
@@ -4856,7 +4877,7 @@ returns the numerator of a number.
 @smallexample
 @c example
   ring r = 0, x, dp;
-  number n = 3/2; 
+  number n = 3/2;
   numerator(n);
 @c example
 @end smallexample
@@ -4907,8 +4928,8 @@ none
 opens a link.
 @item @strong{Example:}
 @smallexample
-link l="MPtcp:launch";
-open(l);  // start SINGULAR "server" on localhost in batchmode
+link l="ssi:tcp localhost:"+system("Singular");
+open(l); // start SINGULAR "server" on localhost in batchmode
 close(l); // shut down SINGULAR server
 @end smallexample
 @end table
@@ -4965,6 +4986,11 @@ to their default values on a change of the current basering.
 @cindex none, option
 turns off all options (including the @code{prompt} option).
 @c ---------
+@item @code{warn}
+@c ---------
+@cindex warn, option
+be aware of pitfalls.
+@c ---------
 @item @code{returnSB}
 @cindex returnSB, option
 the functions @code{syz}, @code{intersect}, @code{quotient},
@@ -5000,7 +5026,7 @@ which was used in @sc{Singular} version before 2-0
 (and which may lead to faster or slower computations, depending on the example)
 @item @code{length}
 @cindex length, option
-select shorter reduceers in std computations,
+select shorter reducers in std computations,
 @c ---------
 @item @code{notRegularity}
 @cindex notRegularity, option
@@ -5504,7 +5530,8 @@ See
 @cindex primefactors
 @table @code
 @item @strong{Syntax:}
-@code{primefactors (} int/bigint/number_expression @code{, [} int/bigint/number_expression @code{] )}
+@code{primefactors (} int/bigint/number_expression @code{)}
+@*@code{primefactors (} int/bigint/number_expression @code{,} int_expression @code{)}
 @item @strong{Type:}
 list
 @item @strong{Purpose:}
@@ -5513,23 +5540,18 @@ prime factors
 @*When called with int(s)/bigint(s), no ring needs to be active.
 @*When called with numbers these are assumed to be integers in a polynomial
 ring over Q.
-@*The method finds all prime factors of an integer n. When some positive bound
-b is given then it is expected to be at least 2. In this case, the
-implementation finds only all prime factors <= b. Then, there may remain a
-non-factored portion n' of n arising by dividing out all found prime factors.
-Moreover, in case n is negative or zero, n' will contain the sign or be zero,
-respectively.
+@*The method finds all prime factors of an integer n.
+n' will contain the sign, be zero, or the rest (when a bound is given) respectively. The returned list contains the following information:
 The returned list contains the following information:
 @*L[1][i] = i-th prime factor (in ascending order),
 @*L[2][i] = multiplicity of L[1][i],
-@*L[3] = n',
-@*L[4] = 1 if probabilistic test says that |n'| is a prime, 0 otherwise.
+@*L[3] = n'
 @item @strong{Example:}
 @smallexample
 @c example
   bigint n = bigint(7)^12 * bigint(37)^6 * 121;
   primefactors(n);
-  primefactors(n, 15); /* only prime factors <= 15 */
+  primefactors(n,25);
 @c example
 @end smallexample
 @end table
@@ -5758,7 +5780,7 @@ for all three number arguments is a small value like e.g. 10^(-100).)
 none
 @item @strong{Purpose:}
 prevents expressions from evaluation. Used only in connections with write to
-MPfile links, prevents evaluation of an expression before sending it to an other
+ssi links, prevents evaluation of an expression before sending it to an other
 @sc{Singular} process.
 Within a quoted expression, the
 quote can be "undone" by an @code{eval} (i.e., each eval "undoes" the
@@ -5766,7 +5788,7 @@ effect of exactly one quote).
 @item @strong{Example:}
 @smallexample
 @c example unix_only
-  link l="MPfile:w example.mp";
+  link l="ssi:w example.ssi";
   ring r=0,(x,y,z),ds;
   ideal i=maxideal(3);
   ideal j=x7,x2,z;
@@ -5784,7 +5806,7 @@ effect of exactly one quote).
 See
 @ref{eval};
 @ref{write};
-@ref{MPfile links}.
+@ref{Ssi links}.
 @c ref
 @c ---------------------------------------
 @node quotient, random, quote, Functions
@@ -5947,9 +5969,9 @@ reads data from a link.
 @*For ASCII links, the content of the entire
 file is returned as a string. If the ASCII link is the empty string,
 @code{read} reads from standard input.
-@*For MP links, one expression is read
-from the link and returned after evaluation. See @ref{MP links}.
-@*For MPtcp links the @code{read} command blocks as long as there is no
+@*For ssi links, one expression is read
+from the link and returned after evaluation. See @ref{Ssi links}.
+@*For ssi links the @code{read} command blocks as long as there is no
 data to be read from the link. The @code{status} command can be used to
 check whether or not there is data to be read.
 @*For DBM links, a @code{read} with one argument returns the value of
@@ -6259,6 +6281,9 @@ the quotient ideal.
 @end enumerate
 From a list of such structure, a new ring may be defined by the command @code{ring}
 ( see the following example ).
+@item @strong{Note:} All data which depends on a ring belong to the current ring,
+not to a ring which can be contructed fron a modified list.
+These data will be mapped via fetch to the ring to be constructed.
 @item @strong{Example:}
 @smallexample
 @c example
@@ -6290,7 +6315,7 @@ See
 @ref{qring}.
 @c ref
 @c ---------------------------------------
-@node rvar, setring, ringlist, Functions
+@node rvar, sba, ringlist, Functions
 @subsection rvar
 @cindex rvar
 @table @code
@@ -6325,13 +6350,13 @@ See
 @ref{varstr}.
 @c ref
 @c ---------------------------------------
-@node sba
+@node sba, setring, rvar, Functions
 @subsection sba
 @cindex sba
 @table @code
 @item @strong{Syntax:}
 @code{sba (} ideal_expression@code{)}
-@*@code{std (} ideal_expression@code{,} int_expression{,} int_expression @code{)}
+@*@code{sba (} ideal_expression@code{,} int_expression@code{,} int_expression @code{)}
 @item @strong{Type:}
 ideal
 @item @strong{Purpose:}
@@ -6340,33 +6365,42 @@ monomial ordering of the basering.
 A standard basis is a set of generators such that
 the leading terms generate the leading ideal, resp.@: module.
 @*Use optional
-second and thirds arguments of type int to determine the respective variant of
+second and third arguments of type int to determine the respective variant of
 the signature-based standard basis algorithm:
-@*@code{sba(i,1,1)} computes the basis incrementally using an improved version
-of the algorithm described in
-@code{http://dx.doi.org/10.1016/j.jsc.2011.05.004}.
-@*@code{sba(i,1,0)} computes the basis incrementally using an improved version
-of the algorithm described in
-@code{http://dx.doi.org/10.1016/j.jsc.2010.06.019}.
-@*@code{sba(i,0,1)} computes the basis non-incrementally using the induced
-Schreyer order on the signatures together with an improved version
-of the algorithm described in @code{http://dx.doi.org/10.1016/j.jsc.2011.05.004}.
-@*@code{sba(i,0,0)} computes the basis non-incrementally using the induced
-Schreyer order on the signatures together with an improved version
-of the algorithm described in @code{http://dx.doi.org/10.1145/780506.780516}.
-@*@code{sba(i)} corresponds to @code{sba(i,0,1)}.
+@*The second argument specifies the internal module order @code{sba} uses:
+@enumerate
+@item
+@code{0}: induced Schreyer order on the signatures, non-incremental computation
+of the basis
+@item
+@code{1}: position over term order, incremental computation of the basis
+@item
+@code{2}: term over position order, non-incremental computation
+@end enumerate
+@code{3}: Schreyer-weighted degree over index over leading term
+@*The third argument specifies the rewrite order @code{sba} uses:
+@enumerate
+@item
+@code{0}: using the rewrite order described in
+@code{http://dx.doi.org/10.1016/j.jsc.2010.06.019}
+@item
+@code{1}: using the rewrite order described in
+@code{http://dx.doi.org/10.1016/j.jsc.2011.05.004}
+@end enumerate
+@*The standard call of @code{sba(i)} corresponds to @code{sba(i,0,1)}.
 @item @strong{Note:}
 The
 standard basis is computed with an optimized version of known signature-based
 algorithms like Faugere's F5 Algorithm. Whereas the correctness of the
 algorithms is only guaranteed for global orderings, timings for pure
-lexicographical orderings can be slow. In those situation you should try to
+lexicographical orderings can be slow. In this situation you should try to
 compute the basis w.r.t. the graded reverse-lexicographic ordering and then
 convert to a basis for the lexicographical ordering using other methods (see
-@pxref{fglm} and @pxref{grwalk.lib}). If the algorithms tend to use too much
+@pxref{fglm} and @pxref{grwalk_lib}). If the algorithms tend to use too much
 memory, you should try the other implemented standard basis algorithms (see
 @pxref{std}, @pxref{groebner}, and @pxref{slimgb}).
-
+@* Note that the behaviour of @code{sba} on an example can be rather different
+depending on which variant you choose (second and third argument).
 @item @strong{Example:}
 @smallexample
 @c example
@@ -6399,7 +6433,7 @@ See
 @c ref
 
 @c ---------------------------------------
-@node setring, simplex, rvar, Functions
+@node setring, simplex, sba, Functions
 @subsection setring
 @cindex setring
 @table @code
@@ -6768,7 +6802,7 @@ the multiplicities (as an intvec) depending on the second argument:
        May also be written with only one argument.
     1: returns non-constant factors (no multiplicities).
     2: returns non-constant factors and multiplicities.
-    3: returns the product of factors (including constant), i.e. squarefree part
+    3: returns the product of non-constant factors, i.e. squarefree part
 @end format
 @item @strong{Note:}
 Not implemented for the coefficient fields real and finite fields of
@@ -6895,28 +6929,19 @@ See
 string
 @item @strong{Syntax:}
 @code{status (} link_expression@code{,} string_expression@code{,} string_expression @code{)}
-@*@code{status (} link_expression@code{,} string_expression@code{,} string_expression@code{,} int_expression @code{)}
 @item @strong{Type:}
 int
 @item @strong{Purpose:}
 returns the status of the link as asked for by the second argument.  If
 a third argument is given, the result of the comparison to the status
 string is returned: @code{(status(l,s1)==s2)} is equivalent to
-@code{status(l,s1,s2)}.  If a fourth integer argument (say @code{i}) is
-given and if @code{status(l,s1,s2)} yields @code{0}, then the execution
-of the current process is suspended (the process is put to ``sleep'')
-for approximately@: @code{i} microseconds, and afterwards the result of another
-call to @code{status(l,s1,s2)} is returned. The latter is useful for
-``polling'' the @code{read} status of MPtcp links such that busy
-loops are avoided (see @ref{Parallelization with MPtcp links} for an
-example).  Note that on some systems, the minimum time for a process to
-be put to sleep is one second.
+@code{status(l,s1,s2)}.
 @*The following string expressions are allowed:
 @table @code
 @item @code{"name"}
 the name string given by the definition of the link (usually the filename)
 @item @code{"type"}
-returns @code{"ASCII"}, @code{"MPfile"}, @code{"MPtcp"}, @code{"DBM"} or @code{"ssi"}
+returns @code{"ASCII"}, @code{"DBM"} or @code{"ssi"}
 @item @code{"open"}
 returns @code{"yes"} or @code{"no"}
 @item @code{"openread"}
@@ -6931,7 +6956,7 @@ returns @code{"ready"} or @code{"not ready"}
 returns (depending on the type of the link and its status)
 @code{"","w","a","r"} or @code{"rw"}
 @item @code{"exists"}
-returns @code{"yes"} or @code{"no"}: existence of the filename for ASCII/MPfile/ssi links
+returns @code{"yes"} or @code{"no"}: existence of the filename for ASCII/ssi links
 @end table
 @item @strong{Example:}
 @smallexample
@@ -7074,6 +7099,7 @@ poly, vector, ideal or module (corresponding to the first argument)
 @item @strong{Purpose:}
 substitutes one or more ring variable(s)/parameter variable(s) by (a) polynomial(s). Note that in the case of more than one substitution pair,
 the substitutions will be performed sequentially and not simultaneously. The below examples illustrate this behaviour.
+@*Note, that the coefficients must be polynomial when substituting a parameter.
 @item @strong{Example:}
 @smallexample
 @c example
@@ -7122,7 +7148,7 @@ sent literally to the shell.
 @cindex pid
 @cindex system, pid
 returns the process number as int (for creating unique names).
-@item @code{system("cpu")}
+@item @code{system("--cpus")}
 @cindex cpu
 @cindex system, cpu
 returns the number of cpu cores as int (for using multiple cores).
@@ -7234,10 +7260,10 @@ system("--min-time", "0.02");
 system("--ticks-per-sec", 100);
 // re-seed random number generator
 system("--random", 12345678);
-// allow netscape to access HTML pages from the net
+// allow your web browser to access HTML pages from the net
 system("--allow-net", 1);
-// and set help browser to netscape
-system("--browser", "netscape");
+// and set help browser to firefox
+system("--browser", "firefox");
 @c example
 @end smallexample
 @end table
@@ -7708,8 +7734,7 @@ See
 @item @strong{Type:}
 int
 @item @strong{Purpose:}
-Expects a list of open links (of mode ssi:fork, ssi:tcp, MPtcp:fork or
-MPtcp:launch)
+Expects a list of open links (of mode ssi:fork, ssi:tcp)
 and waits until all of them are finished, i.e., are ready to be read.
 @*In the first case, the command waits for all links to finish
 (or to crash, see below) and may therefore run forever.
@@ -7756,8 +7781,7 @@ See
 @item @strong{Type:}
 int
 @item @strong{Purpose:}
-Expects a list of open links (of mode ssi:fork, ssi:tcp, MPtcp:fork or
-MPtcp:launch)
+Expects a list of open links (of mode ssi:fork, ssi:tcp)
 and waits until the first of them is finished, i.e., is ready to be read.
 @*In the first case, the command waits until the first link is finished
 (or all of them crashed, see below) and may therefore run forever.
@@ -7881,12 +7905,12 @@ writes data to a link.
 strings  (and separated by a newline character) before they are
 written. As a consequence, only such values which can be converted to a
 string can be written to an  @code{ASCII} link.
-@*For MP links,
+@*For ssi links,
 ring-dependent expressions are written together with a ring
 description. To prevent an evaluation of the expression before it is
 written, the @code{quote} command (possibly together with @code{eval})
 can be used. A @code{write} blocks (i.e., does not return to the prompt),
-as long as a MPtcp link is not ready for writing.
+as long as a ssi link is not ready for writing.
 @*For DBM links, @code{write} with three arguments inserts the first
 string as key and the second string as value into the dbm data
 base.
@@ -7918,9 +7942,9 @@ ring r=32003,(x,y,z),dp;
 string s=read("save_i");   //creates the string x+y,z3+22y
 execute("ideal k="+s+";"); // this defines an ideal k which
                            // is equal to i.
-// for large objects, the MP format and MPfile links are better:
-write("MPfile:w save_i.mp",i);
-def j=read("MPfile:r save_i.mp");
+// for large objects, the ssi format and ssi links are better:
+write("ssi:w save_i.ssi",i);
+def j=read("ssi:r save_i.ssi");
 @end smallexample
 @end table
 @c ref
@@ -7936,7 +7960,6 @@ See
 @ref{short}.
 @c ref
 
-
 @c ---------------------------------------
 @node Control structures, System variables, Functions, Functions and system variables
 @section Control structures
@@ -7946,6 +7969,7 @@ See
 @*List of all supported control structures.
 @end ifinfo
 @menu
+* apply::
 * break::
 * breakpoint::
 * continue::
@@ -7989,7 +8013,37 @@ if ( i>j )
 @end table
 
 @c ---------------------------------------
-@node break, breakpoint, Control structures, Control structures
+@node apply, break, Control structures, Control structures
+@subsection apply
+@cindex apply
+@table @code
+@item @strong{Syntax:}
+@code{apply(} expression @code{,} function @code{);}
+@item @strong{Purpose:}
+applies the function to all elements of the first argument.
+The first argument must be of type
+@code{intvec},
+@code{intmat},
+@c @code{bigintmat},
+@c @code{ideal},
+@c @code{module},
+@c @code{matrix},
+or @code{list}.
+The result will be of the same type as the first argument.
+The function must be a kernel command or a procedure which takes one
+argument and returns a type which can be an element of the result.
+@item @strong{Example:}
+@smallexample
+@c example
+proc p(int x) {return(x^2);}
+intvec v=1,2,3;
+apply(v,p);
+@c example
+@end smallexample
+@end table
+
+@c ---------------------------------------
+@node break, breakpoint, apply, Control structures
 @subsection break
 @cindex break
 @table @code
@@ -8376,7 +8430,8 @@ none
 @c libraries, by starting up @sc{Singular} with the option @code{-v}, or by
 @c issuing the command @code{system("with");"}.
 reads a library of procedures from a file. In contrast to the command
-@code{LIB}, the command @code{load} does not add the procedures of the
+@code{LIB} (see note below),
+the command @code{load} does not add the procedures of the
 library to the package @code{Top}, but only to the package corresponding
 to the library. If the given filename does
 not start with @kbd{.} or @kbd{/}, the following directories are
@@ -8388,6 +8443,8 @@ You can view the search path which @sc{Singular} uses to locate its
 libraries, by starting up @sc{Singular} with the option @code{-v},
 or by issuing the command @code{system("with");}.
 
+@item @strong{Note:} @code{load(<string_expr>,"with")} is equivalent to
+@code{LIB <string_expr>}.
 @end table
 
 All loaded libraries are displayed by the @code{listvar(package);}
@@ -8450,7 +8507,8 @@ See
 @anchor{exit}
 @table @code
 @item @strong{Syntax:}
-@code{quit;}
+@code{exit;}
+@*@code{quit;}
 @item @strong{Purpose:}
 quits @sc{Singular};
 works also from inside a procedure or from an interrupt. Instead of @code{quit}, the synonymous command
@@ -8460,10 +8518,6 @@ works also from inside a procedure or from an interrupt. Instead of @code{quit},
   quit;
 @end smallexample
 @end table
-@c ref
-See
-@ref{exit}.
-@c ref
 @c ---------------------------------------
 @node return, while, quit, Control structures
 @subsection return

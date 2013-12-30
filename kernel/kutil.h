@@ -78,7 +78,7 @@ public:
     i_r;        // index of TObject in R set, or -1 if not in T
   BOOLEAN is_normalized; // true, if pNorm was called on p, false otherwise
   // used in incremental sba() with F5C:
-  // we know some of the redundant elements in 
+  // we know some of the redundant elements in
   // strat->T beforehand, so we can just discard
   // them and do not need to consider them in the
   // interreduction process
@@ -90,10 +90,10 @@ public:
   BOOLEAN is_sigsafe;
 
 
-#ifdef HAVE_PLURAL  
+#ifdef HAVE_PLURAL
   BOOLEAN is_special; // true, it is a new special S-poly (e.g. for SCA)
 #endif
-  
+
   // initialization
   KINLINE void Init(ring r = currRing);
   KINLINE sTObject(ring tailRing = currRing);
@@ -179,14 +179,16 @@ class sLObject : public sTObject
 
 public:
   unsigned long sev;
-  unsigned long from; // from which polynomial it comes from
-            // this is important for signature-based
-            // algorithms
+  unsigned long from; // index in sig up to which the correspongin LObject was already checked
   unsigned long checked; // this is the index of S up to which
                       // the corresponding LObject was already checked in
                       // critical pair creation => when entering the
                       // reduction process it is enough to start a second
                       // rewritten criterion check from checked+1 onwards
+  BOOLEAN prod_crit;
+                      // NOTE: If prod_crit = TRUE then the corresponding pair is
+                      // detected by Buchberger's Product Criterion and can be
+                      // deleted
   poly  p1,p2; /*- the pair p comes from,
                  lm(pi) in currRing, tail(pi) in tailring -*/
 
@@ -285,8 +287,9 @@ public:
   void (*enterOnePair) (int i,poly p,int ecart, int isFromQ,kStrategy strat, int atR /*= -1*/);
   void (*chainCrit) (poly p,int ecart,kStrategy strat);
   BOOLEAN (*syzCrit) (poly sig, unsigned long not_sevSig, kStrategy strat);
-  BOOLEAN (*rewCrit1) (poly sig, unsigned long not_sevSig, kStrategy strat, int start /*= 0*/);
-  BOOLEAN (*rewCrit2) (poly sig, unsigned long not_sevSig, kStrategy strat, int start /*= 0*/);
+  BOOLEAN (*rewCrit1) (poly sig, unsigned long not_sevSig, poly lm, kStrategy strat, int start /*= 0*/);
+  BOOLEAN (*rewCrit2) (poly sig, unsigned long not_sevSig, poly lm, kStrategy strat, int start /*= 0*/);
+  BOOLEAN (*rewCrit3) (poly sig, unsigned long not_sevSig, poly lm, kStrategy strat, int start /*= 0*/);
   pFDegProc pOrigFDeg;
   pLDegProc pOrigLDeg;
   pFDegProc pOrigFDeg_TailRing;
@@ -306,7 +309,7 @@ public:
   intset syzIdx;// index in the syz array at which the first
                 // syzygy of component i comes up
                 // important for signature-based algorithms
-  BOOLEAN incremental;
+  unsigned sbaOrder;
   unsigned long currIdx;
   int max_lower_index;
   intset lenS;
@@ -416,7 +419,7 @@ void enterSBba (LObject p,int atS,kStrategy strat, int atR = -1);
 void enterSSba (LObject p,int atS,kStrategy strat, int atR = -1);
 void initEcartPairBba (LObject* Lp,poly f,poly g,int ecartF,int ecartG);
 void initEcartPairMora (LObject* Lp,poly f,poly g,int ecartF,int ecartG);
-int posInS (const kStrategy strat, const int length, const poly p, 
+int posInS (const kStrategy strat, const int length, const poly p,
             const int ecart_p);
 int posInT0 (const TSet set,const int length,LObject &p);
 int posInT1 (const TSet set,const int length,LObject &p);
@@ -442,6 +445,7 @@ int posInLF5C (const LSet set, const int length,
                LObject* L,const kStrategy strat);
 int posInLSig (const LSet set, const int length,
                LObject* L,const kStrategy strat);
+int posInSyz (const kStrategy strat, const poly sig);
 int posInL0 (const LSet set, const int length,
              LObject* L,const kStrategy strat);
 int posInL11 (const LSet set, const int length,
@@ -463,6 +467,8 @@ poly redtailBba_Z (LObject* L, int pos, kStrategy strat );
 #endif
 poly redtailBba (LObject *L, int pos,kStrategy strat,
                  BOOLEAN withT = FALSE,BOOLEAN normalize=FALSE);
+poly redtailSba (LObject *L, int pos,kStrategy strat,
+                 BOOLEAN withT = FALSE,BOOLEAN normalize=FALSE);
 poly redtailBba (TObject *T, int pos,kStrategy strat);
 poly redtail (poly p,int pos,kStrategy strat);
 poly redtail (LObject *L,int pos,kStrategy strat);
@@ -472,6 +478,7 @@ poly redNFTail (poly h,const int sl,kStrategy strat);
 int redHoney (LObject* h, kStrategy strat);
 #ifdef HAVE_RINGS
 int redRing (LObject* h,kStrategy strat);
+int redRiloc (LObject* h,kStrategy strat);
 void enterExtendedSpoly(poly h,kStrategy strat);
 void superenterpairs (poly h,int k,int ecart,int pos,kStrategy strat, int atR = -1);
 poly kCreateZeroPoly(long exp[], long cabsind, poly* t_p, ring leadRing, ring tailRing);
@@ -494,7 +501,7 @@ void messageStat (int hilbcount,kStrategy strat);
 #ifdef KDEBUG
 void messageSets (kStrategy strat);
 #else
-#define messageSets(s)  ((void) 0)
+#define messageSets(s)  do {} while (0)
 #endif
 
 void initEcartNormal (LObject* h);
@@ -503,9 +510,9 @@ void initS (ideal F, ideal Q,kStrategy strat);
 void initSL (ideal F, ideal Q,kStrategy strat);
 void initSLSba (ideal F, ideal Q,kStrategy strat);
 /*************************************************
- * when initializing a new bunch of principal 
+ * when initializing a new bunch of principal
  * syzygies at the beginning of a new iteration
- * step in a signature-based algorithm we 
+ * step in a signature-based algorithm we
  * compute ONLY the leading elements of those
  * syzygies, NOT the whole syzygy
  * NOTE: this needs to be adjusted for a more
@@ -513,7 +520,7 @@ void initSLSba (ideal F, ideal Q,kStrategy strat);
  ***********************************************/
 void initSyzRules (kStrategy strat);
 void updateS(BOOLEAN toT,kStrategy strat);
-void enterSyz (LObject p,kStrategy strat);
+void enterSyz (LObject p,kStrategy strat, int atT);
 void enterT (LObject p,kStrategy strat, int atT = -1);
 void cancelunit (LObject* p,BOOLEAN inNF=FALSE);
 void HEckeTest (poly pp,kStrategy strat);
@@ -537,9 +544,10 @@ BOOLEAN homogTest(polyset F, int Fmax);
 BOOLEAN newHEdge(kStrategy strat);
 BOOLEAN syzCriterion(poly sig, unsigned long not_sevSig, kStrategy strat);
 BOOLEAN syzCriterionInc(poly sig, unsigned long not_sevSig, kStrategy strat);
-KINLINE BOOLEAN arriRewDummy(poly sig, unsigned long not_sevSig, kStrategy strat, int start);
-BOOLEAN arriRewCriterion(poly sig, unsigned long not_sevSig, kStrategy strat, int start);
-BOOLEAN faugereRewCriterion(poly sig, unsigned long not_sevSig, kStrategy strat, int start);
+KINLINE BOOLEAN arriRewDummy(poly sig, unsigned long not_sevSig, poly lm, kStrategy strat, int start);
+BOOLEAN arriRewCriterion(poly sig, unsigned long not_sevSig, poly lm, kStrategy strat, int start);
+BOOLEAN arriRewCriterionPre(poly sig, unsigned long not_sevSig, poly lm, kStrategy strat, int start);
+BOOLEAN faugereRewCriterion(poly sig, unsigned long not_sevSig, poly lm, kStrategy strat, int start);
 BOOLEAN findMinLMPair(poly sig, unsigned long not_sevSig, kStrategy strat, int start);
 // returns index of p in TSet, or -1 if not found
 int kFindInT(poly p, TSet T, int tlength);
@@ -599,11 +607,11 @@ BOOLEAN kTest_T(TObject* T, ring tailRing = NULL, int tpos = -1, char TN = '?');
 // test set strat->SevS
 BOOLEAN kTest_S(kStrategy strat);
 #else
-#define kTest(A)        ((void)0)
-#define kTest_TS(A)     ((void)0)
-#define kTest_T(T)      ((void)0)
-#define kTest_S(T)      ((void)0)
-#define kTest_L(T)      ((void)0)
+#define kTest(A)        (TRUE)
+#define kTest_TS(A)     (TRUE)
+#define kTest_T(T)      (TRUE)
+#define kTest_S(T)      (TRUE)
+#define kTest_L(T)      (TRUE)
 #endif
 
 
@@ -619,13 +627,13 @@ poly kNF2 (ideal F, ideal Q, poly q, kStrategy strat, int lazyReduce);
 ideal kNF2 (ideal F,ideal Q,ideal q, kStrategy strat, int lazyReduce);
 void initBba(ideal F,kStrategy strat);
 void initSba(ideal F,kStrategy strat);
-void f5c (kStrategy strat, int& olddeg, int& minimcnt, int& hilbeledeg, 
+void f5c (kStrategy strat, int& olddeg, int& minimcnt, int& hilbeledeg,
           int& hilbcount, int& srmax, int& lrmax, int& reduc, ideal Q,
           intvec *w,intvec *hilb );
 
 /***************************************************************
  *
- * From kSpolys.cc
+ * From kspoly.cc
  *
  ***************************************************************/
 // Reduces PR with PW
@@ -766,7 +774,7 @@ void enterOnePairShift (poly q, poly p, int ecart, int isFromQ, kStrategy strat,
 
 void enterpairsShift (poly h,int k,int ecart,int pos,kStrategy strat, int atR,int uptodeg, int lV);
 
-void initenterpairsShift (poly h,int k,int ecart,int isFromQ,kStrategy strat, int atR,int uptodeg, int lV); 
+void initenterpairsShift (poly h,int k,int ecart,int isFromQ,kStrategy strat, int atR,int uptodeg, int lV);
 
 void updateSShift(kStrategy strat,int uptodeg,int lV);
 

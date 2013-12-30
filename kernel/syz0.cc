@@ -6,7 +6,9 @@
 */
 
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <misc/options.h>
 #include <omalloc/omalloc.h>
@@ -172,11 +174,11 @@ static ideal sySchreyersSyzygiesFM(ideal arg,intvec ** modcomp)
   polyset F=arg->m,*Shdl=&(result->m);
   if (Fl==0) return result;
 
-  int i,j,l,k,totalToRed,ecartToRed,kk,kkk;
+  int i,j,l,k,totalToRed,ecartToRed,kk;
   int bestEcart,totalmax,rkF,Sl=0,smax,tmax,tl;
   int *ecartS, *ecartT, *totalS,
     *totalT=NULL, *temp=NULL;
-  polyset pairs,S,T,ST,oldF;
+  polyset pairs,S,T,ST/*,oldF*/;
   poly p,q,toRed;
   BOOLEAN notFound = FALSE;
   intvec * newmodcomp = new intvec(Fl+2);
@@ -341,7 +343,7 @@ static ideal sySchreyersSyzygiesFM(ideal arg,intvec ** modcomp)
           while ((l<tl) && (notFound))
 #else
           l = (**modcomp)[pGetComp(toRed)];
-          kkk = (**modcomp)[pGetComp(toRed)+1];
+          int kkk = (**modcomp)[pGetComp(toRed)+1];
           while ((l<kkk) && (notFound))
 #endif
           {
@@ -508,12 +510,12 @@ static ideal sySchreyersSyzygiesFB(ideal arg,intvec ** modcomp,ideal mW,BOOLEAN 
   int Fl=IDELEMS(arg);
   while ((Fl!=0) && (arg->m[Fl-1]==NULL)) Fl--;
   ideal result=idInit(16,Fl);
-  int i,j,l,k,kkk,rkF,Sl=0,syComponentOrder=currRing->ComponentOrder;
-  int fstart,wend,lini,ltR,gencQ=0;
+  int i,j,l,k,kkk,/*rkF,*/Sl=0,syComponentOrder=currRing->ComponentOrder;
+  int /*fstart,*/wend,lini,ltR,gencQ=0;
   intvec *newmodcomp;
   int *Flength;
   polyset pairs,F=arg->m,*Shdl=&(result->m);
-  poly p,q,toRed,syz,lastmonom,multWith;
+  poly /*p,*/q,toRed,syz,lastmonom,multWith;
   BOOLEAN isNotReduced=TRUE;
 
 //#define WRITE_BUCKETS
@@ -524,7 +526,7 @@ static ideal sySchreyersSyzygiesFB(ideal arg,intvec ** modcomp,ideal mW,BOOLEAN 
   idDelete(&twr);
   if (modcomp!=NULL) (*modcomp)->show(0,0);
 #endif
-   
+
   newmodcomp = new intvec(Fl+2);
   //for (j=0;j<Fl;j++) pWrite(F[j]);
   //PrintLn();
@@ -535,7 +537,7 @@ static ideal sySchreyersSyzygiesFB(ideal arg,intvec ** modcomp,ideal mW,BOOLEAN 
     gencQ = IDELEMS(currQuotient);
     pairs=(polyset)omAlloc0((Fl+gencQ)*sizeof(poly));
   }
-  rkF=id_RankFreeModule(arg,currRing);
+  // rkF=id_RankFreeModule(arg,currRing);
   Flength = (int*)omAlloc0(Fl*sizeof(int));
   for(j=0;j<Fl;j++)
   {
@@ -576,7 +578,7 @@ static ideal sySchreyersSyzygiesFB(ideal arg,intvec ** modcomp,ideal mW,BOOLEAN 
         if (k<Fl)
         {
           number an=nCopy(pGetCoeff(F[k])),bn=nCopy(pGetCoeff(F[j]));
-          int ct = ksCheckCoeff(&an, &bn, currRing->cf);
+          /*int ct =*/ (void) ksCheckCoeff(&an, &bn, currRing->cf);
           syz = pCopy(pairs[k]);
           //syz->coef = nCopy(F[k]->coef);
           syz->coef = an;
@@ -665,7 +667,7 @@ static ideal sySchreyersSyzygiesFB(ideal arg,intvec ** modcomp,ideal mW,BOOLEAN 
               for(k=j;k<Fl;k++) pDelete(&(pairs[k]));
               omFreeSize((ADDRESS)pairs,(Fl + gencQ)*sizeof(poly));
               for(k=0;k<IDELEMS(result);k++) pDelete(&((*Shdl)[k]));
-	       
+
 	      kBucketDestroy(&(sy0buck));
               return result;
             }
@@ -732,7 +734,7 @@ static ideal sySchreyersSyzygiesFB(ideal arg,intvec ** modcomp,ideal mW,BOOLEAN 
   omFreeSize((ADDRESS)Flength,Fl*sizeof(int));
   delete *modcomp;
   *modcomp = newmodcomp;
-   
+
   kBucketDestroy(&(sy0buck));
   return result;
 }
@@ -861,12 +863,12 @@ static void syPrintResolution(resolvente res,int start,int length)
 #endif
 
 resolvente sySchreyerResolvente(ideal arg, int maxlength, int * length,
-                                BOOLEAN isMonomial, BOOLEAN notReplace)
+                                BOOLEAN isMonomial, BOOLEAN /*notReplace*/)
 {
   ideal mW=NULL;
   int i,syzIndex = 0,j=0;
   intvec * modcomp=NULL,*w=NULL;
-  int ** wv=NULL;
+  // int ** wv=NULL;
   tHomog hom=(tHomog)idHomModule(arg,NULL,&w);
   ring origR = currRing;
   ring syRing = NULL;
@@ -893,21 +895,21 @@ resolvente sySchreyerResolvente(ideal arg, int maxlength, int * length,
       *length += 4;
       res=newres;
     }
-     
+
     if ((hom==isHomog)|| (rHasGlobalOrdering(origR)))
     {
       if (syzIndex==0) syInitSort(res[0],&modcomp);
-       
+
       if ((syzIndex==0) && !rRing_has_CompLastBlock(currRing))
         res[syzIndex+1] = sySchreyersSyzygiesFB(res[syzIndex],&modcomp,mW,FALSE);
       else
         res[syzIndex+1] = sySchreyersSyzygiesFB(res[syzIndex],&modcomp,mW);
-       
+
       mW = res[syzIndex];
     }
 //idPrint(res[syzIndex+1]);
 
-    if ((syzIndex==0))
+    if ( /*(*/ syzIndex==0 /*)*/ )
     {
       if ((hom==isHomog)|| (rHasGlobalOrdering(origR)))
       {
@@ -1016,7 +1018,7 @@ syStrategy sySchreyer(ideal arg, int maxlength)
   resolvente fr = sySchreyerResolvente(arg,maxlength,&(rl));
   if (fr==NULL) return NULL;
 
-  int typ0;
+  // int typ0;
   syStrategy result=(syStrategy)omAlloc0(sizeof(ssyStrategy));
   result->length=rl;
   result->fullres = (resolvente)omAlloc0((rl /*result->length*/+1)*sizeof(ideal));

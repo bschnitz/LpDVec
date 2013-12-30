@@ -5,7 +5,9 @@
 * ABSTRACT: resolutions
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 #include <misc/mylimits.h>
@@ -26,7 +28,6 @@
 #include <kernel/kutil.h>
 #include <kernel/stairc.h>
 //#include "cntrlc.h"
-#include <kernel/modulop.h>
 #include <kernel/ideals.h>
 #include <kernel/syz.h>
 // #include <kernel/idrec.h>
@@ -473,9 +474,7 @@ static BOOLEAN syOrder(poly p,syStrategy syzstr,int index,
   int *bc=syzstr->backcomponents[index];
   int *F1=syzstr->Firstelem[index-1];
   int *H1=syzstr->Howmuch[index-1];
-  poly pp;
   polyset o_r=syzstr->orderedRes[index]->m;
-  polyset or1=syzstr->orderedRes[index-1]->m;
   BOOLEAN ret = FALSE;
 
   // if != 0, then new element can go into same component
@@ -659,7 +658,6 @@ static intvec* syLinStrat(SSet nextPairs, syStrategy syzstr,
   int i=howmuch-1,i1=0,i2,i3,l,ll;
   int ** Fin=syzstr->Firstelem;
   int ** Hin=syzstr->Howmuch;
-  int ** bin=syzstr->backcomponents;
   ideal o_r=syzstr->orderedRes[index+1];
   intvec *result=new intvec(howmuch+1);
   intvec *spl=new intvec(howmuch,1,-1);
@@ -777,12 +775,12 @@ static void syRedNextPairs(SSet nextPairs, syStrategy syzstr,
                int howmuch, int index)
 {
   int i,j,k=IDELEMS(syzstr->res[index]);
-  int ks=IDELEMS(syzstr->res[index+1]),kk,l,ll;
+  int ks=IDELEMS(syzstr->res[index+1]);
   int * Fin=syzstr->Firstelem[index-1];
   int * Hin=syzstr->Howmuch[index-1];
   int * bin=syzstr->backcomponents[index];
   int * elL=syzstr->elemLength[index];
-  number coefgcd,n;
+  number coefgcd;
   polyset redset=syzstr->orderedRes[index]->m;
   poly p=NULL,q;
   intvec *spl1;
@@ -923,7 +921,7 @@ static void syRedNextPairs(SSet nextPairs, syStrategy syzstr,
 static void syRedGenerOfCurrDeg(syStrategy syzstr, int deg, int index)
 {
   ideal res=syzstr->res[index];
-  int i=0,j,k=IDELEMS(res),kk;
+  int i=0,j,k=IDELEMS(res);
   SSet sPairs=syzstr->resPairs[index-1];
 
   while ((k>0) && (res->m[k-1]==NULL)) k--;
@@ -990,10 +988,9 @@ static void syRedGenerOfCurrDeg(syStrategy syzstr, int deg, int index)
 /*3
 * puts a pair into the right place in resPairs
 */
-void syEnterPair(SSet sPairs, SObject * so, int * sPlength,int index)
+void syEnterPair(SSet sPairs, SObject * so, int * sPlength,int /*index*/)
 {
   int ll,k,no=(*so).order,sP=*sPlength,i;
-  poly p=(*so).lcm;
 
   if ((sP==0) || (sPairs[sP-1].order<=no))
     ll = sP;
@@ -1080,7 +1077,7 @@ static void syCreateNewPairs(syStrategy syzstr, int index, int newEl)
   SSet temp;
   SObject tso;
   int i,ii,j,k=IDELEMS(syzstr->res[index]),l=(*syzstr->Tl)[index],ll;
-  int qc,first,pos,jj,j1;
+  int first,pos,jj,j1;
   int * bci=syzstr->backcomponents[index];
   poly p,q;
   polyset rs=syzstr->res[index]->m,nPm;
@@ -1098,7 +1095,6 @@ static void syCreateNewPairs(syStrategy syzstr, int index, int newEl)
   for (j=newEl;j<k;j++)
   {
     q = rs[j];
-    qc = pGetComp(q);
     first = syzstr->Firstelem[index-1][pGetComp(q)]-1;
     pos = first+syzstr->Howmuch[index-1][pGetComp(q)];
     for (i=first;i<pos;i++)
@@ -1192,7 +1188,6 @@ static SSet syChosePairsPutIn(syStrategy syzstr, int *index,
                int *howmuch, int * actdeg, int an, int en)
 {
   int newdeg=*actdeg,newindex=-1,i,t,sldeg;
-  poly p;
   SSet result;
   SRes resPairs=syzstr->resPairs;
 
@@ -1865,7 +1860,7 @@ int sySize(syStrategy syzstr)
 */
 int syDim(syStrategy syzstr)
 {
-  int i,j=-1,l;
+  int i,l;
   if (syzstr->resPairs!=NULL)
   {
     SRes rP=syzstr->resPairs;
@@ -2002,7 +1997,7 @@ void syPrint(syStrategy syzstr, const char *sn)
       }
     }
   }
-   
+
   int sl=strlen(sn);
   syPrintEmptySpaces1(sl);
   int k = 0;
@@ -2105,6 +2100,7 @@ static poly syStripOutCopy(poly p,intvec * toStrip)
 /*2
 * minimizes toMin
 */
+#if 0 /* unused */
 static poly syMinimizeP(int toMin,syStrategy syzstr,intvec * ordn,int index,
                         intvec * toStrip)
 {
@@ -2132,7 +2128,7 @@ static poly syMinimizeP(int toMin,syStrategy syzstr,intvec * ordn,int index,
       p = pp;
       while (p!=NULL)
       {
-        if (pGetComp(p)==tc)
+        if (pGetComp(p)==(unsigned)tc)
         {
           tq = pInit();
           for(j=(currRing->N); j>0; j--)
@@ -2157,6 +2153,7 @@ static poly syMinimizeP(int toMin,syStrategy syzstr,intvec * ordn,int index,
   }
   return pp;
 }
+#endif
 
 /*2
 * minimizes toMin
@@ -2164,8 +2161,8 @@ static poly syMinimizeP(int toMin,syStrategy syzstr,intvec * ordn,int index,
 static poly syMinimizeP1(int toMin,syStrategy syzstr,intvec * ordn,int index,
                         intvec * toStrip)
 {
-  int ii=0,i,j,tc,lp,ltS=-1;
-  poly p,mp=NULL,pp,q=NULL,tq,pisN;
+  int ii=0,i,tc,lp,ltS=-1;
+  poly p,mp=NULL,pp;
   SSet sPairs=syzstr->resPairs[index];
   poly tempStripped=NULL;
 
@@ -2328,7 +2325,6 @@ static resolvente syReadOutMinimalRes(syStrategy syzstr,
 {
   intvec * Strip, * ordn;
   resolvente tres=(resolvente)omAlloc0((syzstr->length+1)*sizeof(ideal));
-  ring tmpR = NULL;
   ring origR = currRing;
 
 //Print("Hier ");
@@ -2338,11 +2334,8 @@ static resolvente syReadOutMinimalRes(syStrategy syzstr,
     syzstr->res[1] = idInit(IDELEMS(tres[0]),tres[0]->rank);
     return tres;
   }
-  int i,j,l,index,ii,i1;
-  poly p;
-  ideal rs;
+  int i,l,index,i1;
   SSet sPairs;
-  int * ord,*b0,*b1;
 
   assume(syzstr->syRing != NULL);
   rChangeCurrRing(syzstr->syRing);
@@ -2442,10 +2435,8 @@ syStrategy syMinimize(syStrategy syzstr)
 */
 syStrategy syLaScala3(ideal arg,int * length)
 {
-  BOOLEAN noPair=FALSE;
-  int i,j,actdeg=32000,index=0,reg=-1;
-  int startdeg,howmuch;
-  poly p;
+  int i,j,actdeg=32000,index=0;
+  int howmuch;
   ideal temp;
   SSet nextPairs;
   syStrategy syzstr=(syStrategy)omAlloc0(sizeof(ssyStrategy));
@@ -2469,7 +2460,7 @@ syStrategy syLaScala3(ideal arg,int * length)
   syzstr->syRing = rAssure_dp_S(origR);
   assume(syzstr->syRing != origR); // why?
   rChangeCurrRing(syzstr->syRing);
-   
+
   // set initial ShiftedComps
   currcomponents = (int*)omAlloc0((arg->rank+1)*sizeof(int));
   currShiftedComponents = (long*)omAlloc0((arg->rank+1)*sizeof(long));
@@ -2509,7 +2500,6 @@ syStrategy syLaScala3(ideal arg,int * length)
   syzstr->bucket = kBucketCreate(currRing);
   int len0=id_RankFreeModule(temp,currRing)+1;
 
-  startdeg = actdeg;
   nextPairs = syChosePairs(syzstr,&index,&howmuch,&actdeg);
   //if (TEST_OPT_PROT) Print("(%d,%d)",howmuch,index);
 /*--- computes the resolution ----------------------*/
@@ -2573,10 +2563,8 @@ syStrategy syLaScala3(ideal arg,int * length)
 */
 syStrategy syLaScala(ideal arg, int& maxlength, intvec* weights)
 {
-  BOOLEAN noPair=FALSE;
-  int i,j,actdeg=32000,index=0,reg=-1;
-  int startdeg,howmuch;
-  poly p;
+  int i,j,actdeg=32000,index=0;
+  int howmuch;
   ideal temp;
   SSet nextPairs;
   syStrategy syzstr=(syStrategy)omAlloc0(sizeof(ssyStrategy));
@@ -2657,7 +2645,6 @@ syStrategy syLaScala(ideal arg, int& maxlength, intvec* weights)
   syzstr->bucket = kBucketCreate(currRing);
   int len0=id_RankFreeModule(temp,currRing)+1;
 
-  startdeg = actdeg;
   nextPairs = syChosePairs(syzstr,&index,&howmuch,&actdeg);
   //if (TEST_OPT_PROT) Print("(%d,%d)",howmuch,index);
 /*--- computes the resolution ----------------------*/

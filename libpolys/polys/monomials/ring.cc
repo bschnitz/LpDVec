@@ -8,7 +8,9 @@
 /* includes */
 #include <math.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 
 #include <omalloc/omalloc.h>
 
@@ -50,6 +52,8 @@
 #define BITS_PER_LONG 8*SIZEOF_LONG
 
 omBin sip_sring_bin = omGetSpecBin(sizeof(ip_sring));
+omBin char_ptr_bin =  omGetSpecBin(sizeof(char*));
+
 
 static const char * const ringorder_name[] =
 {
@@ -216,19 +220,15 @@ int rTypeOfMatrixOrder(intvec * order)
   return typ;
 }
 
-/*2
- * set a new ring from the data:
- s: name, chr: ch, varnames: rv, ordering: ord, typ: typ
- */
 
-int r_IsRingVar(const char *n, ring r)
+int r_IsRingVar(const char *n, char**names,int N)
 {
-  if ((r!=NULL) && (r->names!=NULL))
+  if (names!=NULL)
   {
-    for (int i=0; i<r->N; i++)
+    for (int i=0; i<N; i++)
     {
-      if (r->names[i]==NULL) return -1;
-      if (strcmp(n,r->names[i]) == 0) return (int)i;
+      if (names[i]==NULL) return -1;
+      if (strcmp(n,names[i]) == 0) return (int)i;
     }
   }
   return -1;
@@ -243,7 +243,7 @@ void   rWrite(ring r, BOOLEAN details)
   assume(r != NULL);
   const coeffs C = r->cf;
   assume(C != NULL);
-  
+
   int nblocks=rBlocks(r);
 
   // omCheckAddrSize(r,sizeof(ip_sring));
@@ -266,20 +266,20 @@ void   rWrite(ring r, BOOLEAN details)
     const BOOLEAN bSaveShortOut = rShortOut(R); R->ShortOut = rShortOut(r) & rCanShortOut(R);
 
     n_CoeffWrite(C, details); // for correct printing of minpoly... WHAT AN UGLYNESS!!!
-    
+
     R->ShortOut = bSaveShortOut;
   }
   else
     n_CoeffWrite(C, details);
 //   {
 //     PrintS("//   characteristic : ");
-//     
+//
 //     char const * const * const params = rParameter(r);
-//     
+//
 //     if (params!=NULL)
 //     {
 //       Print ("//   %d parameter    : ",rPar(r));
-//       
+//
 //       char const * const * sp= params;
 //       int nop=0;
 //       while (nop<rPar(r))
@@ -300,7 +300,7 @@ void   rWrite(ring r, BOOLEAN details)
 //       }
 //       else
 //       {
-//         StringSetS(""); n_Write(r->cf->minpoly, r); PrintS(StringAppendS("\n"));
+//         StringSetS(""); n_Write(r->cf->minpoly, r); PrintS(StringEndS("\n")); // NOTE/TODO: use StringAppendS("\n"); omFree(s);
 //       }
 //       //if (r->qideal!=NULL)
 //       //{
@@ -588,7 +588,7 @@ char * rOrdStr(ring r)
       StringAppend("(%d)", s);
     }
 
-    if (l==nblocks) return omStrDup(StringAppendS(""));
+    if (l==nblocks) return StringEndS();
     StringAppendS(",");
   }
 }
@@ -618,87 +618,7 @@ char * rVarStr(ring r)
 /// TODO: make it a virtual method of coeffs, together with:
 /// Decompose & Compose, rParameter & rPar
 char * rCharStr(ring r)
-{
-  char *s;
-  int i;
-
-#ifdef HAVE_RINGS
-  if (rField_is_Ring_Z(r))
-  {
-    s=omStrDup("integer");                   // Z
-    return s;
-  }
-  if(rField_is_Ring_2toM(r))
-  {
-    char* s = (char*) omAlloc(7+10+2);
-    sprintf(s,"integer,%lu",r->cf->modExponent);
-    return s;
-  }
-  if(rField_is_Ring_ModN(r))
-  {
-    long l = (long)mpz_sizeinbase(r->cf->modBase, 10) + 2+7;
-    char* s = (char*) omAlloc(l);
-    gmp_sprintf(s,"integer,%Zd",r->cf->modBase);
-    return s;
-  }
-  if(rField_is_Ring_PtoM(r))
-  {
-    long l = (long)mpz_sizeinbase(r->cf->modBase, 10) + 2+7+10;
-    char* s = (char*) omAlloc(l);
-    gmp_sprintf(s,"integer,%Zd^%lu",r->cf->modBase,r->cf->modExponent);
-    return s;
-  }
-#endif
-  if (rField_is_long_R(r))
-  {
-    i = MAX_INT_LEN*2+7; // 2 integers and real,,
-    s=(char *)omAlloc(i);
-    snprintf(s,i,"real,%d,%d",r->cf->float_len,r->cf->float_len2); /* long_R */
-    return s;
-  }
-  if (rField_is_R(r))
-  {
-    return omStrDup("real"); /* short real */
-  }
-  char const * const * const params = rParameter(r);
-  if (params==NULL)
-  {
-    s=(char *)omAlloc(MAX_INT_LEN+1);
-    snprintf(s,MAX_INT_LEN+1,"%d",n_GetChar(r->cf));         /* Q, Z/p */
-    return s;
-  }
-  if (rField_is_long_C(r))
-  {
-    i=strlen(params[0])+21;
-    s=(char *)omAlloc(i);
-    snprintf(s,i,"complex,%d,%s",r->cf->float_len,params[0]);   /* C */
-    return s;
-  }
-  if (nCoeff_is_GF(r->cf))
-  {
-    i=strlen(params[0])+21;
-    s=(char *)omAlloc(i);
-    snprintf(s,i,"%d,%s",r->cf->m_nfCharQ,params[0]); /* GF(q)  */
-    return s;
-  }
-  int l=0;
-  for(i=0; i<rPar(r);i++)
-  {
-    l+=(strlen(params[i])+1);
-  }
-  s=(char *)omAlloc((long)(l+MAX_INT_LEN+1));
-  s[0]='\0';
-  snprintf(s,MAX_INT_LEN+1,"%d",r->cf->ch); /* Fp(a) or Q(a) */
-  char tt[2];
-  tt[0]=',';
-  tt[1]='\0';
-  for(i=0; i<rPar(r);i++)
-  {
-    strcat(s,tt);
-    strcat(s,params[i]);
-  }
-  return s;
-}
+{ return r->cf->cfCoeffString(r->cf); }
 
 char * rParStr(ring r)
 {
@@ -726,15 +646,20 @@ char * rParStr(ring r)
 
 char * rString(ring r)
 {
-  char *ch=rCharStr(r);
-  char *var=rVarStr(r);
-  char *ord=rOrdStr(r);
-  char *res=(char *)omAlloc(strlen(ch)+strlen(var)+strlen(ord)+9);
-  sprintf(res,"(%s),(%s),(%s)",ch,var,ord);
-  omFree((ADDRESS)ch);
-  omFree((ADDRESS)var);
-  omFree((ADDRESS)ord);
-  return res;
+  if (r!=NULL)
+  {
+    char *ch=rCharStr(r);
+    char *var=rVarStr(r);
+    char *ord=rOrdStr(r);
+    char *res=(char *)omAlloc(strlen(ch)+strlen(var)+strlen(ord)+9);
+    sprintf(res,"(%s),(%s),(%s)",ch,var,ord);
+    omFree((ADDRESS)ch);
+    omFree((ADDRESS)var);
+    omFree((ADDRESS)ord);
+    return res;
+  }
+  else
+    return omStrDup("NULL");
 }
 
 
@@ -1432,7 +1357,6 @@ ring rCopy0(const ring r, BOOLEAN copy_qideal, BOOLEAN copy_ordering)
   //memset: res->pLDegOrig=NULL;
   //memset: res->p_Setm=NULL;
   //memset: res->cf=NULL;
-  res->options=r->options;
 
 /*
   if (r->extRing!=NULL)
@@ -1576,7 +1500,6 @@ ring rCopy0AndAddA(const ring r,  int64vec *wv64, BOOLEAN copy_qideal, BOOLEAN c
   //memset: res->pLDegOrig=NULL;
   //memset: res->p_Setm=NULL;
   //memset: res->cf=NULL;
-  res->options=r->options;
 
 /*
   if (r->extRing!=NULL)
@@ -1684,14 +1607,14 @@ BOOLEAN rEqual(ring r1, ring r2, BOOLEAN qr)
   if( !rSamePolyRep(r1, r2) )
     return FALSE;
 
-  int i, j;
+  int i/*, j*/;
 
   if (r1 == r2) return TRUE;
   if (r1 == NULL || r2 == NULL) return FALSE;
 
   assume( r1->cf == r2->cf );
   assume( rVar(r1) == rVar(r2) );
-  
+
   for (i=0; i<rVar(r1); i++)
   {
     if (r1->names[i] != NULL && r2->names[i] != NULL)
@@ -2124,7 +2047,7 @@ BOOLEAN rDBTest(ring r, const char* fn, const int l)
 
   assume(r != NULL);
   assume(r->cf != NULL);
-  
+
   if (nCoeff_is_algExt(r->cf))
   {
     assume(r->cf->extRing != NULL);
@@ -2221,7 +2144,7 @@ static void rO_WMDegree(int &place, int &bitplace, int start, int end,
     long *o, sro_ord &ord_struct, int *weights)
 {
   assume(weights != NULL);
-  
+
   // weighted degree (aligned) of variables v_start..v_end, ordsgn 1
 //  while((start<end) && (weights[0]==0)) { start++; weights++; }
 //  while((start<end) && (weights[end-start]==0)) { end--; }
@@ -3049,7 +2972,7 @@ static void rSetOutParams(ring r)
       // Hmm... sometimes (e.g., from maGetPreimage) new variables
       // are introduced, but their names are never set
       // hence, we do the following awkward trick
-      int N = omSizeWOfAddr(r->names);
+      int N = omSizeOfAddr(r->names)/sizeof(char*);
       if (r->N < N) N = r->N;
 
       for (i=(N-1);i>=0;i--)
@@ -3396,20 +3319,18 @@ static void rSetOption(ring r)
     r->options &= ~Sy_bit(OPT_REDTHROUGH);
 
   // set intStrategy
-#ifdef HAVE_RINGS
-  if (
-         rField_is_Extension(r)
+  if ( (r->cf->extRing!=NULL)
       || rField_is_Q(r)
-      || rField_is_Ring(r))
-#else
-  if (rField_is_Extension(r) || rField_is_Q(r))
+#ifdef HAVE_RINGS
+      || rField_is_Ring(r)
 #endif
+  )
     r->options |= Sy_bit(OPT_INTSTRATEGY);
   else
     r->options &= ~Sy_bit(OPT_INTSTRATEGY);
 
   // set redTail
-  if (r->LexOrder || r->OrdSgn == -1 || rField_is_Extension(r))
+  if (r->LexOrder || r->OrdSgn == -1 || (r->cf->extRing!=NULL))
     r->options &= ~Sy_bit(OPT_REDTAIL);
   else
     r->options |= Sy_bit(OPT_REDTAIL);
@@ -3429,8 +3350,8 @@ void p_SetGlobals(const ring r, BOOLEAN complete)
   r->pLexOrder=r->LexOrder;
   if (complete)
   {
-    test &= ~ TEST_RINGDEP_OPTS;
-    test |= r->options;
+    si_opt_1 &= ~ TEST_RINGDEP_OPTS;
+    si_opt_1 |= r->options;
   }
 }
 
@@ -3833,7 +3754,6 @@ BOOLEAN rComplete(ring r, int force)
   // p_Procs: call AFTER NegWeightL
   r->p_Procs = (p_Procs_s*)omAlloc(sizeof(p_Procs_s));
   p_ProcsSet(r, r->p_Procs);
-  p_SetGlobals(r);
   return FALSE;
 }
 
@@ -4041,7 +3961,7 @@ void rDebugPrint(ring r)
     for(j = 0; j < r->VarL_Size; j++)
       Print("  VarL_Offset[%d]: %d ", j, r->VarL_Offset[j]);
   PrintLn();
-      
+
 
   PrintS("VarOffset:\n");
   if (r->VarOffset==NULL) PrintS(" NULL\n");
@@ -4057,8 +3977,6 @@ void rDebugPrint(ring r)
   for(j=0;j<r->OrdSize;j++)
   {
     Print("  typ %s", TYP[r->typ[j].ord_typ]);
-
-
     if (r->typ[j].ord_typ==ro_syz)
     {
       const short place = r->typ[j].data.syz.place;
@@ -4204,10 +4122,10 @@ void rDebugPrint(ring r)
       pFDeg_CASE(p_WTotaldegree); else
       pFDeg_CASE(p_Deg); else
 #undef pFDeg_CASE
-      Print("(%p)", (void*)(r->pFDeg)); // default case
+      Print("(%p)", r->pFDeg); // default case
 
     PrintLn();
-    Print("pLDeg   : (%p)", (void*)(r->pLDeg));
+    Print("pLDeg   : (%p)", r->pLDeg);
     PrintLn();
   }
   Print("pSetm:");
@@ -4219,7 +4137,7 @@ void rDebugPrint(ring r)
   else if (r->p_Setm==p_Setm_Dummy) PrintS("p_Setm_Dummy\n");
   else if (r->p_Setm==p_Setm_TotalDegree) PrintS("p_Setm_Totaldegree\n");
   else if (r->p_Setm==p_Setm_WFirstTotalDegree) PrintS("p_Setm_WFirstTotalDegree\n");
-  else Print("%x\n",r->p_Setm);
+  else Print("%p\n",r->p_Setm);
 }
 
 void p_DebugPrint(poly p, const ring r)
@@ -5143,7 +5061,7 @@ n_coeffType rFieldType(ring r)
   #ifdef HAVE_RINGS
    if (rField_is_Ring_Z(r)) return n_Z;
    if (rField_is_Ring_ModN(r)) return n_Zn;
-   if (rField_is_Ring_PtoM(r)) return n_Zpn;
+   if (rField_is_Ring_PtoM(r)) return n_Znm;
    if (rField_is_Ring_2toM(r)) return  n_Z2m;
   #endif
 
@@ -5676,7 +5594,7 @@ int n_IsParam(const number m, const ring r)
     return ntIsParam(m, C);
 
   Werror("n_IsParam: IsParam is not to be used for (coeff_type = %d)",getCoeffType(C));
-  
+
   return 0;
 }
 

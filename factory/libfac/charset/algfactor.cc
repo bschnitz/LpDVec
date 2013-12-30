@@ -28,6 +28,7 @@ TIMING_DEFINE_PRINT(newfactoras_time)
 
 int hasVar(const CanonicalForm &f, const Variable &v);
 
+/* unused functions:
 static CFFList
 myminus( const CFFList & Inputlist, const CFFactor & TheFactor){
   CFFList Outputlist ;
@@ -64,7 +65,7 @@ isquasilinear( const CFList & as ){
       if ( degree(i.getItem()) > 1 ) return 0;
   }
 return 1;
-}
+} */
 
 #ifdef CHARSETNADEBUG
 #  define DEBUGOUTPUT

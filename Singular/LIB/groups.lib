@@ -1,5 +1,5 @@
-///////////////////////////////////////////////////////////////////////////////
-version="$Id$";
+//////////////////////////////////////////////////////////////////////////////
+version="version groups.lib 4.0.0.0 Jun_2013 "; // $Id$
 category="Applications";
 info="
 LIBRARY:  groups.lib      Finite Group Theory
@@ -686,7 +686,7 @@ static proc changeOrdTest(ideal I)
 {
    def R=basering;
    if(deg(I[1])==0){return(I);}
-   def RR=changeord("dp");
+   def RR=changeord(list(list("dp",1:nvars(basering))));
    setring RR;
    ideal I=imap(R,I);
    ideal K=timeStd(I,5);

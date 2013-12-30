@@ -26,7 +26,7 @@ extern idhdl iiCurrProc;
 extern int iiOp; /* the current operation*/
 extern const char *  currid;
 extern int     iiRETURNEXPR_len;
-extern sleftv *iiRETURNEXPR;
+extern sleftv  iiRETURNEXPR;
 #ifdef USE_IILOCALRING
 extern ring   *iiLocalRing;
 #endif
@@ -56,8 +56,8 @@ int     IsPrime(int i);
 
 BOOLEAN iiWRITE(leftv res,leftv exprlist);
 BOOLEAN iiExport(leftv v, int toLev);
-BOOLEAN iiExport(leftv v, int toLev, idhdl roothdl);
-BOOLEAN iiInternalExport (leftv v, int toLev, idhdl roothdl);
+BOOLEAN iiExport(leftv v, int toLev, package pack);
+BOOLEAN iiInternalExport (leftv v, int toLev, package pack);
 char *  iiGetLibName(procinfov v);
 char *  iiGetLibProcBuffer( procinfov pi, int part=1 );
 char *  iiProcName(char *buf, char & ct, char* &e);
@@ -67,6 +67,8 @@ BOOLEAN iiLibCmd( char *newlib, BOOLEAN autoexport, BOOLEAN tellerror, BOOLEAN f
    if yes, writes filename of lib into where and returns TRUE,
    if  no, returns FALSE
 */
+/// load lib/module given in v
+BOOLEAN jjLOAD(const char *s, BOOLEAN autoexport = FALSE);
 BOOLEAN iiLocateLib(const char* lib, char* where);
 leftv   iiMap(map theMap, const char * what);
 void    iiMakeResolv(resolvente r, int length, int rlen, char * name, int typ0,
@@ -88,7 +90,7 @@ void    iiDebug();
 BOOLEAN iiCheckRing(int i);
 poly    iiHighCorner(ideal i, int ak);
 char *  iiConvName(const char *libname);
-BOOLEAN iiLoadLIB(FILE *fp, char *libnamebuf, char *newlib,
+BOOLEAN iiLoadLIB(FILE *fp, const char *libnamebuf, const char *newlib,
                          idhdl pl, BOOLEAN autoexport, BOOLEAN tellerror);
 
 // converts a resolution into a list of modules
@@ -108,6 +110,7 @@ BOOLEAN iiExprArith2(leftv res, sleftv* a, int op, sleftv* b,
                      BOOLEAN proccall=FALSE);
 BOOLEAN iiExprArith3(leftv res, int op, leftv a, leftv b, leftv c);
 BOOLEAN iiExprArithM(leftv res, sleftv* a, int op);
+BOOLEAN iiApply(leftv res,leftv a, int op, leftv proc);
 
 typedef BOOLEAN (*proc1)(leftv,leftv);
 
@@ -191,7 +194,7 @@ int iiTokType(int op);
 /* ================================================================== */
 int     iiDeclCommand(leftv sy, leftv name, int lev, int t, idhdl* root,
   BOOLEAN isring = FALSE, BOOLEAN init_b=TRUE);
-sleftv * iiMake_proc(idhdl pn, package pack, sleftv* sl);
+BOOLEAN iiMake_proc(idhdl pn, package pack, sleftv* sl);
 // from misc.cc:
 char *  showOption();
 BOOLEAN setOption(leftv res, leftv v);
@@ -243,5 +246,6 @@ void paPrint(const char *n,package p);
 /* ================================================================== */
 
 
+BOOLEAN iiTestAssume(leftv a, leftv b);
 #endif
 

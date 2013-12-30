@@ -4,7 +4,9 @@
 /*
 * ABSTRACT: numbers modulo n
 */
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
 #ifdef HAVE_RINGS
@@ -278,7 +280,7 @@ number nrzMapQ(number from, const coeffs src, const coeffs /*dst*/)
   return (number) erg;
 }
 
-nMapFunc nrzSetMap(const coeffs src, const coeffs dst)
+nMapFunc nrzSetMap(const coeffs src, const coeffs /*dst*/)
 {
   /* dst = currRing */
   if (nCoeff_is_Ring_Z(src) || nCoeff_is_Ring_ModN(src) || nCoeff_is_Ring_PtoM(src))
@@ -377,14 +379,19 @@ const char * nrzRead (const char *s, number *a, const coeffs)
 
 void    nrzCoeffWrite  (const coeffs, BOOLEAN /*details*/)
 {
-  PrintS("//   characteristic : 0 (Integers)\n");
+  PrintS("//   coeff. ring is : Integers\n");
 }
 
+static char* nrzCoeffString(const coeffs r)
+{
+  return omStrDup("integer");
+}
 
 BOOLEAN nrzInitChar(coeffs r,  void *)
 {
   assume( getCoeffType(r) == ID );
   r->nCoeffIsEqual = ndCoeffIsEqual;
+  r->cfCoeffString = nrzCoeffString;
   r->cfKillChar = ndKillChar;
   r->cfMult  = nrzMult;
   r->cfSub   = nrzSub;
@@ -402,6 +409,7 @@ BOOLEAN nrzInitChar(coeffs r,  void *)
   r->cfGetUnit = nrzGetUnit; // only for ring stuff
   r->cfExtGcd = nrzExtGcd; // only for ring stuff
   r->cfDivBy = nrzDivBy; // only for ring stuff
+  r->cfInit_bigint = nrzMapQ;
   //#endif
   r->cfNeg   = nrzNeg;
   r->cfInvers= nrzInvers;
@@ -416,7 +424,7 @@ BOOLEAN nrzInitChar(coeffs r,  void *)
   r->cfGreaterZero = nrzGreaterZero;
   r->cfPower = nrzPower;
   r->cfGcd  = nrzGcd;
-  r->cfLcm  = nrzGcd;
+  r->cfLcm  = nrzLcm;
   r->cfDelete= nrzDelete;
   r->cfSetMap = nrzSetMap;
   r->cfCoeffWrite = nrzCoeffWrite;
@@ -428,7 +436,6 @@ BOOLEAN nrzInitChar(coeffs r,  void *)
 
   r->nNULL = 0;
   r->ch = 0;
-  r->ringtype = 4;
   r->has_simple_Alloc=FALSE;
   r->has_simple_Inverse=FALSE;
   return FALSE;

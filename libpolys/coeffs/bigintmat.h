@@ -9,7 +9,7 @@
 #define BIGINTMAT_H
 
 #include <omalloc/omalloc.h>
-#include <findexec/feFopen.h>
+#include <resources/feFopen.h>
 #include <coeffs/coeffs.h>
 
 /// matrix of numbers
@@ -29,8 +29,8 @@ class bigintmat
 
     bigintmat(int r, int c, const coeffs n): m_coeffs(n), v(NULL), row(r), col(c)
     {
-      assume (rows() > 0);
-      assume (cols() > 0);
+      assume (rows() >= 0);
+      assume (cols() >= 0);
 
       const int l = r*c;
 
@@ -52,8 +52,8 @@ class bigintmat
 
       if (l > 0)
       {
-        assume (rows() > 0);
-        assume (cols() > 0);
+        assume (rows() >= 0);
+        assume (cols() >= 0);
 
         assume (m->v != NULL);
 
@@ -170,6 +170,11 @@ class bigintmat
     }
 
     char * String();
+/***
+ * Returns a string as it would have been printed in the interpreter.
+ * Used e.g. in print functions of various blackbox types.
+ **/
+    char * StringAsPrinted();
     void pprint(int maxwid);
     int compare(const bigintmat* op) const;
     int * getwid(int maxwid);
@@ -196,6 +201,5 @@ int intArrSum(int * a, int length);
 class intvec;
 intvec * bim2iv(bigintmat * b);
 bigintmat * iv2bim(intvec * b, const coeffs C);
-
-
+bigintmat * bimConcat(bigintmat * a, bigintmat * b, const coeffs C);
 #endif // #ifndef BIGINTMAT_H

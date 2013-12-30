@@ -7,7 +7,7 @@
 
            Authors: see the header of the libraries or the list below
 
-                        Copyright (C) 1986-2011
+                        Copyright (C) 1986-2012
 
 This directory contains all Singular libraries,
 some came from the Singular team, some were contributed by users.
@@ -133,7 +133,7 @@ ntsolve.lib     Wilfred Pohl                    pohl@mathematik.uni-kl.de
                 Dietmar Hillebrand
 paramet.lib     Thomas Keilen                   keilen@mathematik.uni-kl.de
 perron.lib      Oleksandr Motsak                motsak at mathematik dot uni minus kl dot de
-phindex.lib 
+phindex.lib
 pointid.lib     Stefan Steidel                  steidel@mathematik.uni-kl.de
 poly.lib        Olaf Bachmann                   obachman@mathematik.uni-kl.de
                 Gert-Martin Greuel              greuel@mathematik.uni-kl.de

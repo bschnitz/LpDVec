@@ -11,7 +11,9 @@
 #include <ctype.h>
 #include <math.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <Singular/tok.h>
 #include <misc/options.h>
@@ -31,7 +33,7 @@
 #include <Singular/lists.h>
 #include <Singular/attrib.h>
 #include <Singular/ipconv.h>
-#include <Singular/silink.h>
+#include <Singular/links/silink.h>
 #include <kernel/stairc.h>
 #include <polys/weight.h>
 #include <kernel/semic.h>
@@ -63,8 +65,9 @@ ideal
 walkProc(leftv first, leftv second)
 {
     WalkState state = WalkOk;
-    BITSET saveTest=test;
-    test &= (~Sy_bit(OPT_REDSB)); //make sure option noredSB is set
+    BITSET save1,save2;
+    SI_SAVE_OPT(save1,save2);
+    si_opt_1 &= (~Sy_bit(OPT_REDSB)); //make sure option noredSB is set
 
     ring destRing = currRing;
     ideal destIdeal = NULL;
@@ -107,7 +110,7 @@ walkProc(leftv first, leftv second)
                    destIdeal,sourcIdealIsSB);
     }
 
-    test=saveTest;//making sure options are as before function call
+    SI_RESTORE_OPT(save1,save2);//making sure options are as before function call
 
     ring almostDestRing=currRing;
     rChangeCurrRing(destRing);
@@ -176,8 +179,9 @@ fractalWalkProc(leftv first, leftv second)
     BOOLEAN unperturbedStartVectorStrategy=TRUE;
 
     WalkState state = WalkOk;
-    BITSET saveTest=test;
-    test &= (~Sy_bit(OPT_REDSB)); //make sure option noredSB is set
+    BITSET save1,save2;
+    SI_SAVE_OPT(save1,save2);
+    si_opt_1 &= (~Sy_bit(OPT_REDSB)); //make sure option noredSB is set
 
     ring destRing = currRing;
     ideal destIdeal = NULL;
@@ -211,13 +215,13 @@ fractalWalkProc(leftv first, leftv second)
                           unperturbedStartVectorStrategy);
     }
 
-    test=saveTest;//making sure options are as before functiocall
+    SI_RESTORE_OPT(save1,save2);//making sure options are as before functiocall
 
      if ( state == WalkOk )
      {
        ring almostDestRing=currRing;
        rChangeCurrRing(destRing);
-       destIdeal=idrMoveR(destIdeal,destRing,almostDestRing);
+       destIdeal=idrMoveR(destIdeal, almostDestRing, destRing);
      }
 
 

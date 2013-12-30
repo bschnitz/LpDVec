@@ -1,5 +1,5 @@
 \input texinfo    @c -*-texinfo-*-
-@comment this file contains the main structure of the manual
+x@comment this file contains the main structure of the manual
 
 
 @c ------------------------
@@ -22,11 +22,10 @@
 
 @set singularmanual 1
 @set withplural 1
-@c @set withpython 1
+@set withpython 1
 @set PSUFFIX  (plural)
 @set namespaces 1
 @include version.texi
-@include uname.texi
 @c --------------------- end general setting --------------------
 
 
@@ -224,6 +223,8 @@ and the command @code{LIB "all.lib";} for loading all libraries.
 See also @ref{Non-commutative libraries}.
 @end ifset
 
+@strong{Interpreter libraries:}
+
 @menu
 * standard_lib:: extensions of Singular kernel
 * General purpose::
@@ -244,6 +245,13 @@ See also @ref{Non-commutative libraries}.
 @ifset withplural
 @xref{Non-commutative libraries}.
 @end ifset
+
+@strong{Binary libraries:}
+@menu
+* convex geometry::
+@end menu
+
+
 @c ----------------------------------------------------------
 @node standard_lib, General purpose, SINGULAR libraries, SINGULAR libraries
 @section standard_lib
@@ -361,6 +369,9 @@ LIB "all.lib";
 * homolog_lib:: procedures for homological algebra
 * integralbasis_lib:: Integral basis in algebraic function fields
 * intprog_lib:: Integer Programming
+* lll_lib:: Integral LLL-Algorithm
+* locnormal_lib:: Normalization of affine domains using local methods
+* modnormal_lib:: Normalization of affine domains using modular methods
 * modstd_lib:: Groebner basis of ideals via modular computations
 * monomialideal_lib:: Primary and irreducible decompositions of monomial ideals
 * mprimdec_lib:: procedures for primary decomposition of modules
@@ -376,6 +387,7 @@ LIB "all.lib";
 * reesclos_lib:: Rees Algebra and integral closure of an ideal
 * sagbi_lib:: Subalgebras bases Analogous to Groebner bases for ideals
 * sing4ti2_lib:: interface to program 4ti2
+* symodstd_lib:: Groebner bases for symmetric ideals
 * toric_lib:: toric ideals
 @end menu
 
@@ -412,11 +424,23 @@ LIB "all.lib";
 @subsection integralbasis_lib
 @c lib integralbasis.lib
 @c ----------------------------------------------------------
-@node intprog_lib, modstd_lib, integralbasis_lib, Commutative algebra
+@node intprog_lib, lll_lib, integralbasis_lib, Commutative algebra
 @subsection intprog_lib
 @c lib intprog.lib
+@c ----------------------------------------------------------
+@node lll_lib, locnormal_lib, intprog_lib, Commutative algebra
+@subsection lll_lib
+@c lib lll.lib
+@c ----------------------------------------------------------
+@node locnormal_lib, modnormal_lib, lll_lib,  Commutative algebra
+@subsection locnormal_lib
+@c lib locnormal.lib
+@c ----------------------------------------------------------
+@node modnormal_lib, modstd_lib, locnormal_lib,  Commutative algebra
+@subsection modnormal_lib
+@c lib modnormal.lib
 @c ---------------------------------------------------------
-@node modstd_lib, monomialideal_lib, intprog_lib, Commutative algebra
+@node modstd_lib, monomialideal_lib, modnormal_lib, Commutative algebra
 @subsection modstd_lib
 @c lib modstd.lib
 @c ---------------------------------------------------------
@@ -442,7 +466,7 @@ LIB "all.lib";
 @c ---------------------------------------------------------
 @node normaliz_lib, pointid_lib, normal_lib, Commutative algebra
 @subsection normaliz_lib
-@c lib normaliz.lib
+@c lib normaliz.lib tag:normaliz
 @c ----------------------------------------------------------
 @node pointid_lib, primdec_lib, normaliz_lib, Commutative algebra
 @subsection pointid_lib
@@ -472,11 +496,15 @@ LIB "all.lib";
 @subsection sagbi_lib
 @c lib sagbi.lib
 @c ---------------------------------------------------------
-@node sing4ti2_lib, toric_lib, sagbi_lib, Commutative algebra
+@node sing4ti2_lib, symodstd_lib, sagbi_lib, Commutative algebra
 @subsection sing4ti2_lib
-@c lib sing4ti2.lib
+@c lib sing4ti2.lib tag:sing4ti2
+@c ----------------------------------------------------------
+@node symodstd_lib,toric_lib,sing4ti2_lib, Commutative algebra
+@subsection symodstd_lib
+@c lib symodstd.lib
 @c ---------------------------------------------------------
-@node toric_lib, , sing4ti2_lib, Commutative algebra
+@node toric_lib, , symodstd_lib, Commutative algebra
 @subsection toric_lib
 @c lib toric.lib
 @c ---------------------------------------------------------
@@ -492,6 +520,8 @@ LIB "all.lib";
 * resolve_lib:: Resolution of Singularities
 * reszeta_lib:: Applications of Resolution of Singularities
 * sheafcoh_lib:: Procedures for Computing Sheaf Cohomology
+* JMBTest_lib:: performs J-Marked basis test
+* JMSConst_lib::  constructing J-Marked Schemes
 @end menu
 
 @c ---------------------------------------------------------
@@ -501,7 +531,7 @@ LIB "all.lib";
 @c ---------------------------------------------------------
 @node resbinomial_lib, resgraph_lib, paraplanecurves_lib, Algebraic geometry
 @subsection resbinomial_lib
- 
+
 Todos/Issues:
 @itemize
 @item formatting is inapprociate
@@ -529,9 +559,17 @@ iniD, reslist, sumlist, dividelist, createlist
 @subsection reszeta_lib
 @c lib reszeta.lib
 @c ---------------------------------------------------------
-@node sheafcoh_lib, ,reszeta_lib, Algebraic geometry
+@node sheafcoh_lib, JMBTest_lib, reszeta_lib, Algebraic geometry
 @subsection sheafcoh_lib
-@c lib sheafcoh.lib
+@c lib sheafcoh.lib tag:memory
+@c ----------------------------------------------------------
+@node JMBTest_lib, JMSConst_lib, sheafcoh_lib, Algebraic geometry
+@subsection JMBTest_lib
+@c lib JMBTest.lib
+@c ----------------------------------------------------------
+@node JMSConst_lib, , JMBTest_lib, Algebraic geometry
+@subsection JMSConst_lib
+@c lib JMSConst.lib
 @c ----------------------------------------------------------------------------
 @node Singularities, Invariant theory, Algebraic geometry, SINGULAR libraries
 @section Singularities
@@ -647,13 +685,14 @@ iniD, reslist, sumlist, dividelist, createlist
 @c ----------------------------------------------------------
 @node stratify_lib, ,rinvar_lib, Invariant theory
 @subsection stratify_lib
-@c lib stratify.lib no_ex
+@c lib stratify.lib
 @c ----------------------------------------------------------------------------
 @node Symbolic-numerical solving, Visualization, Invariant theory, SINGULAR libraries
 @section Symbolic-numerical solving
 @cindex Symbolic-numerical solving
 
 @menu
+* ffsolve_lib:: multivariate equation solving over finite fields
 * presolve_lib:: procedures for pre-solving polynomial equations
 * solve_lib:: procedures to solve polynomial systems
 * triang_lib:: procedures for decomposing zero-dimensional ideals
@@ -663,7 +702,11 @@ iniD, reslist, sumlist, dividelist, createlist
 @end menu
 
 @c ---------------------------------------------------------
-@node presolve_lib, solve_lib, Symbolic-numerical solving, Symbolic-numerical solving
+@node ffsolve_lib, presolve_lib, Symbolic-numerical solving, Symbolic-numerical solving
+@subsection ffsolve_lib
+@c lib ffsolve.lib
+@c ---------------------------------------------------------
+@node presolve_lib, solve_lib, ffsolve_lib, Symbolic-numerical solving
 @subsection presolve_lib
 @c lib presolve.lib
 @c ---------------------------------------------------------
@@ -673,7 +716,7 @@ iniD, reslist, sumlist, dividelist, createlist
 @c ---------------------------------------------------------
 @node triang_lib, ntsolve_lib,  solve_lib, Symbolic-numerical solving
 @subsection triang_lib
-@c lib triang.lib no_ex
+@c lib triang.lib
 @c ---------------------------------------------------------
 @node ntsolve_lib, zeroset_lib, triang_lib, Symbolic-numerical solving
 @subsection ntsolve_lib
@@ -701,7 +744,7 @@ iniD, reslist, sumlist, dividelist, createlist
 @c ---------------------------------------------------------
 @node graphics_lib, latex_lib, Visualization, Visualization
 @subsection graphics_lib
-@c lib graphics.lib no_ex
+@c lib graphics.lib
 @c ---------------------------------------------------------
 @node latex_lib, surf_lib, graphics_lib, Visualization
 @subsection latex_lib
@@ -714,7 +757,6 @@ iniD, reslist, sumlist, dividelist, createlist
 @node surfex_lib,, surf_lib, Visualization
 @subsection surfex_lib
 @c lib surfex.lib no_ex
-
 @c ----------------------------------------------------------------------------
 @node Coding theory, System and Control theory, Visualization, SINGULAR libraries
 @section Coding theory
@@ -745,6 +787,7 @@ iniD, reslist, sumlist, dividelist, createlist
 * Control theory background:: An overview of the theory
 * control_lib:: Algebraic analysis tools for System and Control Theory
 * jacobson_lib:: Algorithms for Smith and Jacobson Normal Form
+* findifs_lib:: Tools for the finite difference schemes
 @end menu
 
 @c ---------------------------------------------------------
@@ -800,10 +843,14 @@ of autonomy degrees.
 @c lib control.lib
 
 @c ---------------------------------------------------------
-@node jacobson_lib, , control_lib, System and Control theory
+@node jacobson_lib, findifs_lib, control_lib, System and Control theory
 @subsection jacobson_lib
 @c lib jacobson.lib
 
+@c ----------------------------------------------------------
+@node findifs_lib, , jacobson_lib, System and Control theory
+@subsection findifs_lib
+@c lib findifs.lib
 @c ----------------------------------------------------------------------------
 @node Teaching, Tropical Geometry, System and Control theory, SINGULAR libraries
 @section Teaching
@@ -869,15 +916,20 @@ but not for serious computations.
 
 @menu
 * polymake_lib:: interface to polymake and TOPCOM
+* realizationMatroids_lib:: Realizability for Tropical Fan Curves
 * tropical_lib:: interface to gfan
 @end menu
 @c ----------------------------------------------------------
-@node polymake_lib,tropical_lib,Tropical Geometry, Tropical Geometry
+@node polymake_lib,realizationMatroids_lib,Tropical Geometry, Tropical Geometry
 @subsection polymake_lib
 @c lib polymake.lib no_ex
 
 @c ----------------------------------------------------------
-@node tropical_lib,, polymake_lib, Tropical Geometry
+@node realizationMatroids_lib,tropical_lib,polymake_lib, Tropical Geometry
+@subsection realizationMatroids_lib
+@c lib realizationMatroids.lib
+@c ----------------------------------------------------------
+@node tropical_lib,, realizationMatroids_lib, Tropical Geometry
 @subsection tropical_lib
 
 @c lib tropical.lib no_ex
@@ -889,12 +941,19 @@ but not for serious computations.
 
 @menu
 * phindex_lib::
+* polybori_lib::
 @end menu
 @c ----------------------------------------------------------
-@node phindex_lib,,, Miscellaneous libraries
+@node phindex_lib,polybori_lib,, Miscellaneous libraries
 @subsection phindex_lib
 
 @c lib phindex.lib
+
+@c ----------------------------------------------------------
+@node polybori_lib,,phindex_lib, Miscellaneous libraries
+@subsection polybori_lib
+
+@c lib polybori.lib tag:pyobject
 
 @c ----------------------------------------------------------------------------
 @node Experimental libraries,,Miscellaneous libraries, SINGULAR libraries
@@ -910,19 +969,46 @@ see @ref{Libraries}.
 Comments should be send to the author of the library directly.
 
 @menu
-* findifs_lib:: Tools for the finite difference schemes
+* classifyceq_lib:: simple hypersurface singularities in charateristic p > 0
+* classifyci_lib:: isolated complete intersection singularities in char 0
+* divisors_lib:: Divisors and P-Divisors
+* ellipticcovers_lib::  Gromov Witten numbers of elliptic curves
 * finitediff_lib:: finite difference schemes for linear differential equations
-* lll_lib:: Integral LLL-Algorithm
+* gitfan_lib:: Compute GIT-fans
+* orbitparam_lib:: Parametrizing unipotent orbits
 * multigrading_lib:: Multigradings and related computations
+* numerAlg_lib::  Numerical Algebraic Algorithms
+* numerDecom_lib:: Bertini interface
+* parallel_lib:: Tools for parallelization
 * realclassify_lib:: Classification of real singularities
+* resources_lib:: Tools to manage the computational resources
+* tasks_lib:: A parallel framework based on tasks
+* derham_lib:: Computation of deRham cohomology (Singular 4)
+* schreyer_lib:: Helpers for Schreyer resolution
 @end menu
+@c * schubert_lib:: Intersection Theory
 @c ----------------------------------------------------------
-@node findifs_lib, finitediff_lib, , Experimental libraries
-@subsection findifs_lib
+@node classifyceq_lib,classifyci_lib, , Experimental libraries
+@subsection classifyceq_lib
 
-@c lib findifs.lib
+@c lib classifyceq.lib
 @c ----------------------------------------------------------
-@node finitediff_lib,lll_lib, findifs_lib, Experimental libraries
+@node classifyci_lib,divisors_lib,classifyceq_lib , Experimental libraries
+@subsection classifyci_lib
+
+@c lib classifyci.lib
+@c ----------------------------------------------------------
+@node divisors_lib,ellipticcovers_lib,classifyci_lib, Experimental libraries
+@subsection divisors_lib
+
+@c lib divisors.lib no_ex
+@c ----------------------------------------------------------
+@node ellipticcovers_lib,finitediff_lib,divisors_lib, Experimental libraries
+@subsection ellipticcovers_lib
+
+@c lib ellipticcovers.lib
+@c ----------------------------------------------------------
+@node finitediff_lib,gitfan_lib, ellipticcovers_lib, Experimental libraries
 @subsection finitediff_lib
 
 Issues:
@@ -939,11 +1025,15 @@ Issues:
 @c lib finitediff.lib
 
 @c ----------------------------------------------------------
-@node lll_lib, multigrading_lib, finitediff_lib, Experimental libraries
-@subsection lll_lib
-@c lib lll.lib
+@node gitfan_lib,orbitparam_lib, finitediff_lib, Experimental libraries
+@subsection gitfan_lib
+@c lib gitfan.lib
 @c ----------------------------------------------------------
-@node multigrading_lib,realclassify_lib,lll_lib, Experimental libraries
+@node orbitparam_lib, multigrading_lib, gitfan_lib, Experimental libraries
+@subsection orbitparam_lib
+@c lib orbitparam.lib
+@c ----------------------------------------------------------
+@node multigrading_lib,numerAlg_lib,orbitparam_lib, Experimental libraries
 @subsection multigrading_lib
 
 Todos/Issues:
@@ -953,9 +1043,83 @@ Todos/Issues:
 
 @c lib multigrading.lib
 @c ----------------------------------------------------------
-@node realclassify_lib,, multigrading_lib, Experimental libraries
+@node numerAlg_lib,numerDecom_lib,multigrading_lib, Experimental libraries
+@subsection numerAlg_lib
+
+Todos/Issues:
+@itemize
+@item does not follow the naming convention
+@item syntax errors in examples
+@item no test suite
+@end itemize
+
+@c lib numerAlg.lib no_ex
+@c ----------------------------------------------------------
+@node numerDecom_lib,parallel_lib,numerAlg_lib, Experimental libraries
+@subsection numerDecom_lib
+
+Todos/Issues:
+@itemize
+@item does not follow the naming convention
+@item syntax errors in examples
+@item no test suite
+@end itemize
+
+@c lib numerDecom.lib no_ex
+@c ----------------------------------------------------------
+@node parallel_lib, realclassify_lib,numerDecom_lib, Experimental libraries
+@subsection parallel_lib
+
+@c lib parallel.lib
+@c ----------------------------------------------------------
+@node realclassify_lib,resources_lib, parallel_lib, Experimental libraries
 @subsection realclassify_lib
 @c lib realclassify.lib
+
+@c ----------------------------------------------------------
+@node resources_lib,tasks_lib,realclassify_lib, Experimental libraries
+@subsection resources_lib
+@c lib resources.lib
+@c ----------------------------------------------------------
+@c @node tasks_lib,schubert_lib,resources_lib, Experimental libraries
+@c @subsection tasks_lib
+@c @c lib tasks.lib
+@c @c ----------------------------------------------------------
+@c @node schubert_lib,derham_lib,tasks_lib, Experimental libraries
+@c @subsection schubert_lib
+@c @c lib schubert.lib
+@c @c ----------------------------------------------------------
+@c @node tasks_lib,derham_lib,schubert_lib, Experimental libraries
+@c ----------------------------------------------------------
+@node tasks_lib,derham_lib,resources_lib, Experimental libraries
+@subsection tasks_lib
+@c lib tasks.lib
+@c ----------------------------------------------------------
+@node derham_lib,schreyer_lib,tasks_lib, Experimental libraries
+@subsection derham_lib
+
+@c lib derham.lib
+
+@c ----------------------------------------------------------
+@node schreyer_lib,,derham_lib, Experimental libraries
+@subsection schreyer_lib
+
+@c lib schreyer.lib
+
+@c ----------------------------------------------------------
+@node convex geometry, , , SINGULAR libraries
+@section convex geometry
+@cindex convex geometry
+
+@menu
+* polymake_so:: A polymake interface for Singular
+@end menu
+
+@c ---------------------------------------------------------
+@node polymake_so, , ,convex geometry
+@subsection polymake_so
+
+@include polymake.tex
 
 @c ----------------------------------------------------------
 @node Release Notes, Index, SINGULAR libraries, Top

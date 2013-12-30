@@ -6,6 +6,11 @@
 */
 
 #include <omalloc/omalloc.h>
+
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
+#include <misc/auxiliary.h>
 #include <misc/options.h>
 
 #include <coeffs/coeffs.h>
@@ -86,6 +91,7 @@ poly maEvalVariable(poly p, int v,int pExp, ideal s, const ring dst_r)
 static poly maEvalMonom(map theMap, poly p,ring preimage_r, ideal s, 
            nMapFunc nMap, const ring dst_r)
 {
+    p_Test(p,preimage_r);
     poly q=p_NSet(nMap(pGetCoeff(p),preimage_r->cf,dst_r->cf),dst_r);
 
     int i;

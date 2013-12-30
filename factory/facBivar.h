@@ -13,9 +13,10 @@
 #ifndef FAC_BIVAR_H
 #define FAC_BIVAR_H
 
-#include <config.h>
+// #include "config.h"
 
-#include "assert.h"
+#include "cf_assert.h"
+#include "timing.h"
 
 #include "facFqBivarUtil.h"
 #include "DegreePattern.h"
@@ -25,6 +26,9 @@
 #include "cfNewtonPolygon.h"
 #include "algext.h"
 #include "fac_util.h"
+
+TIMING_DEFINE_PRINT(fac_bi_sqrf)
+TIMING_DEFINE_PRINT(fac_bi_factor_sqrf)
 
 /// @return @a biFactorize returns a list of factors of F. If F is not monic
 ///         its leading coefficient is not outputted.
@@ -46,7 +50,7 @@ ratBiSqrfFactorize (const CanonicalForm & G,        ///< [in] a bivariate poly
 {
   CFMap N;
   CanonicalForm F= compress (G, N);
-  CanonicalForm contentX= content (F, 1);
+  CanonicalForm contentX= content (F, 1); //erwarte hier primitiven input: primitiv über Z bzw. Z[a]
   CanonicalForm contentY= content (F, 2);
   F /= (contentX*contentY);
   CFFList contentXFactors, contentYFactors;
@@ -78,8 +82,17 @@ ratBiSqrfFactorize (const CanonicalForm & G,        ///< [in] a bivariate poly
     }
     return result;
   }
-  mat_ZZ M;
-  vec_ZZ S;
+
+  mpz_t * M=new mpz_t [4];
+  mpz_init (M[0]);
+  mpz_init (M[1]);
+  mpz_init (M[2]);
+  mpz_init (M[3]);
+
+  mpz_t * S=new mpz_t [2];
+  mpz_init (S[0]);
+  mpz_init (S[1]);
+
   F= compress (F, M, S);
   CFList result= biFactorize (F, v);
   for (CFListIterator i= result; i.hasItem(); i++)
@@ -93,6 +106,17 @@ ratBiSqrfFactorize (const CanonicalForm & G,        ///< [in] a bivariate poly
     normalize (result);
     result.insert (Lc (G));
   }
+
+  mpz_clear (M[0]);
+  mpz_clear (M[1]);
+  mpz_clear (M[2]);
+  mpz_clear (M[3]);
+  delete [] M;
+
+  mpz_clear (S[0]);
+  mpz_clear (S[1]);
+  delete [] S;
+
   return result;
 }
 
@@ -192,13 +216,28 @@ ratBiFactorize (const CanonicalForm & G,         ///< [in] a bivariate poly
     }
     return result;
   }
-  mat_ZZ M;
-  vec_ZZ S;
+
+  mpz_t * M=new mpz_t [4];
+  mpz_init (M[0]);
+  mpz_init (M[1]);
+  mpz_init (M[2]);
+  mpz_init (M[3]);
+
+  mpz_t * S=new mpz_t [2];
+  mpz_init (S[0]);
+  mpz_init (S[1]);
+
   F= compress (F, M, S);
+  TIMING_START (fac_bi_sqrf);
   CFFList sqrfFactors= sqrFree (F);
+  TIMING_END_AND_PRINT (fac_bi_sqrf,
+                       "time for bivariate sqrf factors over Q: ");
   for (CFFListIterator i= sqrfFactors; i.hasItem(); i++)
   {
+    TIMING_START (fac_bi_factor_sqrf);
     CFList tmp= ratBiSqrfFactorize (i.getItem().factor(), v);
+    TIMING_END_AND_PRINT (fac_bi_factor_sqrf,
+                          "time to factor bivariate sqrf factors over Q: ");
     for (CFListIterator j= tmp; j.hasItem(); j++)
     {
       if (j.getItem().inCoeffDomain()) continue;
@@ -222,6 +261,17 @@ ratBiFactorize (const CanonicalForm & G,         ///< [in] a bivariate poly
     }
     result.insert (CFFactor (LcF, 1));
   }
+
+  mpz_clear (M[0]);
+  mpz_clear (M[1]);
+  mpz_clear (M[2]);
+  mpz_clear (M[3]);
+  delete [] M;
+
+  mpz_clear (S[0]);
+  mpz_clear (S[1]);
+  delete [] S;
+
   return result;
 }
 

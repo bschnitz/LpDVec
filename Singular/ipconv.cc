@@ -5,7 +5,9 @@
 * ABSTRACT: automatic type conversions
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <Singular/tok.h>
 #include <Singular/ipid.h>
@@ -26,7 +28,7 @@
 #include <coeffs/rintegers.h>
 #endif
 #include <polys/matpol.h>
-#include <Singular/silink.h>
+#include <Singular/links/silink.h>
 #include <kernel/syz.h>
 #include <Singular/attrib.h>
 #include <polys/monomials/ring.h>
@@ -267,7 +269,8 @@ static void * iiL2R(void * data)
 // automatic conversions:
 //
 #define IPCONV
-#define D(A) A
+#define D(A)     A
+#define NULL_VAL NULL
 #include <Singular/table.h>
 /*2
 * try to convert 'input' of type 'inputType' to 'output' of type 'outputType'
@@ -287,7 +290,7 @@ BOOLEAN iiConvert (int inputType, int outputType, int index, leftv input, leftv 
   else if (outputType==ANY_TYPE)
   {
     output->rtyp=ANY_TYPE;
-    output->data=(char *)input->Typ();
+    output->data=(char *)(long)input->Typ();
     /* the name of the object:*/
     if (input->e==NULL)
     {
@@ -358,7 +361,7 @@ BOOLEAN iiConvert (int inputType, int outputType, int index, leftv input, leftv 
     if((dConvertTypes[index].i_typ==inputType)
     &&(dConvertTypes[index].o_typ==outputType))
     {
-      if(TEST_V_ALLWARN)
+      if(traceit&TRACE_CONV)
       {
         Print("automatic  conversion %s -> %s\n",
         Tok2Cmdname(inputType),Tok2Cmdname(outputType));

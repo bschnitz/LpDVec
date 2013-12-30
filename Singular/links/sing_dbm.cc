@@ -3,9 +3,6 @@
 ****************************************/
 
 //**************************************************************************/
-//
-//
-//**************************************************************************/
 //  'sing_dbm.cc' containes command to handle dbm-files under
 // Singular.
 //
@@ -15,7 +12,9 @@
 #  include <fcntl.h>
 #  include <errno.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 #ifdef HAVE_DBM
@@ -24,7 +23,7 @@
 #  include <kernel/febase.h>
 #include <omalloc/omalloc.h>
 #  include <Singular/ipid.h>
-#  include <Singular/silink.h>
+#  include <Singular/links/silink.h>
 #  include <Singular/links/sing_dbm.h>
 
 // #ifdef ix86_Win
@@ -287,7 +286,7 @@ typedef struct {
 } DBM_info;
 
 //**************************************************************************/
-LINKAGE BOOLEAN dbOpen(si_link l, short flag, leftv u)
+LINKAGE BOOLEAN dbOpen(si_link l, short flag, leftv /*u*/)
 {
   const char *mode = "r";
   DBM_info *db;

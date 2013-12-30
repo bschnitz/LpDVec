@@ -10,9 +10,9 @@
 
 // defines are in struct.h
 // define if a*b is with mod instead of tables
-//#define HAVE_MULT_MOD 
+//#define HAVE_MULT_MOD
 // define if a/b is with mod instead of tables
-//#define HAVE_DIV_MOD 
+//#define HAVE_DIV_MOD
 // define if an if should be used
 //#define HAVE_GENERIC_ADD
 
@@ -70,7 +70,7 @@ extern unsigned short *npLogTable;
 // {
 //    double ab;
 //    long q, res;
-// 
+//
 //    ab = ((double) ((int)a)) * ((double) ((int)b));
 //    q  = (long) (ab/((double) npPrimeM));  // q could be off by (+/-) 1
 //    res = (long) (ab - ((double) q)*((double) npPrimeM));
@@ -82,7 +82,7 @@ extern unsigned short *npLogTable;
 #ifdef HAVE_MULT_MOD
 static inline number npMultM(number a, number b, const coeffs r)
 {
-  return (number) 
+  return (number)
     ((((unsigned long) a)*((unsigned long) b)) % ((unsigned long) r->ch));
 }
 #else
@@ -116,7 +116,7 @@ inline number npSubAsm(number a, number b, int m)
 #ifdef HAVE_GENERIC_ADD
 static inline number npAddM(number a, number b, const coeffs r)
 {
-  long R = (long)a + (long)b;
+  unsigned long R = (unsigned long)a + (unsigned long)b;
   return (number)(R >= r->ch ? R - r->ch : R);
 }
 static inline number npSubM(number a, number b, const coeffs r)
@@ -127,12 +127,12 @@ static inline number npSubM(number a, number b, const coeffs r)
 #else
 static inline number npAddM(number a, number b, const coeffs r)
 {
-   long res = ((long)a + (long)b);
+   unsigned long res = (long)((unsigned long)a + (unsigned long)b);
    res -= r->ch;
 #if SIZEOF_LONG == 8
-   res += (res >> 63) & r->ch;
+   res += ((long)res >> 63) & r->ch;
 #else
-   res += (res >> 31) & r->ch;
+   res += ((long)res >> 31) & r->ch;
 #endif
    return (number)res;
 }
@@ -148,6 +148,11 @@ static inline number npSubM(number a, number b, const coeffs r)
 }
 #endif
 
+static inline number npNegM(number a, const coeffs r)
+{
+  return (number)((long)(r->ch)-(long)(a));
+}
+
 static inline BOOLEAN npIsZeroM (number  a, const coeffs)
 {
   return 0 == (long)a;
@@ -159,7 +164,9 @@ static inline BOOLEAN npIsZeroM (number  a, const coeffs)
 // }
 
 
-#define npNegM(A,r)      (number)(r->ch-(long)(A))
+
+
+
 #define npEqualM(A,B,r)  ((A)==(B))
 
 

@@ -13,7 +13,9 @@
  **/
 /*****************************************************************************/
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 #include "cf_assert.h"
 #include "facSparseHensel.h"
 #include "cf_algorithm.h"
@@ -24,6 +26,12 @@ int
 LucksWangSparseHeuristic (const CanonicalForm& F, const CFList& factors,
                           int level, const CFList& leadingCoeffs, CFList& result)
 {
+  int threshold= 450;
+  CFArray termsF= getBiTerms (F, threshold);
+  if (termsF.size() > threshold)
+    return 0;
+  sort (termsF, level);
+
   CFArray* monoms= new CFArray [factors.length()];
   int i= 0;
   int num= 0;
@@ -64,14 +72,6 @@ LucksWangSparseHeuristic (const CanonicalForm& F, const CFList& factors,
   }
 
   delete [] monomsLead;
-
-  CFArray termsF= getBiTerms (F);
-  if (termsF.size() > 450)
-  {
-    delete [] monoms;
-    return 0;
-  }
-  sort (termsF, level);
 
   CFList tmp;
   CFArray* stripped2= new CFArray [factors.length()];

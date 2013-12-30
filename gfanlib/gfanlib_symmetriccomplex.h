@@ -80,11 +80,13 @@ namespace gfan{
   void insert(Cone const &c);
   int getMaxDim()const;
   int getMinDim()const;
+  int getLinDim()const;
   bool isMaximal(Cone const &c)const;
   bool isPure()const;
   ZVector fvector(bool boundedPart=false)const;
   void buildConeLists(bool onlyMaximal, bool compressed, std::vector<std::vector<IntVector > >*conelist/*, ZMatrix *multiplicities*/)const;
   std::string toStringJustCones(int dimLow, int dimHigh, bool onlyMaximal, bool group, std::ostream *multiplicities=0, bool compressed=false, bool tPlaneSort=false)const;
+  std::string toStringJustRaysAndMaximalCones(int flags=0)const;
   std::string toString(int flags=0)const;
   bool isSimplicial()const;
   /**

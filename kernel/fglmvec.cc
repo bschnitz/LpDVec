@@ -11,10 +11,11 @@
 *   specialized for this purpose.
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
-#ifdef HAVE_FACTORY
 #include <omalloc/omalloc.h>
 #include <kernel/structs.h>
 #include <coeffs/numbers.h>
@@ -132,7 +133,7 @@ public:
     fglmASSERT (0 < i && i <= N, "getelem: wrong index");
     return elems[i - 1];
   }
-  const number getconstelem (int i) const
+  number getconstelem (int i) const
   {
     fglmASSERT (0 < i && i <= N, "getconstelem: wrong index");
     return elems[i - 1];
@@ -439,7 +440,7 @@ number & fglmVector::getelem (int i)
   return rep->getelem (i);
 }
 
-const number fglmVector::getconstelem (int i) const
+number fglmVector::getconstelem (int i) const
 {
   return rep->getconstelem (i);
 }
@@ -529,7 +530,6 @@ number fglmVector::clearDenom ()
   return theLcm;
 }
 
-#endif
 // ----------------------------------------------------------------------------
 // Local Variables: ***
 // compile-command: "make Singular" ***

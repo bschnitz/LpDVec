@@ -12,7 +12,9 @@
 /*****************************************************************************/
 
 #include "debug.h"
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include "canonicalform.h"
 #include "facMul.h"
@@ -403,7 +405,14 @@ mulNTL (const CanonicalForm& F, const CanonicalForm& G, const modpk& b)
       if (b.getp() != 0)
       {
         ZZ_p::init (convertFacCF2NTLZZ (b.getpk()));
-        ZZ_pX NTLmipo= to_ZZ_pX (convertFacCF2NTLZZX (getMipo (alpha)));
+        CanonicalForm mipo= getMipo (alpha);
+        bool is_rat= isOn (SW_RATIONAL);
+        if (!is_rat)
+          On (SW_RATIONAL);
+        mipo *=bCommonDen (mipo);
+        if (!is_rat)
+          Off (SW_RATIONAL);
+        ZZ_pX NTLmipo= to_ZZ_pX (convertFacCF2NTLZZX (mipo));
         ZZ_pE::init (NTLmipo);
         ZZ_pEX NTLg= convertFacCF2NTLZZ_pEX (G, NTLmipo);
         ZZ_pEX NTLf= convertFacCF2NTLZZ_pEX (F, NTLmipo);
@@ -495,7 +504,11 @@ mulNTL (const CanonicalForm& F, const CanonicalForm& G, const modpk& b)
     return F*G;
   ASSERT (F.isUnivariate() && G.isUnivariate(), "expected univariate polys");
   ASSERT (F.level() == G.level(), "expected polys of same level");
-  zz_p::init (getCharacteristic());
+  if (fac_NTL_char != getCharacteristic())
+  {
+    fac_NTL_char= getCharacteristic();
+    zz_p::init (getCharacteristic());
+  }
   Variable alpha;
   CanonicalForm result;
   if (hasFirstAlgVar (F, alpha) || hasFirstAlgVar (G, alpha))
@@ -611,7 +624,11 @@ modNTL (const CanonicalForm& F, const CanonicalForm& G, const modpk& b)
 
   ASSERT (F.isUnivariate() && G.isUnivariate(), "expected univariate polys");
   ASSERT (F.level() == G.level(), "expected polys of same level");
-  zz_p::init (getCharacteristic());
+  if (fac_NTL_char != getCharacteristic())
+  {
+    fac_NTL_char= getCharacteristic();
+    zz_p::init (getCharacteristic());
+  }
   Variable alpha;
   CanonicalForm result;
   if (hasFirstAlgVar (F, alpha) || hasFirstAlgVar (G, alpha))
@@ -756,7 +773,11 @@ divNTL (const CanonicalForm& F, const CanonicalForm& G, const modpk& b)
 
   ASSERT (F.isUnivariate() && G.isUnivariate(), "expected univariate polys");
   ASSERT (F.level() == G.level(), "expected polys of same level");
-  zz_p::init (getCharacteristic());
+  if (fac_NTL_char != getCharacteristic())
+  {
+    fac_NTL_char= getCharacteristic();
+    zz_p::init (getCharacteristic());
+  }
   Variable alpha;
   CanonicalForm result;
   if (hasFirstAlgVar (F, alpha) || hasFirstAlgVar (G, alpha))
@@ -2066,7 +2087,11 @@ mulMod2NTLFq (const CanonicalForm& F, const CanonicalForm& G, const
     int degBy= degree (B, 2);
     int d1= degAx + degBx + 1;
     int d2= tmax (degAy, degBy);
-    zz_p::init (getCharacteristic());
+    if (fac_NTL_char != getCharacteristic())
+    {
+      fac_NTL_char= getCharacteristic();
+      zz_p::init (getCharacteristic());
+    }
     zz_pX NTLMipo= convertFacCF2NTLzzpX (getMipo (alpha));
     zz_pE::init (NTLMipo);
 
@@ -2104,8 +2129,11 @@ CanonicalForm mulMod2 (const CanonicalForm& A, const CanonicalForm& B,
 
   CanonicalForm F= mod (A, M);
   CanonicalForm G= mod (B, M);
-  if (F.inCoeffDomain() || G.inCoeffDomain())
+  if (F.inCoeffDomain())
+    return G*F;
+  if (G.inCoeffDomain())
     return F*G;
+
   Variable y= M.mvar();
   int degF= degree (F, y);
   int degG= degree (G, y);
@@ -2127,7 +2155,12 @@ CanonicalForm mulMod2 (const CanonicalForm& A, const CanonicalForm& B,
 
   int fallBackToNaive= 50;
   if (sizeF < fallBackToNaive || sizeG < fallBackToNaive)
-    return mod (F*G, M);
+  {
+    if (sizeF < sizeG)
+      return mod (G*F, M);
+    else
+      return mod (F*G, M);
+  }
 
 #ifdef HAVE_FLINT
   if (getCharacteristic() == 0)
@@ -2192,11 +2225,21 @@ CanonicalForm mulMod (const CanonicalForm& A, const CanonicalForm& B,
   CanonicalForm M= MOD.getLast();
   CanonicalForm F= mod (A, M);
   CanonicalForm G= mod (B, M);
-  if (F.inCoeffDomain() || G.inCoeffDomain())
+  if (F.inCoeffDomain())
+    return G*F;
+  if (G.inCoeffDomain())
     return F*G;
 
-  if (size (F) / MOD.length() < 100 || size (G) / MOD.length() < 100)
-    return mod (F*G, MOD);
+  int sizeF= size (F);
+  int sizeG= size (G);
+
+  if (sizeF / MOD.length() < 100 || sizeG / MOD.length() < 100)
+  {
+    if (sizeF < sizeG)
+      return mod (G*F, MOD);
+    else
+      return mod (F*G, MOD);
+  }
 
   Variable y= M.mvar();
   int degF= degree (F, y);
@@ -2256,7 +2299,7 @@ CanonicalForm mulMod (const CanonicalForm& A, const CanonicalForm& B,
   }
   else
   {
-    m= (int) ceil (tmax (degF, degG)/2.0);
+    m= (int) ceil (tmin (degF, degG)/2.0);
     CanonicalForm yToM= power (y, m);
     CanonicalForm F0= mod (F, yToM);
     CanonicalForm F1= div (F, yToM);
@@ -2725,13 +2768,6 @@ void divrem2 (const CanonicalForm& F, const CanonicalForm& G, CanonicalForm& Q,
     divrem (A, B, Q, R);
     return;
   }
-  if (!(B.level() == 1 && B.isUnivariate()) &&
-      (A.level() == 1 && A.isUnivariate()))
-  {
-    Q= 0;
-    R= A;
-    return;
-  }
 
   Variable x= Variable (1);
   int degB= degree (B, x);
@@ -2826,7 +2862,11 @@ uniFdivides (const CanonicalForm& A, const CanonicalForm& B)
   }
   if (p > 0)
   {
-    zz_p::init (p);
+    if (fac_NTL_char != p)
+    {
+      fac_NTL_char= p;
+      zz_p::init (p);
+    }
     Variable alpha;
     if (hasFirstAlgVar (A, alpha) || hasFirstAlgVar (B, alpha))
     {

@@ -21,14 +21,13 @@
 // Factor - Includes
 #include "tmpl_inst.h"
 #include "helpstuff.h"
+#include "interrupt.h"
 // some CC's need this:
 #include "MVMultiHensel.h"
 
 #ifndef NOSTREAMIO
 void out_cf(const char *s1,const CanonicalForm &f,const char *s2);
 #endif
-
-extern int libfac_interruptflag;
 
 #ifdef HENSELDEBUG
 #  define DEBUGOUTPUT
@@ -71,7 +70,7 @@ public:
     this->poly = value;
     return *this;
   }
-  RememberForm() : poly(0), calculated(false) {}
+  RememberForm() : calculated(false), poly(0) {}
   Boolean calculated;
   CanonicalForm poly;
 };

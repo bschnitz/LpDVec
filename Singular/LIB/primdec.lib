@@ -1,5 +1,5 @@
-///////////////////////////////////////////////////////////////////////////////
-version="$Id$";
+////////////////////////////////////////////////////////////////////////////
+version="version primdec.lib 4.0.0.0 Jun_2013 "; // $Id$
 category="Commutative Algebra";
 info="
 LIBRARY: primdec.lib   Primary Decomposition and Radical of Ideals
@@ -39,6 +39,7 @@ PROCEDURES:
  equidimMaxEHV(I); equidimensional locus of I via Eisenbud,Huneke,Vasconcelos
  zerodec(I);       zerodimensional decomposition via Monico
  absPrimdecGTZ(I); the absolute prime components of I
+ sep(f,k);         the separabel part of f as polynomial in Fp(t1,...,tm)
 ";
 
 LIB "general.lib";
@@ -287,37 +288,10 @@ EXAMPLE: example factor; shows an example
   intvec @v,@w;
   int @j,@k,@n;
 
-  if(deg(p)<=1)
-  {
-    @i=ideal(p);
-    @v=1;
-    @l[1]=@i;
-    @l[2]=@v;
-    return(@l);
-  }
-  if (size(p)==1)
-  {
-    @w=leadexp(p);
-    for(@j=1;@j<=nvars(basering);@j++)
-    {
-      if(@w[@j]!=0)
-      {
-        @k++;
-        @v[@k]=@w[@j];
-        @i=@i+ideal(var(@j));
-      }
-    }
-    @l[1]=@i;
-    @l[2]=@v;
-    return(@l);
-  }
-  //  @l=factorize(p,2);
   @l=factorize(p);
-  // if(npars(basering)>0)
-  // {
     for(@j=1;@j<=size(@l[1]);@j++)
     {
-      if(deg(@l[1][@j])==0)
+      if(leadcoef(@l[1][@j])==@l[1][@j])
       {
         @n++;
       }
@@ -336,7 +310,7 @@ EXAMPLE: example factor; shows an example
         int pleh;
         for(@j=1;@j<=size(@l[1]);@j++)
         {
-          if(deg(@l[1][@j])!=0)
+          if(leadcoef(@l[1][@j])!=@l[1][@j])
           {
             @k++;
             @i=@i+ideal(@l[1][@j]);
@@ -734,9 +708,10 @@ static proc splitCharp(list l)
   {
     return(l);
   }
+  def op = option(get);
   def P=basering;
   int i,j,k,m,q,d,o;
-  int n=nvars(basering);
+  int n = nvars(basering);
   ideal s,t,u,sact;
   poly ni;
   string minp,gnir,va;
@@ -794,6 +769,7 @@ static proc splitCharp(list l)
         if((size(sact)==1)&&(m>2))
         {
           setring RL;
+
           option(redSB);
           t=std(t);
 
@@ -810,6 +786,7 @@ static proc splitCharp(list l)
           rp=delete(rp,1);
           rp=delete(rp,1);
           keep1=keep1+rp;
+
           option(noredSB);
         }
         kill RL;
@@ -828,6 +805,7 @@ static proc splitCharp(list l)
     }
   }
   l=l+keep1;
+  option(set,op);
   return(l);
 }
 
@@ -1923,7 +1901,8 @@ EXAMPLE: example minAssPrimes; shows an example
    }
    list @res,empty;
    ideal ser;
-   option(redSB);
+   def op = option( get );
+   option( redSB );
    list @pr=facstd(i);
    //if(size(@pr)==1)
 //   {
@@ -1948,7 +1927,8 @@ EXAMPLE: example minAssPrimes; shows an example
 //         kill gnir1;
 //      }
 //   }
-    option(noredSB);
+   // option( noredSB );
+   option( set, op );
    int j,k,odim,ndim,count;
    attrib(@pr[1],"isSB",1);
    if(#[1]==77)
@@ -2121,8 +2101,13 @@ EXAMPLE: example minAssPrimes; shows an example
     }
   }
 
-  if(dim(i) == -1){setring P0;return(ideal(1));}
-  if((dim(i) == 0) && (npars(P) == 0))
+  if( dim(i) == -1 ) 
+  {  
+    option( set,op );
+    setring P0; 
+    return( ideal(1) ); 
+  }
+  if( (dim(i) == 0 ) && ( npars(P) == 0) )
   {
     int di = vdim(i);
     execute ("ring gnir=("+charstr(P)+"),("+varstr(P)+"),lp;");
@@ -2571,13 +2556,15 @@ proc algeDeco(ideal i, int w)
    def R=basering;
    int n=nvars(R);
 
+   def op = option(get); 
+
 //---Anfang Provisorium
    if((size(i)==2) && (w==2))
    {
-      option(redSB);
-      ideal J=std(i);
-      option(noredSB);
-      if((size(J)==2)&&(deg(J[1])==1))
+      option( redSB );
+      ideal J = std(i);
+      option( noredSB );
+      if ((size(J)==2)&&(deg(J[1])==1))
       {
          ideal keep;
          poly f;
@@ -2602,6 +2589,7 @@ proc algeDeco(ideal i, int w)
             L=J[1],K[j];
             resu[j]=L;
          }
+         option( set, op );
          return(resu);
       }
    }
@@ -2677,7 +2665,8 @@ proc algeDeco(ideal i, int w)
    {
       re=convList(pr);
    }
-   return(re);
+   option( set, op );
+   return( re );
 }
 ///////////////////////////////////////////////////////////////////////////////
 static proc prepare_absprimdec(list primary)
@@ -3000,6 +2989,7 @@ EXAMPLE: example decomp; shows an example
       setring @P;
       primary=imap(gnir,primary);
     }
+    option(set,op);
     return(primary);
   }
 
@@ -3794,6 +3784,7 @@ example
     intvec save=option(get);option(redSB);
     I=interred(I+F);option(set,save);return(I);
    }
+   //I=simplify(I,1);
 
    for(i=1;i<=n;i++)             //consider all polynomials over
    {                             //Fp(t(1)^(p^-k),...,t(m)^(p^-k))
@@ -3804,7 +3795,12 @@ example
    execute(cR);
    ideal F=imap(R,F);
 
-   string nR="ring @S="+string(p)+",(y(1..m),"+varstr(R)+","+parstr(R)+"),dp;";
+   string nR1="ring @S1="+string(p)+",("+varstr(R)+","+parstr(R)+",@y(1..m)),dp;";
+   execute(nR1);
+   list lR=ringlist(@S1)[2];
+   lR=lR[(size(lR)-m+1)..(size(lR))];
+
+   string nR="ring @S="+string(p)+",("+string(lR)+","+varstr(R)+","+parstr(R)+"),dp;";
    execute(nR);
 
    ideal G=fetch(@R,F);    //G[i](t(1)^(p^-k),...,t(m)^(p^-k),x(i))=sep(F[i])
@@ -3816,7 +3812,7 @@ example
    for(i=1;i<=m;i++)
    {
       J=J,var(i)^k-var(m+n+i);
-      el=el*y(i);
+      el=el*var(i);
    }
 
    J=eliminate(J,el);
@@ -4111,15 +4107,19 @@ static proc min_ass_prim_charsets (ideal PS, int cho)
   {
     ERROR("<int> must be 0 or 1");
   }
+  intvec saveopt=option(get);
   option(notWarnSB);
+  list L;
   if(cho==0)
   {
-    return(min_ass_prim_charsets0(PS));
+    L=min_ass_prim_charsets0(PS);
   }
   else
   {
-     return(min_ass_prim_charsets1(PS));
+    L=min_ass_prim_charsets1(PS);
   }
+  option(set,saveopt);
+  return(L);
 }
 ///////////////////////////////////////////////////////
 // min_ass_prim_charsets0
@@ -4356,7 +4356,6 @@ static proc prim_dec(ideal I, int choose)
   {
     ERROR("ERROR: <int> must be 0 or 1 or 2 or 3");
   }
-  option(notWarnSB);
   ideal H=1; // The intersection of the primary components
   list U;    // the leaves of the decomposition tree, i.e.,
              // pairs consisting of a primary component of I
@@ -4388,6 +4387,8 @@ static proc prim_dec(ideal I, int choose)
   {
     return(list());
   }
+  intvec save=option(get);
+  option(notWarnSB);
   int ncolsSI=ncols(SI);
   int ncolsH=1;
   W[1]=list(I,1,0,poly(1),ideal(0),list()); // The root of the tree
@@ -4464,6 +4465,7 @@ static proc prim_dec(ideal I, int choose)
         }
         if(check==0) // H==I => U is a primary decomposition
         {
+          option(set,save);
           return(U);
         }
       }
@@ -4506,7 +4508,6 @@ static proc prim_dec(ideal I, int choose)
                          // the "minimal divisor" of the seperator
                          // as computed by the procedure minsat,
                          // SRest=standard basis of remaining component
-
       }
       //check
       for(i=size(QQ);i>=1;i--)
@@ -4548,6 +4549,7 @@ static proc prim_dec(ideal I, int choose)
       }
     }
   }
+  option(set,save);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -5131,7 +5133,7 @@ EXAMPLE: example primdecGTZ; shows an example
 // algorithms only work in global case!
 // pass to appropriate global ring
       def r=basering;
-      def s=changeord("dp");
+      def s=changeord(list(list("dp",1:nvars(basering))));
       setring s;
       ideal i=imap(r,i);
 // decompose and go back
@@ -5215,7 +5217,7 @@ EXAMPLE: example absPrimdecGTZ; shows an example
 // hence prepare to go back to an appropriate new ring
       def r=basering;
       ideal max_of_r=maxideal(1);
-      def s=changeord("dp");
+      def s=changeord(list(list("dp",1:nvars(basering))));
       setring s;
       def I=imap(r,I);
       def S=absPrimdecGTZ(I);
@@ -5375,7 +5377,7 @@ EXAMPLE: example primdecSY; shows an example
 // algorithms only work in global case!
 // pass to appropriate global ring
       def r=basering;
-      def s=changeord("dp");
+      def s=changeord(list(list("dp",1:nvars(basering))));
       setring s;
       ideal i=imap(r,i);
 // decompose and go back
@@ -5451,7 +5453,7 @@ EXAMPLE: example minAssGTZ; shows an example
   // algorithms only work in global case!
 // pass to appropriate global ring
       def r=basering;
-      def s=changeord("dp");
+      def s=changeord(list(list("dp",1:nvars(basering))));
       setring s;
       ideal i=imap(r,i);
 // decompose and go back
@@ -5554,7 +5556,7 @@ EXAMPLE: example minAssChar; shows an example
 // algorithms only work in global case!
 // pass to appropriate global ring
       def r=basering;
-      def s=changeord("dp");
+      def s=changeord(list(list("dp",1:nvars(basering))));
       setring s;
       ideal i=imap(r,i);
 // decompose and go back
@@ -5638,7 +5640,7 @@ EXAMPLE: example radical; shows an example
 // algorithms only work in global case!
 // pass to appropriate global ring
       def r=basering;
-      def s=changeord("dp");
+      def s=changeord(list(list("dp",1:nvars(basering))));
       setring s;
       ideal i=imap(r,i);
 // compute radical and go back
@@ -7021,6 +7023,7 @@ EXAMPLE: example newDecompStep; shows an example
       }
       primary=resu;
     }
+    option(set,op);
     if (intersectOption == "intersect")
     {
       return(list(primary, fetch(gnir,@j)));

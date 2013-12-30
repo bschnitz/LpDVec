@@ -17,7 +17,9 @@
 #endif
 
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
 #ifdef HAVE_PLURAL
@@ -214,7 +216,7 @@ static inline Enum_ncSAType AnalyzePairType(const ring r, int i, int j)
 }
 
 
-CFormulaPowerMultiplier::CFormulaPowerMultiplier(ring r): m_BaseRing(r), m_NVars(r->N)
+CFormulaPowerMultiplier::CFormulaPowerMultiplier(ring r): m_NVars(r->N), m_BaseRing(r)
 {
 #if OUTPUT  
   Print("CFormulaPowerMultiplier::CFormulaPowerMultiplier(ring)!");

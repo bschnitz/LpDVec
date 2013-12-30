@@ -12,7 +12,9 @@
 #include <ctype.h>
 #include <unistd.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <omalloc/omalloc.h>
 #include <misc/options.h>
@@ -166,7 +168,9 @@ void atSet(leftv root,const char * name,void * data,int typ)
   {
     attr *a=root->Attribute();
     int rt=root->Typ();
-    if ((rt!=RING_CMD)
+    if (a==NULL)
+      WerrorS("cannot set attributes of this object");
+    else if ((rt!=RING_CMD)
     && (rt!=QRING_CMD)
     && (!RingDependend(rt))&&(RingDependend(typ)))
       WerrorS("cannot set ring-dependend objects at this type");
@@ -328,7 +332,7 @@ BOOLEAN atATTRIB2(leftv res,leftv v,leftv b)
   }
   return FALSE;
 }
-BOOLEAN atATTRIB3(leftv res,leftv v,leftv b,leftv c)
+BOOLEAN atATTRIB3(leftv /*res*/,leftv v,leftv b,leftv c)
 {
   idhdl h=(idhdl)v->data;
   int t;
@@ -415,7 +419,7 @@ BOOLEAN atATTRIB3(leftv res,leftv v,leftv b,leftv c)
   return FALSE;
 }
 
-BOOLEAN atKILLATTR1(leftv res,leftv a)
+BOOLEAN atKILLATTR1(leftv /*res*/,leftv a)
 {
   idhdl h=NULL;
   if ((a->rtyp==IDHDL)&&(a->e==NULL))
@@ -432,7 +436,7 @@ BOOLEAN atKILLATTR1(leftv res,leftv a)
   else atKillAll(a);
   return FALSE;
 }
-BOOLEAN atKILLATTR2(leftv res,leftv a,leftv b)
+BOOLEAN atKILLATTR2(leftv /*res*/,leftv a,leftv b)
 {
   if ((a->rtyp!=IDHDL)||(a->e!=NULL))
   {

@@ -1,5 +1,5 @@
-///////////////////////////////////////////////////////////////////////////////
-version="$Id$";
+////////////////////////////////////////////////////////////////////////////
+version="version surfex.lib 4.0.0.0 Jun_2013 "; // $Id$
 category="Visualization";
 info="
 LIBRARY: surfex.lib      Procedures for visualizing and rotating surfaces.
@@ -1229,7 +1229,7 @@ l[7]: l[6] / l[5]
                                  stdtmp,
                                  dim(stdtmp), mult(stdtmp),
                                  dim(stdtmp2), mult(stdtmp2),
-                                 mult(stdtmp2)/mult(stdtmp));
+                                 mult(stdtmp2) div mult(stdtmp));
             }
         } else {
             pd_neu[i] = list(stdtmp2,

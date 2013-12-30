@@ -6,12 +6,12 @@
 */
 
 /* includes */
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include "mod2.h"
 
 #include <omalloc/omalloc.h>
-#include <misc/auxiliary.h>
-
 
 #ifndef NDEBUG
 # define MYTEST 0
@@ -42,7 +42,7 @@
 #include <kernel/kstd1.h>
 #include <kernel/syz.h>
 
-#include <kernel/longrat.h>
+#include <libpolys/coeffs/longrat.h>
 
 
 /* #define WITH_OLD_MINOR */
@@ -129,81 +129,6 @@ ideal idMinBase (ideal h1)
   return e;
 }
 
-
-/*3
-*multiplies p with t (!cas) or  (t-1)
-*the index of t is:1, so we have to shift all variables
-*p is NOT in the actual ring, it has no t
-*/
-static poly pMultWithT (poly p,BOOLEAN cas)
-{
-  /*qp is the working pointer in p*/
-  /*result is the result, qresult is the working pointer*/
-  /*pp is p in the actual ring(shifted), qpp the working pointer*/
-  poly result,qp,pp;
-  poly qresult=NULL;
-  poly qpp=NULL;
-  int  i,j,lex;
-  number n;
-
-  pp = NULL;
-  result = NULL;
-  qp = p;
-  while (qp != NULL)
-  {
-    i = 0;
-    if (result == NULL)
-    {/*first monomial*/
-      result = pInit();
-      qresult = result;
-    }
-    else
-    {
-      qresult->next = pInit();
-      pIter(qresult);
-    }
-    for (j=(currRing->N)-1; j>0; j--)
-    {
-      lex = pGetExp(qp,j);
-      pSetExp(qresult,j+1,lex);/*copy all variables*/
-    }
-    lex = pGetComp(qp);
-    pSetComp(qresult,lex);
-    n=nCopy(pGetCoeff(qp));
-    pSetCoeff0(qresult,n);
-    qresult->next = NULL;
-    pSetm(qresult);
-    /*qresult is now qp brought into the actual ring*/
-    if (cas)
-    { /*case: mult with t-1*/
-      pSetExp(qresult,1,0);
-      pSetm(qresult);
-      if (pp == NULL)
-      { /*first monomial*/
-        pp = pCopy(qresult);
-        qpp = pp;
-      }
-      else
-      {
-        qpp->next = pCopy(qresult);
-        pIter(qpp);
-      }
-      pGetCoeff(qpp)=nNeg(pGetCoeff(qpp));
-      /*now qpp contains -1*qp*/
-    }
-    pSetExp(qresult,1,1);/*this is mult. by t*/
-    pSetm(qresult);
-    pIter(qp);
-  }
-  /*
-  *now p is processed:
-  *result contains t*p
-  * if cas: pp contains -1*p (in the new ring)
-  */
-  if (cas)  qresult->next = pp;
-  /*  else      qresult->next = NULL;*/
-  return result;
-}
 
 /*2
 *initialized a field with r numbers between beg and end for the
@@ -825,7 +750,8 @@ ideal idXXX (ideal  h1, int k)
 */
 ideal idLiftStd (ideal  h1, matrix* ma, tHomog hi, ideal * syz)
 {
-  int   i, j, k, t, inputIsIdeal=id_RankFreeModule(h1,currRing);
+  int  i, j, t, inputIsIdeal=id_RankFreeModule(h1,currRing);
+  long k;
   poly  p=NULL, q;
   intvec *w=NULL;
 
@@ -849,11 +775,12 @@ ideal idLiftStd (ideal  h1, matrix* ma, tHomog hi, ideal * syz)
     return idInit(1,h1->rank);
   }
 
-  BITSET save_verbose=verbose;
+  BITSET save2;
+  SI_SAVE_OPT2(save2);
 
-  k=si_max(1,(int)id_RankFreeModule(h1,currRing));
+  k=si_max((long)1,id_RankFreeModule(h1,currRing));
 
-  if ((k==1) && (!lift3)) verbose |=Sy_bit(V_IDLIFT);
+  if ((k==1) && (!lift3)) si_opt_2 |=Sy_bit(V_IDLIFT);
 
   ring orig_ring = currRing;
   ring syz_ring = rAssure_SyzComp(orig_ring,TRUE);  rChangeCurrRing(syz_ring);
@@ -973,7 +900,7 @@ ideal idLiftStd (ideal  h1, matrix* ma, tHomog hi, ideal * syz)
   }
 
   if (syz_ring!=orig_ring) rDelete(syz_ring);
-  verbose = save_verbose;
+  SI_RESTORE_OPT2(save2);
   return s_h3;
 }
 
@@ -1013,7 +940,7 @@ static void idPrepareStd(ideal s_temp, int k)
 ideal idLift(ideal mod, ideal submod,ideal *rest, BOOLEAN goodShape,
              BOOLEAN isSB, BOOLEAN divide, matrix *unit)
 {
-  int lsmod =id_RankFreeModule(submod,currRing), i, j, k;
+  int lsmod =id_RankFreeModule(submod,currRing), j, k;
   int comps_to_add=0;
   poly p;
 
@@ -1216,7 +1143,7 @@ void idLiftW(ideal P,ideal Q,int n,matrix &T, ideal &R,short *w)
     if(w==NULL)
       N=si_max(N,p_Deg(Q->m[i],currRing));
     else
-      N=si_max(N,pDegW(Q->m[i],w));
+      N=si_max(N,p_DegW(Q->m[i],w,currRing));
   N+=n;
 
   T=mpNew(IDELEMS(Q),IDELEMS(P));
@@ -1241,7 +1168,7 @@ void idLiftW(ideal P,ideal Q,int n,matrix &T, ideal &R,short *w)
         else
           p=pJetW(pSub(p,ppMult_mm(Q->m[j],p0)),N,w);
         pNormalize(p);
-        if(((w==NULL)&&(p_Deg(p0,currRing)>n))||((w!=NULL)&&(pDegW(p0,w)>n)))
+        if(((w==NULL)&&(p_Deg(p0,currRing)>n))||((w!=NULL)&&(p_DegW(p0,w,currRing)>n)))
           p_Delete(&p0,currRing);
         else
           MATELEM(T,j+1,i+1)=pAdd(MATELEM(T,j+1,i+1),p0);
@@ -1255,7 +1182,7 @@ void idLiftW(ideal P,ideal Q,int n,matrix &T, ideal &R,short *w)
           pIter(p);
           pNext(p0)=NULL;
           if(((w==NULL)&&(p_Deg(p0,currRing)>n))
-          ||((w!=NULL)&&(pDegW(p0,w)>n)))
+          ||((w!=NULL)&&(p_DegW(p0,w,currRing)>n)))
             p_Delete(&p0,currRing);
           else
             R->m[i]=pAdd(R->m[i],p0);
@@ -1291,7 +1218,7 @@ static ideal idInitializeQuot (ideal  h1, ideal h2, BOOLEAN h1IsStb,
 
   intvec * weights;
   hom = (tHomog)idHomModule(h1,currQuotient,&weights);
-  if (/**addOnlyOne &&*/ (!h1IsStb))
+  if /**addOnlyOne &&*/ (/*(*/ !h1IsStb /*)*/)
     temph1 = kStd(h1,currQuotient,hom,&weights,NULL);
   else
     temph1 = idCopy(h1);
@@ -1373,7 +1300,7 @@ static ideal idInitializeQuot (ideal  h1, ideal h2, BOOLEAN h1IsStb,
       h4->m[i] = h4->m[i+1];
     }
     h4->m[IDELEMS(h4)-1] = p;
-    test |= Sy_bit(OPT_SB_1);
+    si_opt_1 |= Sy_bit(OPT_SB_1);
   }
   idDelete(&temph1);
   return h4;
@@ -1396,7 +1323,8 @@ ideal idQuot (ideal  h1, ideal h2, BOOLEAN h1IsStb, BOOLEAN resultIsIdeal)
       res = idFreeModule(h1->rank);
     return res;
   }
-  BITSET old_test=test;
+  BITSET old_test1;
+  SI_SAVE_OPT1(old_test1);
   int i, kmax;
   BOOLEAN  addOnlyOne=TRUE;
   tHomog   hom=isNotHomog;
@@ -1430,7 +1358,7 @@ ideal idQuot (ideal  h1, ideal h2, BOOLEAN h1IsStb, BOOLEAN resultIsIdeal)
   {
     s_h3 = kStd(s_h4,currQuotient,hom,&weights1,NULL,kmax-1);
   }
-  test = old_test;
+  SI_RESTORE_OPT1(old_test1);
   #if 0
   // only together with the above debug stuff
   idSkipZeroes(s_h3);
@@ -1671,13 +1599,14 @@ ideal idElimination (ideal h1,poly delVar,intvec *hilb)
   // compute kStd
 #if 1
   //rWrite(tmpR);PrintLn();
-  BITSET save=test;
-  //test |=1;
+  //BITSET save1;
+  //SI_SAVE_OPT1(save1);
+  //si_opt_1 |=1;
   //Print("h: %d gen, rk=%d\n",IDELEMS(h),h->rank);
   //extern char * showOption();
   //Print("%s\n",showOption());
   hh = kStd(h,NULL,hom,&w,hilb);
-  test=save;
+  //SI_RESTORE_OPT1(save1);
   idDelete(&h);
 #else
   extern ideal kGroebner(ideal F, ideal Q);
@@ -1718,11 +1647,11 @@ ideal idElimination (ideal h1,poly delVar,intvec *hilb)
 */
 poly idMinor(matrix a, int ar, unsigned long which, ideal R)
 {
-  int     i,j,k,size;
+  int     i,j/*,k,size*/;
   unsigned long curr;
   int *rowchoise,*colchoise;
   BOOLEAN rowch,colch;
-  ideal result;
+  // ideal result;
   matrix tmp;
   poly p,q;
 
@@ -1731,11 +1660,11 @@ poly idMinor(matrix a, int ar, unsigned long which, ideal R)
 
   rowchoise=(int *)omAlloc(ar*sizeof(int));
   colchoise=(int *)omAlloc(ar*sizeof(int));
-  if ((i>512) || (j>512) || (i*j >512)) size=512;
-  else size=i*j;
-  result=idInit(size,1);
+  // if ((i>512) || (j>512) || (i*j >512)) size=512;
+  // else size=i*j;
+  // result=idInit(size,1);
   tmp=mpNew(ar,ar);
-  k = 0; /* the index in result*/
+  // k = 0; /* the index in result*/
   curr = 0; /* index of current minor */
   idInitChoise(ar,1,a->rows(),&rowch,rowchoise);
   while (!rowch)
@@ -1786,7 +1715,7 @@ poly idMinor(matrix a, int ar, unsigned long which, ideal R)
 */
 ideal idMinors(matrix a, int ar, ideal R)
 {
-  int     i,j,k,size;
+  int     i,j,/*k,*/size;
   int *rowchoise,*colchoise;
   BOOLEAN rowch,colch;
   ideal result;
@@ -1802,7 +1731,7 @@ ideal idMinors(matrix a, int ar, ideal R)
   else size=i*j;
   result=idInit(size,1);
   tmp=mpNew(ar,ar);
-  k = 0; /* the index in result*/
+  // k = 0; /* the index in result*/
   idInitChoise(ar,1,a->rows(),&rowch,rowchoise);
   while (!rowch)
   {
@@ -2193,7 +2122,7 @@ ideal idModulo (ideal h2,ideal h1, tHomog hom, intvec ** w)
   for (i=0;i<IDELEMS(s_temp1);i++)
   {
     if ((s_temp1->m[i]!=NULL)
-    && (pGetComp(s_temp1->m[i])<=length))
+    && (((int)pGetComp(s_temp1->m[i]))<=length))
     {
       p_Delete(&(s_temp1->m[i]),currRing);
     }
@@ -2434,7 +2363,6 @@ ideal idMinEmbedding(ideal arg,BOOLEAN inPlace, intvec **w)
 
 #include <polys/clapsing.h>
 
-#ifdef HAVE_FACTORY
 #if 0
 poly id_GCD(poly f, poly g, const ring r)
 {
@@ -2468,73 +2396,6 @@ poly id_GCD(poly f, poly g, const ring r)
   return gcd_p;
 }
 #endif
-#endif
-
-/*2
-* xx,q: arrays of length 0..rl-1
-* xx[i]: SB mod q[i]
-* assume: char=0
-* assume: q[i]!=0
-* destroys xx
-*/
-#ifdef HAVE_FACTORY
-ideal id_ChineseRemainder(ideal *xx, number *q, int rl, const ring R)
-{
-  int cnt=IDELEMS(xx[0])*xx[0]->nrows;
-  ideal result=idInit(cnt,xx[0]->rank);
-  result->nrows=xx[0]->nrows; // for lifting matrices
-  result->ncols=xx[0]->ncols; // for lifting matrices
-  int i,j;
-  poly r,h,hh,res_p;
-  number *x=(number *)omAlloc(rl*sizeof(number));
-  for(i=cnt-1;i>=0;i--)
-  {
-    res_p=NULL;
-    loop
-    {
-      r=NULL;
-      for(j=rl-1;j>=0;j--)
-      {
-        h=xx[j]->m[i];
-        if ((h!=NULL)
-        &&((r==NULL)||(p_LmCmp(r,h,R)==-1)))
-          r=h;
-      }
-      if (r==NULL) break;
-      h=p_Head(r,R);
-      for(j=rl-1;j>=0;j--)
-      {
-        hh=xx[j]->m[i];
-        if ((hh!=NULL) && (p_LmCmp(r,hh,R)==0))
-        {
-          x[j]=pGetCoeff(hh);
-          hh=p_LmFreeAndNext(hh,R);
-          xx[j]->m[i]=hh;
-        }
-        else
-          x[j]=n_Init(0, R->cf);
-      }
-      number n=n_ChineseRemainder(x,q,rl,R->cf);
-      for(j=rl-1;j>=0;j--)
-      {
-        x[j]=NULL; // nlInit(0...) takes no memory
-      }
-      if (n_IsZero(n,R->cf)) p_Delete(&h,R);
-      else
-      {
-        p_SetCoeff(h,n,R);
-        //Print("new mon:");pWrite(h);
-        res_p=p_Add_q(res_p,h,R);
-      }
-    }
-    result->m[i]=res_p;
-  }
-  omFree(x);
-  for(i=rl-1;i>=0;i--) id_Delete(&(xx[i]),R);
-  omFree(xx);
-  return result;
-}
-#endif
 
 #if 0
 /*2
@@ -2544,7 +2405,6 @@ ideal id_ChineseRemainder(ideal *xx, number *q, int rl, const ring R)
 * assume: q[i]!=0
 * destroys xx
 */
-#ifdef HAVE_FACTORY
 ideal id_ChineseRemainder(ideal *xx, number *q, int rl, const ring R)
 {
   int cnt=IDELEMS(xx[0])*xx[0]->nrows;
@@ -2604,7 +2464,6 @@ ideal id_ChineseRemainder(ideal *xx, number *q, int rl, const ring R)
   return result;
 }
 #endif
-#endif
 /* currently unsed:
 ideal idChineseRemainder(ideal *xx, intvec *iv)
 {
@@ -2631,28 +2490,7 @@ ideal id_Farey(ideal x, number N, const ring r)
   int i;
   for(i=cnt-1;i>=0;i--)
   {
-    poly h=p_Copy(x->m[i],r);
-    result->m[i]=h;
-    while(h!=NULL)
-    {
-      number c=pGetCoeff(h);
-      pSetCoeff0(h,n_Farey(c,N,r->cf));
-      n_Delete(&c,r->cf);
-      pIter(h);
-    }
-    while((result->m[i]!=NULL)&&(n_IsZero(pGetCoeff(result->m[i]),r->cf)))
-    {
-      p_LmDelete(&(result->m[i]),r);
-    }
-    h=result->m[i];
-    while((h!=NULL) && (pNext(h)!=NULL))
-    {
-      if(n_IsZero(pGetCoeff(pNext(h)),r->cf))
-      {
-        p_LmDelete(&pNext(h),r);
-      }
-      else pIter(h);
-    }
+    result->m[i]=p_Farey(x->m[i],N,r);
   }
   return result;
 }
@@ -2716,5 +2554,110 @@ BOOLEAN idTestHomModule(ideal m, ideal Q, intvec *w)
 }
 */
 
+/// keeps the first k (>= 1) entries of the given ideal
+/// (Note that the kept polynomials may be zero.)
+void idKeepFirstK(ideal id, const int k)
+{
+   for (int i = IDELEMS(id)-1; i >= k; i--)
+   {
+      if (id->m[i] != NULL) pDelete(&id->m[i]);
+   }
+   int kk=k;
+   if (k==0) kk=1; /* ideals must have at least one element(0)*/
+   pEnlargeSet(&(id->m), IDELEMS(id), kk-IDELEMS(id));
+   IDELEMS(id) = kk;
+}
 
+/*
+* compare the leading terms of a and b
+*/
+static int tCompare(const poly a, const poly b)
+{
+  if (b == NULL) return(a != NULL);
+  if (a == NULL) return(-1);
 
+  /* a != NULL && b != NULL */
+  int r = pLmCmp(a, b);
+  if (r != 0) return(r);
+  number h = nSub(pGetCoeff(a), pGetCoeff(b));
+  r = -1 + nIsZero(h) + 2*nGreaterZero(h);   /* -1: <, 0:==, 1: > */
+  nDelete(&h);
+  return(r);
+}
+
+/*
+* compare a and b (rev-lex on terms)
+*/
+static int pCompare(const poly a, const poly b)
+{
+  int r = tCompare(a, b);
+  if (r != 0) return(r);
+
+  poly aa = a;
+  poly bb = b;
+  while (r == 0 && aa != NULL && bb != NULL)
+  {
+    pIter(aa);
+    pIter(bb);
+    r = tCompare(aa, bb);
+  }
+  return(r);
+}
+
+typedef struct
+{
+  poly p;
+  int index;
+} poly_sort;
+
+int pCompare_qsort(const void *a, const void *b)
+{
+  int res = pCompare(((poly_sort *)a)->p, ((poly_sort *)b)->p);
+  return(res);
+}
+
+void idSort_qsort(poly_sort *id_sort, int idsize)
+{
+  qsort(id_sort, idsize, sizeof(poly_sort), pCompare_qsort);
+}
+
+/*2
+* ideal id = (id[i])
+* if id[i] = id[j] then id[j] is deleted for j > i
+*/
+void idDelEquals(ideal id)
+{
+  int idsize = IDELEMS(id);
+  poly_sort *id_sort = (poly_sort *)omAlloc0(idsize*sizeof(poly_sort));
+  for (int i = 0; i < idsize; i++)
+  {
+    id_sort[i].p = id->m[i];
+    id_sort[i].index = i;
+  }
+  idSort_qsort(id_sort, idsize);
+  int index, index_i, index_j;
+  int i = 0;
+  for (int j = 1; j < idsize; j++)
+  {
+    if (id_sort[i].p != NULL && pEqualPolys(id_sort[i].p, id_sort[j].p))
+    {
+      index_i = id_sort[i].index;
+      index_j = id_sort[j].index;
+      if (index_j > index_i)
+      {
+        index = index_j;
+      }
+      else
+      {
+        index = index_i;
+        i = j;
+      }
+      pDelete(&id->m[index]);
+    }
+    else
+    {
+      i = j;
+    }
+  }
+  omFreeSize((ADDRESS)(id_sort), idsize*sizeof(poly_sort));
+}

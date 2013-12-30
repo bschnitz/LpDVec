@@ -17,7 +17,9 @@
 #endif
 
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
 #ifndef NDEBUG
@@ -26,10 +28,12 @@
 #define OUTPUT 0
 #endif
 
+#if OUTPUT
 namespace 
 {
   static const char* m_Typenames[2] = {"lookup", "store"};
 }
+#endif
 
 #include <coeffs/numbers.h>
 #include "coeffrings.h"
@@ -38,7 +42,6 @@ namespace
 
 #include "monomials/ring.h"
 #include "monomials/p_polys.h"
-
 
 
 void CGlobalCacheHash::History(const EHistoryType t, const CGlobalCacheHash::CExponent a, const CGlobalCacheHash::CExponent b, const poly p)
@@ -69,3 +72,7 @@ void  CSpecialPairCacheHash::History(const EHistoryType t, const CSpecialPairCac
   }
 #endif
 }
+
+
+template class CCacheHash<int>;
+template class CCacheHash<spolyrec*>;

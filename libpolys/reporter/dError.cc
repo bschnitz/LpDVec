@@ -15,7 +15,9 @@
 #include <stdlib.h>
 #include <strings.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 
 static inline void malloc_free( void * ptr )
 {
@@ -41,23 +43,15 @@ static inline void malloc_free( void * ptr )
 #include <omalloc/omalloc.h>
 #endif
 
-#ifndef MAKE_DISTRIBUTION
-// dummy procedure for setting a breakpoint
-// within the debugger
-void dErrorBreak()
-{}
-#endif
 
-#ifdef __cplusplus
 extern "C" 
 {
-#endif
 
 int dReportError(const char* fmt, ...)
 {
 #ifdef HAVE_EXECINFO_H
 #define SIZE 50
-  void *buffer[SIZE+1]; int i, j, k, ret, status; char **ptr; char *demangledName; char *s; char *ss;
+  void *buffer[SIZE+1]; int ret; 
 #endif
 
   va_list ap;
@@ -73,6 +67,7 @@ int dReportError(const char* fmt, ...)
   omPrintCurrentBackTraceMax(stderr, 8);
 #endif
 
+#if 0
 #ifdef HAVE_EXECINFO_H
   ret = backtrace( buffer, SIZE ); // execinfo.h
   fprintf(stderr, "\nExecinfo backtrace (with %zd stack frames): \n", ret);
@@ -80,9 +75,13 @@ int dReportError(const char* fmt, ...)
 #ifndef HAVE_GCC_ABI_DEMANGLE
   backtrace_symbols_fd(buffer, ret, STDERR_FILENO); // execinfo.h
 #else
-  ptr = backtrace_symbols( buffer, ret ); // execinfo.h
+  char **ptr = backtrace_symbols( buffer, ret ); // execinfo.h
 
-  for (i = 0; i < ret; i++)
+  int status;
+  char *demangledName;
+  char *s; 
+  char *ss;
+  for (int i = 0; i < ret; i++)
   {
     status = -1;
 
@@ -122,6 +121,7 @@ int dReportError(const char* fmt, ...)
   }
   malloc_free (ptr);
 #endif
+#endif
 
 #undef SIZE
 #endif
@@ -135,16 +135,13 @@ int dReportError(const char* fmt, ...)
   return 0;
 }
 
-
-
-#ifdef __cplusplus
 }
-#endif
 
 #endif
   
-
-
-  
-  
-  
+#ifndef MAKE_DISTRIBUTION
+// dummy procedure for setting a breakpoint
+// within the debugger
+void dErrorBreak()
+{}
+#endif

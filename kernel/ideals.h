@@ -23,14 +23,17 @@ inline ideal idCopyFirstK (const ideal ide, const int k, ring R = currRing)
   return id_CopyFirstK(ide, k, R);
 }
 
+void idKeepFirstK(ideal ide, const int k);
+void idDelEquals(ideal id);
+
 /// delete an ideal
 inline void idDelete (ideal* h, ring r = currRing)
-{ 
-  id_Delete(h, r); 
+{
+  id_Delete(h, r);
 }
 
 /// initialise the maximal ideal (at 0)
-//ideal id_MaxIdeal(int deg, const ring r); 
+//ideal id_MaxIdeal(int deg, const ring r);
 #define idMaxIdeal(D) id_MaxIdeal(D,currRing)
 
 /// index of generator with leading term in ground ring (if any); otherwise -1
@@ -44,7 +47,7 @@ static inline int idSize(const ideal id)
   int j = IDELEMS(id) - 1;
   poly* mm = id->m;
   while ((j >= 0) && (mm[j] == NULL)) j--;
-  return (j + 1); 
+  return (j + 1);
 }
 
 
@@ -57,8 +60,8 @@ static inline int idSize(const ideal id)
 #define idTest(A) id_DBTest(A, PDEBUG, __FILE__,__LINE__,currRing)
 #define idPrint(id) idShow(id, currRing, currRing)
 #else
-#define idTest(A)  ((void)(TRUE))
-#define idPrint(A) ((void)0)
+#define idTest(A)  do {} while (0)
+#define idPrint(A) do {} while (0)
 #endif
 
 ideal id_Copy (ideal h1, const ring r);
@@ -203,8 +206,6 @@ ideal idXXX (ideal  h1, int k);
 
 poly id_GCD(poly f, poly g, const ring r);
 
-ideal id_ChineseRemainder(ideal *x, number *q, int rl, const ring R);
-//ideal idChineseRemainder(ideal *x, intvec *iv); /* currently unused */
 ideal id_Farey(ideal x, number N, const ring r);
 
 ideal id_TensorModuleMult(const int m, const ideal M, const ring rRing); // image of certain map for BGG

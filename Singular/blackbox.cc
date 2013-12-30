@@ -1,4 +1,6 @@
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <misc/auxiliary.h>
 
@@ -17,22 +19,25 @@ static int blackboxTableCnt=0;
 #define BLACKBOX_OFFSET (MAX_TOK+1)
 blackbox* getBlackboxStuff(const int t)
 {
-  return (blackboxTable[t-BLACKBOX_OFFSET]);
+  if (t>MAX_TOK)  /*MAX_TOK+1 is BLACKBOX_OFFSET*/
+    return (blackboxTable[t-BLACKBOX_OFFSET]);
+  else
+    return NULL;
 }
 
 
-void blackbox_default_destroy(blackbox  *b, void *d)
+void blackbox_default_destroy(blackbox */*b*/, void */*d*/)
 {
-  Werror("missing blackbox_destroy");
+  WerrorS("missing blackbox_destroy");
 }
-char *blackbox_default_String(blackbox *b,void *d)
+char *blackbox_default_String(blackbox */*b*/,void */*d*/)
 {
-  Werror("missing blackbox_String");
+  WerrorS("missing blackbox_String");
   return omStrDup("");
 }
-void *blackbox_default_Copy(blackbox *b,void *d)
+void *blackbox_default_Copy(blackbox */*b*/,void */*d*/)
 {
-  Werror("missing blackbox_Copy");
+  WerrorS("missing blackbox_Copy");
   return NULL;
 }
 void blackbox_default_Print(blackbox *b,void *d)
@@ -41,17 +46,17 @@ void blackbox_default_Print(blackbox *b,void *d)
   PrintS(s);
   omFree(s);
 }
-void *blackbox_default_Init(blackbox *b)
+void *blackbox_default_Init(blackbox */*b*/)
 {
   return NULL;
 }
 
-BOOLEAN blackbox_default_serialize(blackbox *b, void *d, si_link f)
+BOOLEAN blackbox_default_serialize(blackbox */*b*/, void */*d*/, si_link /*f*/)
 {
   return TRUE;
 }
 
-BOOLEAN blackbox_default_deserialize(blackbox **b, void **d, si_link f)
+BOOLEAN blackbox_default_deserialize(blackbox **/*b*/, void **/*d*/, si_link /*f*/)
 {
   return TRUE;
 }
@@ -83,16 +88,23 @@ BOOLEAN blackboxDefaultOp1(int op,leftv l, leftv r)
     l->rtyp=STRING_CMD;
     return FALSE;
   }
+  else if (op==NAMEOF_CMD)
+  {
+    if (r->name==NULL) l->data=omStrDup("");
+    else               l->data=omStrDup(r->name);
+    l->rtyp=STRING_CMD;
+    return FALSE;
+  }
 
   return WrongOp("blackbox_Op1", op, r);
 }
 
-BOOLEAN blackboxDefaultOp2(int op,leftv l, leftv r1, leftv r2)
+BOOLEAN blackboxDefaultOp2(int op,leftv /*l*/, leftv r1, leftv /*r2*/)
 {
   return WrongOp("blackbox_Op2", op, r1);
 }
 
-BOOLEAN blackbox_default_Op3(int op,leftv l, leftv r1,leftv r2, leftv r3)
+BOOLEAN blackbox_default_Op3(int op,leftv /*l*/, leftv r1,leftv /*r2*/, leftv /*r3*/)
 {
   return WrongOp("blackbox_Op3", op, r1);
 }
@@ -103,6 +115,25 @@ BOOLEAN blackbox_default_OpM(int op,leftv res, leftv args)
   {
     res->rtyp=LIST_CMD;
     return jjLIST_PL(res,args);
+  }
+  else if(op==STRING_CMD)
+  {
+    blackbox *b=getBlackboxStuff(args->Typ());
+    res->data=b->blackbox_String(b,args->Data());
+    res->rtyp=STRING_CMD;
+    args=args->next;
+    if(args!=NULL)
+    {
+      sleftv res2;
+      int ret=iiExprArithM(&res2,args,op);
+      if (ret) return TRUE;
+      char *s2=(char*)omAlloc(strlen((char*)res->data)+strlen((char*)res2.data)+1);
+      sprintf(s2,"%s%s",(char*)res->data,(char*)res2.data);
+      omFree(res2.data);
+      omFree(res->data);
+      res->data=s2;
+    }
+    return FALSE;
   }
   return WrongOp("blackbox_OpM", op, args);
 }

@@ -14,6 +14,10 @@
  **/
 /*****************************************************************************/
 
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
+
 // include header file
 #include <kernel/mod2.h>
 
@@ -217,14 +221,15 @@ poly kNF2Length (ideal F,ideal Q,poly q,kStrategy strat, int lazyReduce)
 //#define KSTD_NF_NONORM 4
   // only global: avoid normalization, return a multiply of NF
   poly   p;
-  int   i;
+  // int   i;
 
   //if ((idIs0(F))&&(Q==NULL))
   //  return pCopy(q); /*F=0*/
   //strat->ak = id_RankFreeModule(F, RING!);
   /*- creating temp data structures------------------- -*/
-  BITSET save_test=test;
-  test|=Sy_bit(OPT_REDTAIL);
+  BITSET save1;
+  SI_SAVE_OPT1(save1);
+  si_opt_1|=Sy_bit(OPT_REDTAIL);
   initBuchMoraCrit(strat);
   strat->initEcart = initEcartBBA;
   strat->enterS = enterSBba;
@@ -241,7 +246,7 @@ poly kNF2Length (ideal F,ideal Q,poly q,kStrategy strat, int lazyReduce)
   //  for (i=strat->sl;i>=0;i--)
   //    pNorm(strat->S[i]);
   //}
-  kTest(strat);
+  assume(kTest(strat));
   if (TEST_OPT_PROT) { PrintS("r"); mflush(); }
 
   if (BVERBOSE(23)) kDebugPrint(strat);
@@ -259,10 +264,8 @@ poly kNF2Length (ideal F,ideal Q,poly q,kStrategy strat, int lazyReduce)
     else
 #endif
     {
-      BITSET save=test;
-      test &= ~Sy_bit(OPT_INTSTRATEGY);
+      si_opt_1 &= ~Sy_bit(OPT_INTSTRATEGY);
       p = redtailBba(p,max_ind,strat,(lazyReduce & KSTD_NF_NONORM)==0);
-      test=save;
     }
   }
   /*- release temp data------------------------------- -*/
@@ -276,7 +279,7 @@ poly kNF2Length (ideal F,ideal Q,poly q,kStrategy strat, int lazyReduce)
   omfree(strat->B);
   omfree(strat->fromQ);
   idDelete(&strat->Shdl);
-  test=save_test;
+  SI_RESTORE_OPT1(save1);
   if (TEST_OPT_PROT) PrintLn();
   return p;
 }

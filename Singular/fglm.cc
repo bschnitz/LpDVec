@@ -15,11 +15,10 @@
 *   lying in a 0-dimensional ideal.
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
-
-#ifdef HAVE_FACTORY
-
 
 #include <omalloc/omalloc.h>
 #include <misc/options.h>
@@ -287,11 +286,11 @@ fglmProc( leftv result, leftv first, leftv second )
     FglmState state = FglmOk;
 
     idhdl destRingHdl = currRingHdl;
-    ring destRing = currRing;
+    // ring destRing = currRing;
     ideal destIdeal = NULL;
     idhdl sourceRingHdl = (idhdl)first->data;
     rSetHdl( sourceRingHdl );
-    ring sourceRing = currRing;
+    // ring sourceRing = currRing;
 
     int * vperm = (int *)omAlloc0( (currRing->N+1)*sizeof( int ) );
     state= fglmConsistency( sourceRingHdl, destRingHdl, vperm );
@@ -493,7 +492,6 @@ findUniProc( leftv result, leftv first )
 
     return FALSE;
 }
-#endif
 // ----------------------------------------------------------------------------
 // Local Variables: ***
 // compile-command: "make Singular" ***

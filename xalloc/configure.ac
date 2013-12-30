@@ -1,14 +1,18 @@
 AC_INIT([xalloc], [3.1.2.sw])
 AC_CONFIG_SRCDIR(dummy.c)
+AC_CONFIG_MACRO_DIR([../m4])
 
 AC_CONFIG_AUX_DIR([.])
 
 AM_MAINTAINER_MODE
-AM_INIT_AUTOMAKE([-Wall foreign subdir-objects silent-rules]) # -Wno-extra-portability -Werror
+AM_INIT_AUTOMAKE([-Wall foreign subdir-objects]) # -Wno-extra-portability -Werror silent-rules
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
+
 
 AC_PROG_MAKE_SET
-AC_PROG_CC
-AC_PROG_CPP
+# AC_PROG_CC
+# AC_PROG_CPP
 
 AC_PROG_LN_S
 AC_PROG_INSTALL
@@ -19,7 +23,9 @@ AC_C_INLINE
 
 LT_INIT
 
-AM_CONDITIONAL(WANT_DEBUG, test x"${ENABLE_DEBUG}" == xyes)
+SING_RESET_FLAGS()
+SING_CHECK_SET_ARGS()
+
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

@@ -1,6 +1,8 @@
 #define PLURAL_INTERNAL_DECLARATIONS
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include "mod2.h"
 #include <misc/auxiliary.h>
 
@@ -102,7 +104,7 @@ ideal sca_gr_bba(const ideal F, const ideal Q, const intvec *, const intvec *, k
   if( currRing != _currRing ) rChangeCurrRing(_currRing);
   assume( currRing == _currRing );
 
-  
+
 #if MYTEST
    PrintS("<sca_gr_bba>\n");
 #endif
@@ -153,10 +155,6 @@ ideal sca_gr_bba(const ideal F, const ideal Q, const intvec *, const intvec *, k
     PrintS("ideal tempQ: \n");
     idPrint(tempQ);
   }
-#endif
-
-#ifdef KDEBUG
-  om_Opts.MinTrack = 5;
 #endif
 
   int olddeg, reduc;
@@ -363,7 +361,7 @@ ideal sca_gr_bba(const ideal F, const ideal Q, const intvec *, const intvec *, k
 #endif
 
   if( currRing != save )     rChangeCurrRing(save);
-  
+
   return (strat->Shdl);
 }
 
@@ -374,7 +372,7 @@ ideal sca_gr_bba(const ideal F, const ideal Q, const intvec *, const intvec *, k
 ///////////////////////////////////////////////////////////////////////////////////////
 
 // Under development!!!
-ideal sca_bba (const ideal F, const ideal Q, const intvec *w, const intvec * /*hilb*/, kStrategy strat, const ring _currRing)
+ideal sca_bba (const ideal F, const ideal Q, const intvec */*w*/, const intvec * /*hilb*/, kStrategy strat, const ring _currRing)
 {
   const ring save = currRing;
   if( currRing != _currRing ) rChangeCurrRing(_currRing);
@@ -435,12 +433,6 @@ ideal sca_bba (const ideal F, const ideal Q, const intvec *w, const intvec * /*h
 
 //  strat->homog = strat->homog && strat->z2homog; // ?
 
-
-
-#ifdef KDEBUG
-  om_Opts.MinTrack = 5;
-#endif
-
   int   red_result = 1;
   int   olddeg, reduc;
 
@@ -477,7 +469,7 @@ ideal sca_bba (const ideal F, const ideal Q, const intvec *w, const intvec * /*h
     withT = ! strat->homog;
 
   // strat->posInT = posInT_pLength;
-  kTest_TS(strat);
+  assume(kTest_TS(strat));
 
 #undef HAVE_TAIL_RING
 
@@ -491,7 +483,7 @@ ideal sca_bba (const ideal F, const ideal Q, const intvec *w, const intvec * /*h
     if (test_PosInL!=NULL) strat->posInL=test_PosInL;
     kDebugPrint(strat);
   }
-  
+
 
   ///////////////////////////////////////////////////////////////
   // SCA:
@@ -738,10 +730,10 @@ ideal sca_bba (const ideal F, const ideal Q, const intvec *w, const intvec * /*h
 
         enterL(&strat->L,&strat->Ll,&strat->Lmax,h,pos);
 
- 
- 
- 
-#if 0   
+
+
+
+#if 0
         h.sev = pGetShortExpVector(h.p);
         strat->initEcart(&h);
 
@@ -788,8 +780,8 @@ ideal sca_bba (const ideal F, const ideal Q, const intvec *w, const intvec * /*h
           pos = strat->posInL(strat->L,strat->Ll,&h,strat);
 
          enterL(&strat->L,&strat->Ll,&strat->Lmax,h,pos);
-// the end of "#if 0" (comment) 
-#endif 
+// the end of "#if 0" (comment)
+#endif
 
       } // for all x_i \in Ann(lm(P))
     } // if red(P) != NULL
@@ -803,7 +795,7 @@ ideal sca_bba (const ideal F, const ideal Q, const intvec *w, const intvec * /*h
 //    memset(&(strat->P), 0, sizeof(strat->P));
 #endif
 
-    kTest_TS(strat); // even of T is not used!
+    assume(kTest_TS(strat)); // even of T is not used!
 
 //     Print("\n$\n");
 
@@ -858,7 +850,7 @@ ideal sca_bba (const ideal F, const ideal Q, const intvec *w, const intvec * /*h
 #endif
 
   if( currRing != save )     rChangeCurrRing(save);
-  
+
   return (strat->Shdl);
 }
 
@@ -866,7 +858,11 @@ ideal sca_bba (const ideal F, const ideal Q, const intvec *w, const intvec * /*h
 // sca mora...
 
 // returns TRUE if mora should use buckets, false otherwise
+#ifdef MORA_USE_BUCKETS
 static BOOLEAN kMoraUseBucket(kStrategy strat)
+#else
+static BOOLEAN kMoraUseBucket(kStrategy)
+#endif
 {
 #ifdef MORA_USE_BUCKETS
   if (TEST_OPT_NOT_BUCKETS)
@@ -897,7 +893,7 @@ static int sca_mora_loop_count;
 #endif
 
 // ideal sca_mora (ideal F, ideal Q, intvec *w, intvec *, kStrategy strat)
-ideal sca_mora(const ideal F, const ideal Q, const intvec *w, const intvec *, kStrategy strat, const ring _currRing)
+ideal sca_mora(const ideal F, const ideal Q, const intvec */*w*/, const intvec *, kStrategy strat, const ring _currRing)
 {
   const ring save = currRing;
   if( currRing != _currRing ) rChangeCurrRing(_currRing);
@@ -923,17 +919,12 @@ ideal sca_mora(const ideal F, const ideal Q, const intvec *w, const intvec *, kS
 
 #ifdef PDEBUG
   assume( strat->homog == bIdHomog );
-#endif 
+#endif
 
 #ifdef HAVE_ASSUME
   sca_mora_count++;
   sca_mora_loop_count = 0;
 #endif
-
-#ifdef KDEBUG
-  om_Opts.MinTrack = 5;
-#endif
-
 
   strat->update = TRUE;
   //- setting global variables ------------------- -
@@ -968,7 +959,7 @@ ideal sca_mora(const ideal F, const ideal Q, const intvec *w, const intvec *, kS
 #endif
   strat->use_buckets = kMoraUseBucket(strat);
 
-  kTest_TS(strat);
+  assume(kTest_TS(strat));
 
 
   int olddeg = 0;
@@ -1202,7 +1193,7 @@ ideal sca_mora(const ideal F, const ideal Q, const intvec *w, const intvec *, kS
       }
     }
 #endif
-    kTest_TS(strat);
+    assume(kTest_TS(strat));
   }
   // - complete reduction of the standard basis------------------------ -
   if (TEST_OPT_REDSB) completeReduce(strat);
@@ -1237,7 +1228,7 @@ ideal sca_mora(const ideal F, const ideal Q, const intvec *w, const intvec *, kS
   id_Delete( &tempF, currRing);
 
   if( currRing != save )     rChangeCurrRing(save);
-  
+
   return (strat->Shdl);
 }
 

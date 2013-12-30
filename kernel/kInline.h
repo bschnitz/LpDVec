@@ -11,7 +11,7 @@
 #define KINLINE_H
 
 #if !defined(NO_KINLINE) || defined(KUTIL_CC)
-/* this file is a header file with inline routines, 
+/* this file is a header file with inline routines,
  *     if NO_KINLINE is not defined (AND ONLY THEN!)
  * otherwise it is an part of kutil.cc and a source file!
  * (remark: NO_KINLINE is defined by KDEBUG, i.e. in the debug version)
@@ -435,40 +435,36 @@ KINLINE void  sTObject::pCleardenom()
     {
       number n;
       if (t_p != NULL)
-	{
-	  p_Cleardenom_n(t_p, tailRing, n);
-	  pSetCoeff0(p, pGetCoeff(t_p));
-	}
+        {
+          p_Cleardenom_n(t_p, tailRing, n);
+          pSetCoeff0(p, pGetCoeff(t_p));
+        }
       else
-	{
-#ifdef HAVE_RATGRING
-	  p_Cleardenom_n(p, currRing, n);
-#else
-	  p_Cleardenom_n(p, currRing, n);
-#endif
-	}
+        {
+          p_Cleardenom_n(p, currRing, n);
+        }
       if (!nIsOne(n))
-	{
-	  denominator_list denom=(denominator_list)omAlloc(sizeof(denominator_list_s));
-	  denom->n=nInvers(n);
-	  denom->next=DENOMINATOR_LIST;
-	  DENOMINATOR_LIST=denom;
-	}
+        {
+          denominator_list denom=(denominator_list)omAlloc(sizeof(denominator_list_s));
+          denom->n=nInvers(n);
+          denom->next=DENOMINATOR_LIST;
+          DENOMINATOR_LIST=denom;
+        }
       nDelete(&n);
     }
   else
     {
       if (t_p != NULL)
 	{
-	  p_Cleardenom(t_p, tailRing);
+	  p_ProjectiveUnique(t_p, tailRing);
 	  pSetCoeff0(p, pGetCoeff(t_p));
 	}
       else
 	{
 #ifdef HAVE_RATGRING
-	  p_Cleardenom(p, currRing);
+          p_ProjectiveUnique(p, currRing);
 #else
-	  p_Cleardenom(p, currRing);
+          p_ProjectiveUnique(p, currRing);
 #endif
 	}
     }
@@ -590,11 +586,12 @@ KINLINE void sLObject::Tail_Minus_mm_Mult_qq(poly m, poly q, int lq,
   }
   else
   {
+    if (lq<=0) lq= ::pLength(q);
     poly _p = (t_p != NULL ? t_p : p);
     assume(_p != NULL);
 
     int lp=pLength-1;
-    pNext(_p) = p_Minus_mm_Mult_qq( pNext(_p), m, q, lp, lq, 
+    pNext(_p) = p_Minus_mm_Mult_qq( pNext(_p), m, q, lp, lq,
                                     spNoether, tailRing );
     pLength=lp+1;
 //    tailRing->p_Procs->p_Minus_mm_Mult_qq(pNext(_p), m, q, shorter,spNoether, tailRing, last);
@@ -1006,7 +1003,7 @@ KINLINE BOOLEAN k_GetLeadTerms(const poly p1, const poly p2, const ring p_r,
 #ifdef HAVE_RINGS
 // get m1 = LCM(LM(p1), LM(p2))/LM(p1)
 //     m2 = LCM(LM(p1), LM(p2))/LM(p2)   in tailRing
-//    lcm = LCM(LM(p1), LM(p2)           in leadRing
+//    lcm = LCM(LM(p1), LM(p2))          in leadRing
 KINLINE void k_GetStrongLeadTerms(const poly p1, const poly p2, const ring leadRing,
                                poly &m1, poly &m2, poly &lcm, const ring tailRing)
 {
@@ -1022,7 +1019,7 @@ KINLINE void k_GetStrongLeadTerms(const poly p1, const poly p2, const ring leadR
   m2 = p_Init(tailRing);
   lcm = p_Init(leadRing);
 
-  for (i = leadRing->N; i>=1; i--)
+  for (i = leadRing->N; i>=0; i--)
   {
     e1 = p_GetExp(p1,i,leadRing);
     e2 = p_GetExp(p2,i,leadRing);
@@ -1033,23 +1030,16 @@ KINLINE void k_GetStrongLeadTerms(const poly p1, const poly p2, const ring leadR
       //p_SetExp(m1,i,0, tailRing); // done by p_Init
       s = e1;
     }
-    else
+    else if (x<0)
     {
       p_SetExp(m1,i,-x, tailRing);
       //p_SetExp(m2,i,0, tailRing); // done by p_Init
       s = e2;
     }
+    else
+      s = e1; // e1==e2
     p_SetExp(lcm,i,s, leadRing);
   }
-  if ((s=pGetComp(p1))!=0)
-  {
-    p_SetComp(lcm,s, leadRing);
-  } 
-  else if ((s=pGetComp(p2))!=0)
-  {
-    p_SetComp(lcm,s, leadRing);
-  } 
-  // else p_SetComp(lcm,0,tailRing); // done by p_Init
 
   p_Setm(m1, tailRing);
   p_Setm(m2, tailRing);
@@ -1165,7 +1155,7 @@ KINLINE void clearS (poly p, unsigned long p_sev, int* at, int* k,
 
 // dummy function for function pointer strat->rewCrit being usable in all
 // possible choices for criteria
-KINLINE BOOLEAN arriRewDummy(poly /*sig*/, unsigned long /*not_sevSig*/, kStrategy /*strat*/, int start=0)
+KINLINE BOOLEAN arriRewDummy(poly /*sig*/, unsigned long /*not_sevSig*/, poly /*lm*/, kStrategy /*strat*/, int /*start=0*/)
 {
   return FALSE;
 }

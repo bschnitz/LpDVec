@@ -1,38 +1,27 @@
 ACLOCAL_AMFLAGS = -I m4
 
 if ENABLE_FACTORY
-  USE_FACTORY = factory 
-else
-  USE_FACTORY =
+  USE_FACTORY = factory
 endif
- 
-PACKAGES=findexec omalloc $(USE_FACTORY) libpolys kernel numeric Singular IntegerProgramming dyn_modules
 
-SUBDIRS=$(PACKAGES)
+SUBDIRS = resources omalloc xalloc $(USE_FACTORY) \
+libpolys kernel numeric gfanlib dyn_modules \
+IntegerProgramming Singular dox \
+emacs debian redhat desktop
 
-TESTDIRS=$(PACKAGES)
+# PACKAGES = $(SUBDIRS)
+# TESTDIRS = omalloc $(USE_FACTORY) libpolys kernel Singular dyn_modules
 
-
-emacsdir=$(datadir)/emacs
-dist_emacs_DATA =  emacs/BUGS \
-    emacs/ChangeLog \
-    emacs/cmpl.pl \
-    emacs/COPYING \
-    emacs/ESingular.emacs21 \
-    emacs/lib.pl \
-    emacs/Makefile.in \
-    emacs/NEWS \
-    emacs/singular.el \
-    emacs/singular.el.decl \
-    emacs/singular.xpm
-
-# emacs/test.sing
-# TODO: remove this!
-#all-local:
-#	[ -d ${builddir}/emacs ] || ln -s ${srcdir}/emacs ${builddir}
-
-
-EXTRA_DIST = autogen.sh emacs
-
+EXTRA_DIST = README autogen.sh git-version-gen
 
 bin_SCRIPTS = libsingular-config
+
+dist-hook:
+	$(srcdir)/git-version-gen $(srcdir)/.tarball-git-version > $(distdir)/.tarball-git-version
+
+
+configheaderdir = ${includedir}/singular
+nodist_configheader_HEADERS = singularconfig.h
+
+dist_man1_MANS = doc/singular.man
+

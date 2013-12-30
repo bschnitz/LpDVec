@@ -5,7 +5,9 @@
 * ABSTRACT: Esingular main file
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 
@@ -25,8 +27,7 @@
 #endif
 
 #include <omalloc/omalloc.h>
-#include <Singular/version.h>
-#include <findexec/feResource.h>
+#include <resources/feResource.h>
 #include <Singular/feOpt.h>
 
 #if !defined(TSINGULAR) && !defined(ESINGULAR)
@@ -88,8 +89,8 @@ void fePrintReportBug(char* msg, char* file, int line)
 "Please, email the following output to singular@mathematik.uni-kl.de\n"
 "Bug occured at %s:%d\n"
 "Message: %s\n"
-"Version: " S_UNAME S_VERSION1 " (%lu) " __DATE__ __TIME__,
-        file, line, msg, feVersionId);
+"Version: " S_UNAME S_VERSION1 __DATE__ __TIME__,
+        file, line, msg);
 
 }
 
@@ -106,10 +107,12 @@ int main(int argc, char** argv)
 {
   char* singular = NULL;
   char* emacs = NULL;
+#ifndef TSINGULAR
   char* emacs_dir = NULL;
   char* emacs_load = NULL;
-  int no_emacs_call = 0;
   char cwd[MAXPATHLEN];
+#endif
+  int no_emacs_call = 0;
 
   // parse-cmdline options
 

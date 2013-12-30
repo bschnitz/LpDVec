@@ -16,48 +16,47 @@
 #define OM_TRACK 5
 #endif
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
 #ifdef HAVE_PLURAL
 
 # define PLURAL_INTERNAL_DECLARATIONS
-#include "nc/nc.h"
-#include "nc/sca.h"
-#include "nc/gb_hack.h"
+#include "nc.h"
+#include "sca.h"
+#include "gb_hack.h"
 
-#include "monomials/ring.h"
+#include <polys/monomials/ring.h>
    
 #include <coeffs/numbers.h>
-#include "coeffrings.h"
+#include <polys/coeffrings.h>
 
 // #include <polys/febase.h>
 #include <misc/options.h>
 
-#include "monomials/ring.h"
-#include "monomials/p_polys.h"
+#include <polys/monomials/ring.h>
+#include <polys/monomials/p_polys.h>
 
-#include "simpleideals.h"
-#include "matpol.h"
+#include <polys/simpleideals.h>
+#include <polys/matpol.h>
 
-#include "kbuckets.h"
-#include "sbuckets.h"
+#include <polys/kbuckets.h>
+#include <polys/sbuckets.h>
 
 // #include <polys/kstd1.h>
-#include "prCopy.h"
+#include <polys/prCopy.h>
 
-#include "operations/p_Mult_q.h"
-// dirty tricks:
-#include "templates/p_MemAdd.h"
+#include <polys/operations/p_Mult_q.h>
 
 // #include <polys/pInline1.h>
 
 
+#include "summator.h"
 
-#include "nc/summator.h"
-
-#include "nc/ncSAMult.h" // for CMultiplier etc classes
-#include "nc/ncSAFormula.h" // for CFormulaPowerMultiplier and enum Enum_ncSAType
+#include "ncSAMult.h" // for CMultiplier etc classes
+#include "ncSAFormula.h" // for CFormulaPowerMultiplier and enum Enum_ncSAType
 
 // #ifdef HAVE_RATGRING
 // #include <polys/ratgring.h>
@@ -465,7 +464,6 @@ poly gnc_mm_Mult_nn(int *F0, int *G0, const ring r)
   int i,j;
   int iF,jG,iG;
   int rN=r->N;
-  int ExpSize=(((rN+1)*sizeof(int)+sizeof(long)-1)/sizeof(long))*sizeof(long);
 
   int *F=(int *)omAlloc0((rN+1)*sizeof(int));
   int *G=(int *)omAlloc0((rN+1)*sizeof(int));
@@ -474,7 +472,7 @@ poly gnc_mm_Mult_nn(int *F0, int *G0, const ring r)
   // pExpVectorCopy(F,F0);
   memcpy(G, G0,(rN+1)*sizeof(int));
   //  pExpVectorCopy(G,G0);
-  F[0]=0; /* important for p_MemAdd */
+  F[0]=0; 
   G[0]=0;
 
   iF=rN;
@@ -498,10 +496,9 @@ poly gnc_mm_Mult_nn(int *F0, int *G0, const ring r)
   if (iF<=jG)
     /* i.e. no mixed exp_num , MERGE case */
   {
-    p_MemAdd_LengthGeneral(F, G, ExpSize/sizeof(long));
+    { for(int ii=rN;ii>0;ii--) F[ii]+=G[ii]; }
     p_SetExpV(out,F,r);
     p_Setm(out,r);
-    //    omFreeSize((ADDRESS)F,ExpSize);
     freeT(F,rN);
     freeT(G,rN);
     return(out);
@@ -560,11 +557,10 @@ poly gnc_mm_Mult_nn(int *F0, int *G0, const ring r)
       }
       cff=totcff;
     }
-    p_MemAdd_LengthGeneral(F, G, ExpSize/sizeof(long));
+    { for(int ii=rN;ii>0;ii--) F[ii]+=G[ii]; }
     p_SetExpV(out,F,r);
     p_Setm(out,r);
     p_SetCoeff(out,cff,r);
-    //    p_MemAdd_NegWeightAdjust(p, r); ??? do we need this?
     freeT(F,rN);
     freeT(G,rN);
     return(out);
@@ -2468,6 +2464,7 @@ matrix nc_PrintMat(int a, int b, ring r, int metric)
   int size=r->GetNC()->MTsize[UPMATELEM(i,j,rN)];
   matrix M = r->GetNC()->MT[UPMATELEM(i,j,rN)];
   /*  return(M); */
+/*
   int sizeofres;
   if (metric==0)
   {
@@ -2477,6 +2474,7 @@ matrix nc_PrintMat(int a, int b, ring r, int metric)
   {
     sizeofres=sizeof(number);
   }
+*/
   matrix res=mpNew(size,size);
   int s;
   int t;
@@ -2932,7 +2930,7 @@ BOOLEAN nc_CallPlural(matrix CCC, matrix DDD,
           return TRUE;
         }
 
-        if (!n_Equal(pN, qN, curr)) tmpIsSkewConstant = false;
+        if (!n_Equal(pN, qN, curr->cf)) tmpIsSkewConstant = false;
       }
 
     if( bCopyInput )
@@ -3056,6 +3054,8 @@ BOOLEAN nc_CallPlural(matrix CCC, matrix DDD,
 
   r->GetNC() = nc_new;
 
+  r->ext_ref=NULL;
+
 //  if( currRing != save )
 //    rChangeCurrRing(save);
 
@@ -3108,7 +3108,7 @@ BOOLEAN gnc_InitMultiplication(ring r, bool bSetupQuotient)
   poly p,q;
   short DefMTsize=7;
   int IsNonComm=0;
-  int tmpIsSkewConstant;
+//  bool tmpIsSkewConstant = false;
 
   for(i=1; i<r->N; i++)
   {
@@ -3154,12 +3154,12 @@ BOOLEAN gnc_InitMultiplication(ring r, bool bSetupQuotient)
     }
     if (IsNonComm==0)
     {
-      ncRingType(r, nc_skew); /* TODO: check whether it is commutative */
-      r->GetNC()->IsSkewConstant=tmpIsSkewConstant;
-    }
+      ncRingType(r, nc_skew); // TODO: check whether it is commutative
+      r->GetNC()->IsSkewConstant = 0; // true; //tmpIsSkewConstant; //  BUG???
+    } else
+       assume( FALSE );
   }
-  r->GetNC()->COM=COM;
-  
+  r->GetNC()->COM=COM;  
 
   nc_p_ProcsSet(r, r->p_Procs);
 
@@ -3339,7 +3339,7 @@ ring nc_rCreateNCcomm(ring r)
   /* and srcRing is one of such smaller rings */
   /* shift defines the position of a subring in srcRing */
   /* par_shift defines the position of a subfield in basefield of CurrRing */
-poly p_CopyEmbed(poly p, ring srcRing, int shift, int par_shift, ring dstRing)
+poly p_CopyEmbed(poly p, ring srcRing, int shift, int /*par_shift*/, ring dstRing)
 {
   if (dstRing == srcRing)
   {
@@ -3516,4 +3516,8 @@ bool nc_SetupQuotient(ring rGR, const ring rG, bool bCopy)
 //   }
 //   return(TRUE);
 // }
+
 #endif
+
+
+

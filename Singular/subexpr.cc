@@ -11,7 +11,9 @@
 #include <ctype.h>
 #include <unistd.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 #include <omalloc/omalloc.h>
@@ -29,7 +31,7 @@
 #include <polys/monomials/ring.h>
 #include <kernel/polys.h>
 
-#include <kernel/longrat.h>
+#include <libpolys/coeffs/longrat.h>
 // #include <coeffs/longrat.h>
 
 #include <kernel/febase.h>
@@ -43,7 +45,7 @@
 #include <Singular/ipshell.h>
 #include <Singular/lists.h>
 #include <Singular/attrib.h>
-#include <Singular/silink.h>
+#include <Singular/links/silink.h>
 #include <Singular/attrib.h>
 #include <Singular/subexpr.h>
 #include <Singular/blackbox.h>
@@ -105,8 +107,7 @@ void sleftv::Print(leftv store, int spaces)
     const char *n=Name();
     char *s;
     void *d=Data();
-    if (errorreported)
-      return;
+    if (errorreported) return;
     if ((store!=NULL)&&(store!=this))
       store->CleanUp();
 
@@ -118,9 +119,9 @@ void sleftv::Print(leftv store, int spaces)
           PrintS("`");PrintS(n);PrintS("`");
           break;
         case PACKAGE_CMD:
-	  PrintNSpaces(spaces);
-	  paPrint(n,(package)d);
-	  break;
+          PrintNSpaces(spaces);
+          paPrint(n,(package)d);
+          break;
         case NONE:
           return;
         case INTVEC_CMD:
@@ -424,7 +425,7 @@ static inline void * s_internalCopy(const int t,  void *d)
     case QRING_CMD:
       {
         ring r=(ring)d;
-        r->ref++;
+        if (r!=NULL) r->ref++;
         //Print("+  ring %d, ref %d\n",r,r->ref);
         return d;
       }
@@ -453,6 +454,7 @@ static inline void * s_internalCopy(const int t,  void *d)
 
 void s_internalDelete(const int t,  void *d, const ring r)
 {
+  assume(d!=NULL);
   switch (t)
   {
     case INTVEC_CMD:
@@ -700,9 +702,6 @@ char *  sleftv::String(void *d, BOOLEAN typed, int dim)
   if (!errorreported)
   {
     char *s;
-    const char *n;
-    if (name!=NULL) n=name;
-    else n=sNoName;
     int t=Typ();
     switch (t /*Typ()*/)
     {
@@ -743,10 +742,11 @@ char *  sleftv::String(void *d, BOOLEAN typed, int dim)
             char* ps = pString((poly) d);
             s = (char*) omAlloc(strlen(ps) + 10);
             sprintf(s,"%s(%s)", (t /*Typ()*/ == POLY_CMD ? "poly" : "vector"), ps);
+            omFree(ps);
             return s;
           }
           else
-            return omStrDup(pString((poly)d));
+            return pString((poly)d);
 
         case NUMBER_CMD:
           StringSetS((char*) (typed ? "number(" : ""));
@@ -770,16 +770,16 @@ char *  sleftv::String(void *d, BOOLEAN typed, int dim)
             nWrite(n);
             nDelete(&n);
           }
-          s = StringAppendS((char*) (typed ? ")" : ""));
-          return omStrDup(s);
+          StringAppendS((char*) (typed ? ")" : ""));
+          return StringEndS();
 
         case BIGINT_CMD:
           {
           StringSetS((char*) (typed ? "bigint(" : ""));
           number nl=(number)d;
           n_Write(nl,coeffs_BIGINT);
-          s = StringAppendS((char*) (typed ? ")" : ""));
-          return omStrDup(s);
+          StringAppendS((char*) (typed ? ")" : ""));
+          return StringEndS();
           }
 
         case MATRIX_CMD:
@@ -848,7 +848,7 @@ char *  sleftv::String(void *d, BOOLEAN typed, int dim)
           }
           else
             return omStrDup(s);
-        } 
+        }
 
         case RING_CMD:
         case QRING_CMD:
@@ -1068,16 +1068,16 @@ void * sleftv::Data()
         idhdl h=(idhdl)data;
         return  ((idhdl)h->data.ustring)->data.ustring;
       }
-      case VECHO:      return (void *)si_echo;
-      case VPRINTLEVEL:return (void *)printlevel;
-      case VCOLMAX:    return (void *)colmax;
-      case VTIMER:     return (void *)getTimer();
-      case VRTIMER:    return (void *)getRTimer();
-      case VOICE:      return (void *)(myynest+1);
-      case VMAXDEG:    return (void *)Kstd1_deg;
-      case VMAXMULT:   return (void *)Kstd1_mu;
-      case TRACE:      return (void *)traceit;
-      case VSHORTOUT:  return (void *)(currRing != NULL ? currRing->ShortOut : 0);
+      case VECHO:      return (void *)(long)si_echo;
+      case VPRINTLEVEL:return (void *)(long)printlevel;
+      case VCOLMAX:    return (void *)(long)colmax;
+      case VTIMER:     return (void *)(long)getTimer();
+      case VRTIMER:    return (void *)(long)getRTimer();
+      case VOICE:      return (void *)(long)(myynest+1);
+      case VMAXDEG:    return (void *)(long)Kstd1_deg;
+      case VMAXMULT:   return (void *)(long)Kstd1_mu;
+      case TRACE:      return (void *)(long)traceit;
+      case VSHORTOUT:  return (void *)(long)(currRing != NULL ? currRing->ShortOut : 0);
       case VMINPOLY:
         if ( (currRing != NULL)  && nCoeff_is_algExt(currRing->cf) && !nCoeff_is_GF(currRing->cf))
         {
@@ -1132,7 +1132,7 @@ void * sleftv::Data()
           Werror("wrong range[%d] in intvec(%d)",index,iv->length());
       }
       else
-        r=(char *)((*iv)[index-1]);
+        r=(char *)(long)((*iv)[index-1]);
       break;
     }
     case INTMAT_CMD:
@@ -1148,7 +1148,7 @@ void * sleftv::Data()
                                                      iv->rows(),iv->cols());
       }
       else
-        r=(char *)(IMATELEM((*iv),index,e->next->start));
+        r=(char *)(long)(IMATELEM((*iv),index,e->next->start));
       break;
     }
     case BIGINTMAT_CMD:
@@ -1390,10 +1390,10 @@ void syMake(leftv v,const char * id, idhdl packhdl)
   * 1) reserved id: done by scanner
   * 2) `basering` / 'Current`
   * 3) existing identifier, local
-  * 4) ringvar, local ring
+  * 4) ringvar, ringpar, local ring
   * 5) existing identifier, global
   * 6) monom (resp. number), local ring: consisting of:
-  * 6') ringvar, global ring
+  * 6') ringvar,  ringpar,global ring
   * 6'') monom (resp. number), local ring
   * 7) monom (resp. number), non-local ring
   * 8) basering
@@ -1473,7 +1473,7 @@ void syMake(leftv v,const char * id, idhdl packhdl)
     /*&& (!yyInRingConstruction)*/)
     {
       int vnr;
-      if ((vnr=r_IsRingVar(id, currRing))>=0)
+      if ((vnr=r_IsRingVar(id, currRing->names,currRing->N))>=0)
       {
         poly p=pOne();
         pSetExp(p,vnr+1,1);
@@ -1482,6 +1482,22 @@ void syMake(leftv v,const char * id, idhdl packhdl)
         v->name = id;
         v->rtyp = POLY_CMD;
         return;
+      }
+      if((n_NumberOfParameters(currRing->cf)>0)
+      &&((vnr=r_IsRingVar(id, (char**)n_ParameterNames(currRing->cf),
+                              n_NumberOfParameters(currRing->cf))>=0)))
+      {
+        BOOLEAN ok=FALSE;
+        poly p = pmInit(id,ok);
+        if (ok && (p!=NULL))
+        {
+          v->data = pGetCoeff(p);
+          pGetCoeff(p)=NULL;
+          pLmFree(p);
+          v->rtyp = NUMBER_CMD;
+          v->name = id;
+          return;
+        }
       }
     }
     /* 5. existing identifier, global */
@@ -1561,6 +1577,15 @@ void syMake(leftv v,const char * id, idhdl packhdl)
           v->data = p;
           v->rtyp = POLY_CMD;
           v->name = id;
+        }
+        if (TEST_V_ALLWARN /*&& (myynest>0)*/
+        && ((r_IsRingVar(id, currRing->names,currRing->N)>=0)
+          || ((n_NumberOfParameters(currRing->cf)>0)
+             &&(r_IsRingVar(id, (char**)n_ParameterNames(currRing->cf),
+	                        n_NumberOfParameters(currRing->cf))>=0))))
+        {
+        // WARNING: do not use ring variable names in procedures
+          Warn("use of variable >>%s<< in a procedure in line %s",id,my_yylinebuf);
         }
         return;
       }
@@ -1650,11 +1675,9 @@ int sleftv::Eval()
         nok=d->arg2.Eval();
         if(!nok)
         {
-          leftv r=iiMake_proc(h,req_packhdl,&d->arg2);
-          if (r!=NULL)
-            memcpy(this,r,sizeof(sleftv));
-          else
-            nok=TRUE;
+          nok=iiMake_proc(h,req_packhdl,&d->arg2);
+          if (!nok)
+            memcpy(this,&iiRETURNEXPR,sizeof(sleftv));
         }
       }
       else nok=TRUE;

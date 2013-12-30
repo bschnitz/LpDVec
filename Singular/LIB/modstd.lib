@@ -1,5 +1,5 @@
-////////////////////////////////////////////////////////////////////////////////
-version="$Id: modstd.lib 15103 2012-07-11 10:00:13Z motsak $";
+///////////////////////////////////////////////////////////////////////////////
+version="version modstd.lib 4.0.0.0 Dec_2013 "; // $Id$
 category = "Commutative Algebra";
 info="
 LIBRARY:  modstd.lib      Groebner basis of ideals
@@ -27,6 +27,13 @@ PROCEDURES:
 LIB "poly.lib";
 LIB "ring.lib";
 LIB "parallel.lib";
+
+////////////////////////////////////////////////////////////////////////////////
+
+static proc mod_init()
+{
+   newstruct("idealPrimeTest", "ideal Ideal");
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -378,7 +385,7 @@ proc primeTest(def II, bigint p)
 {
    if(typeof(II) == "string")
    {
-      execute("ideal I = "+II+";");
+      ideal I = `II`.Ideal;
    }
    else
    {
@@ -414,7 +421,7 @@ RETURN:  the intvec of n greatest primes <= 2147483647 (resp. n greatest primes
          < L[size(L)] union with L) such that none of these primes divides any
          coefficient occuring in I
 NOTE:    The number of cores to use can be defined by ncores, default is 1.
-EXAMPLE: example primList; shows an example
+EXAMPLE: example primeList; shows an example
 "
 {
    intvec L;
@@ -479,6 +486,9 @@ EXAMPLE: example primList; shows an example
       list parallelResults;
       list arguments;
       int neededPrimes = neededSize-size(L);
+      idealPrimeTest Id;
+      Id.Ideal = I;
+      export(Id);
       while(neededPrimes > 0)
       {
          arguments = list();
@@ -487,10 +497,9 @@ EXAMPLE: example primList; shows an example
          {
             p = prime(p-1);
             if(p == 2) { ERROR("no more primes"); }
-            arguments[i] = list("I", p);
+            arguments[i] = list("Id", p);
          }
-         parallelResults = parallelWaitAll("primeTest", arguments,
-            list(list(list(ncores))));
+         parallelResults = parallelWaitAll("primeTest", arguments, 0, ncores);
          for(i = size(arguments); i > 0; i--)
          {
             if(parallelResults[i])
@@ -500,6 +509,7 @@ EXAMPLE: example primList; shows an example
          }
          neededPrimes = neededSize-size(L);
       }
+      kill Id;
       if(size(L) > neededSize)
       {
          L = L[1..neededSize];
@@ -694,7 +704,7 @@ EXAMPLE: example modpStd; shows an example
 
    if(variant == 4)
    {
-      def R1 = changeord("dp");
+      def R1 = changeord(list(list("dp",1:nvars(basering))));
       setring R1;
       ideal i = fetch(@r,i);
       i = std(i);
@@ -720,6 +730,33 @@ example
    Q;
 }
 
+static proc algeModStd(ideal i,list #)
+{
+//reduces modStd over algebraic extensions to the one over a polynomial ring
+   list L=#;
+   def R=basering;
+   int n=nvars(R);
+   list rl=ringlist(R);
+   poly p=minpoly;
+   rl[2][n+1]=rl[1][2][1];
+   rl[1]=rl[1][1];
+   rl[3][size(rl[3])+1]=rl[3][size(rl[3])];
+   rl[3][size(rl[3])-1]=list("dp",1);
+   def S=ring(rl);
+   setring S;
+   poly p=imap(R,p);
+   ideal i=imap(R,i);
+   i=i,p;
+   ideal j=modStd(i,L);
+   if(j[1]==p)
+   {
+      j[1]=0;
+   }
+   j=simplify(j,2);
+   setring R;
+   ideal j=imap(S,j);
+   return(j);
+}
 ////////////////////////////// main procedures /////////////////////////////////
 
 proc modStd(ideal I, list #)
@@ -753,8 +790,31 @@ EXAMPLE: example modStd; shows an example
 
    def R0 = basering;
    list rl = ringlist(R0);
-   if((npars(R0) > 0) || (rl[1] > 0))
+
+   int algebraic;
+   if(size(#)>0)
    {
+      if(#[1]<=0)
+      {
+         algebraic=1;
+         #[1]=-#[1];
+         if(#[1]==0){list LK;#=LK;}
+      }
+   }
+
+   if((npars(R0) > 0) || (rl[1][1] > 0))
+   {
+      if(npars(R0)==1)
+      {
+         if(minpoly!=0)
+         {
+            list LM=#;
+            if(size(LM)==0){LM[1]=0;}
+            LM[1]=-LM[1];
+            return(algeModStd(I,LM));
+         }
+      }
+
       ERROR("Characteristic of basering should be zero, basering should
              have no parameters.");
    }
@@ -869,7 +929,7 @@ EXAMPLE: example modStd; shows an example
          rl[1] = L[5];
          def @r = ring(rl);
          setring @r;
-         def @s = changeord("dp");
+         def @s = changeord(list(list("dp",1:nvars(basering))));
          setring @s;
          ideal I = std(fetch(R0,I));
          intvec hi = hilb(I,1);
@@ -909,7 +969,7 @@ EXAMPLE: example modStd; shows an example
                def @r = ring(rl);
                setring @r;
 
-               def @s = changeord("dp");
+               def @s = changeord(list(list("dp",1:nvars(basering))));
                setring @s;
                ideal I = std(fetch(R0,I));
                if(dim(I) == 0)
@@ -955,7 +1015,7 @@ EXAMPLE: example modStd; shows an example
          rl[1] = L[5];
          def @r = ring(rl);
          setring @r;
-         def @s = changeord("dp");
+         def @s = changeord(list(list("dp",1:nvars(basering))));
          setring @s;
          ideal I = std(fetch(R0,I));
          intvec hi = hilb(I,1);
@@ -1019,6 +1079,7 @@ EXAMPLE: example modStd; shows an example
          }
       }
    }
+   if(algebraic){variant=2;}
 
    list P,T1,T2,T3,LL;
 
@@ -1177,8 +1238,7 @@ EXAMPLE: example modStd; shows an example
          {
             arguments_farey[i] = list(ideal(H[i]), N);
          }
-         results_farey = parallelWaitAll("farey", arguments_farey,
-                                         list(list(list(n1))));
+         results_farey = parallelWaitAll("farey", arguments_farey, 0, n1);
          for(i = ncols(H); i > 0; i--)
          {
             J[i] = results_farey[i][1];

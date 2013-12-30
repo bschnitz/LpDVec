@@ -7,10 +7,11 @@
 */
 
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
-#ifdef HAVE_FACTORY
 #define SI_DONT_HAVE_GLOBAL_VARS
 #include <factory/factory.h>
 
@@ -27,7 +28,7 @@
 #define TRANSEXT_PRIVATES
 #include <polys/ext_fields/transext.h>
 
-void out_cf(char *s1,const CanonicalForm &f,char *s2);
+void out_cf(const char *s1,const CanonicalForm &f,const char *s2);
 
 static void conv_RecPP ( const CanonicalForm & f, int * exp, sBucket_pt result, ring r );
 
@@ -104,7 +105,7 @@ CanonicalForm convSingPFactoryP( poly p, const ring r )
     result += term;
     pIter( p );
   }
-  return result;
+ return result;
 }
 
 int convFactoryISingI( const CanonicalForm & f)
@@ -244,7 +245,16 @@ CanonicalForm convSingAFactoryA ( poly p , const Variable & a, const ring r )
 static number convFactoryNSingAN( const CanonicalForm &f, const ring r)
 {
   if ( f.isImm() )
-    return n_Init( f.intval(), r->cf->extRing->cf);
+  {
+    long longf=f.intval();
+    int intf=(int) longf;
+    if((long)intf==longf)
+    {
+      assume (r->cf->extRing != NULL);
+      return n_Init(f.intval(),r->cf->extRing->cf);
+    }
+    else return nlRInit( longf );
+  }
   else
   {
     number z=ALLOC_RNUMBER();
@@ -309,12 +319,20 @@ CanonicalForm convSingTrPFactoryP ( poly p, const ring r )
   while ( p!=NULL )
   {
     n_Normalize(p_GetCoeff(p, r), r->cf);
-    CanonicalForm term=convSingPFactoryP(NUM(p_GetCoeff(p, r)),r->cf->extRing);
 
-    if ((DEN(p_GetCoeff(p,r))!=NULL)
-    && (!errorreported))
-    {
+    // test if denominator is constant
+    if (!p_IsConstantPoly(DEN (p_GetCoeff (p,r)),r->cf->extRing) && !errorreported)
       WerrorS("conversion error: denominator!= 1");
+
+    CanonicalForm term=convSingPFactoryP(NUM (p_GetCoeff(p, r)),r->cf->extRing);
+
+    // if denominator is not NULL it should be a constant at this point
+    if (DEN (p_GetCoeff(p,r)) != NULL)
+    {
+      CanonicalForm den= convSingPFactoryP(DEN (p_GetCoeff(p, r)),r->cf->extRing);
+      if (rChar (r) == 0)
+        On (SW_RATIONAL);
+      term /= den;
     }
 
     for ( int i = n; i > 0; i-- )
@@ -360,8 +378,7 @@ convRecTrP ( const CanonicalForm & f, int * exp, poly & result , int offs, const
     for ( int i = rVar(r); i>0; i-- )
       p_SetExp( term, i ,exp[i], r);
     //if (rRing_has_Comp(currRing)) p_SetComp(term, 0, currRing); // done by pInit
-    pGetCoeff(term) = ALLOC0_RNUMBER(); // Q!?
-    NUM(pGetCoeff(term))=convFactoryPSingP( f, r->cf->extRing );
+    pGetCoeff(term)=ntInit(convFactoryPSingP( f, r->cf->extRing ), r->cf);
     p_Setm( term,r );
     result = p_Add_q( result, term,r );
   }
@@ -433,4 +450,3 @@ convRecGFGF ( const CanonicalForm & f, int * exp, poly & result )
 }
 
 #endif
-#endif /* HAVE_FACTORY */

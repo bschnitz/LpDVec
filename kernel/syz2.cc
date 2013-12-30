@@ -5,7 +5,10 @@
 * ABSTRACT: resolutions
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
+
 #include "mod2.h"
 
 #include <omalloc/omalloc.h>
@@ -23,8 +26,6 @@
 #include <polys/prCopy.h>
 
 #include <kernel/polys.h>
-
-// #include <kernel/modulop.h>
 
 #include <kernel/febase.h>
 #include <kernel/kstd1.h>
@@ -74,9 +75,8 @@ struct sopen_pairs
 static void syCreateNewPairs_Hilb(syStrategy syzstr, int index,
             int actdeg)
 {
-  SSet temp;
   SObject tso;
-  poly toHandle,tsyz=NULL,p,pp;
+  poly toHandle,p,pp;
   int r1,r2=0,rr,l=(*syzstr->Tl)[index];
   int i,j,r=0,ti;
   BOOLEAN toComp=FALSE;
@@ -84,14 +84,12 @@ static void syCreateNewPairs_Hilb(syStrategy syzstr, int index,
   crit_pairs cp=NULL,tcp;
 #endif
   actdeg += index;
-  long * ShiftedComponents = syzstr->ShiftedComponents[index-1];
-  int* Components = syzstr->truecomponents[index-1];
 
   while ((l>0) && ((syzstr->resPairs[index])[l-1].lcm==NULL)) l--;
   rr = l-1;
-  while ((rr>=0) && (((syzstr->resPairs[index])[rr].p==NULL) || 
+  while ((rr>=0) && (((syzstr->resPairs[index])[rr].p==NULL) ||
         ((syzstr->resPairs[index])[rr].order>actdeg))) rr--;
-  r2 = rr+1; 
+  r2 = rr+1;
   while ((rr>=0) && ((syzstr->resPairs[index])[rr].order==actdeg)
          && ((syzstr->resPairs[index])[rr].syzind<0))
   {
@@ -118,13 +116,13 @@ static void syCreateNewPairs_Hilb(syStrategy syzstr, int index,
       for (i=0; i<r1;i++)
       {
         if (((syzstr->resPairs[index])[i].p!=NULL) &&
-            (pGetComp((syzstr->resPairs[index])[i].p)==tc))
+            (pGetComp((syzstr->resPairs[index])[i].p)==(unsigned)tc))
         {
 #ifdef USE_CHAINCRIT
           tcp = cp;
           if (tcp!=NULL)
           {
-            while ((tcp!=NULL) && 
+            while ((tcp!=NULL) &&
               ((tcp->first_poly!=i)||(tcp->second_poly!=r1))) tcp = tcp->next;
           }
           if (tcp==NULL)
@@ -135,7 +133,7 @@ static void syCreateNewPairs_Hilb(syStrategy syzstr, int index,
             pSetm(p);
             j = 0;
             while (j<i)
-            { 
+            {
               if (nP->m[j]!=NULL)
               {
                 if (pLmDivisibleByNoComp(nP->m[j],p))
@@ -176,7 +174,7 @@ Print("Hier: %d, %d\n",j,i);
                       ti=0;
                       while ((ti<l) && (((syzstr->resPairs[index])[ti].ind1!=j)||
                              ((syzstr->resPairs[index])[ti].ind2!=i))) ti++;
-                      if (ti<l) 
+                      if (ti<l)
                       {
 #ifdef SHOW_SPRFL
 Print("gefunden in Mod %d: ",index); poly_write((syzstr->resPairs[index])[ti].lcm);
@@ -505,14 +503,13 @@ static void syRedNextPairs_Hilb(SSet nextPairs, syStrategy syzstr,
                int *maxindex,int *maxdeg)
 {
   int i,j,k=IDELEMS(syzstr->res[index]);
-  int ks=IDELEMS(syzstr->res[index+1]),kk,l,ll;
+  int ks=IDELEMS(syzstr->res[index+1]),kk;
   int ks1=IDELEMS(syzstr->orderedRes[index+1]);
   int kres=(*syzstr->Tl)[index];
   int toGo=0;
   int il;
-  number coefgcd,n;
   SSet redset=syzstr->resPairs[index];
-  poly p=NULL,q,tp;
+  poly q;
   intvec *spl1;
   SObject tso;
   intvec *spl3=NULL;
@@ -521,10 +518,7 @@ static void syRedNextPairs_Hilb(SSet nextPairs, syStrategy syzstr,
   int there_are_superfluous=0;
   int step=1,jj,j1,j2;
 #endif
-  long * ShiftedComponents = syzstr->ShiftedComponents[index];
-  int* Components = syzstr->truecomponents[index];
-  assume(Components != NULL && ShiftedComponents != NULL);
-  BOOLEAN need_reset;
+  assume((syzstr->truecomponents[index]) != NULL && (syzstr->ShiftedComponents[index]) != NULL);
 
   actord += index;
   if ((nextPairs==NULL) || (howmuch==0)) return;
@@ -576,7 +570,7 @@ Print("<H%d>",toGo);
 #endif
   while (kk>=0)
   {
-    if (toGo==0) 
+    if (toGo==0)
     {
       while (kk>=0)
       {
@@ -622,9 +616,9 @@ PrintS("sPoly: ");poly_write(tso.p);
         kBucketInit(syzstr->syz_bucket,tso.syz,-1);
         q = kBucketGetLm(syzstr->bucket);
         j = 0;
-        while (j<kres) 
+        while (j<kres)
         {
-          if ((redset[j].p!=NULL) && (pLmDivisibleBy(redset[j].p,q)) 
+          if ((redset[j].p!=NULL) && (pLmDivisibleBy(redset[j].p,q))
               && ((redset[j].ind1!=tso.ind1) || (redset[j].ind2!=tso.ind2)))
           {
 #ifdef SHOW_RED
@@ -766,14 +760,14 @@ Print("naechstes i ist: %d",i);
     {
       i = 0;
       delete spl1;
-      spl1 = ivStrip(spl2); 
+      spl1 = ivStrip(spl2);
       delete spl2;
       if (spl1!=NULL)
       {
         there_are_superfluous = -1;
         kk = (*spl1)[i]-1;
       }
-    } 
+    }
 #endif
 #ifdef USE_HEURISTIC2
     if ((kk<0) && (toGo>0))
@@ -857,8 +851,7 @@ Print("<h,%d>",(*(syzstr->hilb_coeffs[index+1]))[actord]);
 static void syRedGenerOfCurrDeg_Hilb(syStrategy syzstr, int deg,int *maxindex,int *maxdeg)
 {
   ideal res=syzstr->res[1];
-  int i=0,j,k=IDELEMS(res),k1=IDELEMS(syzstr->orderedRes[1]);
-  SSet sPairs1=syzstr->resPairs[1];
+  int i=0,k=IDELEMS(res),k1=IDELEMS(syzstr->orderedRes[1]);
   SSet sPairs=syzstr->resPairs[0];
 
   while ((k>0) && (res->m[k-1]==NULL)) k--;
@@ -924,7 +917,7 @@ static void syReOrdResult_Hilb(syStrategy syzstr,int maxindex,int maxdeg)
   (*syzstr->betti)[0] = 1;
   for (i=1;i<=syzstr->length;i++)
   {
-    if (!idIs0(syzstr->orderedRes[i])) 
+    if (!idIs0(syzstr->orderedRes[i]))
     {
       toreor = syzstr->orderedRes[i];
       k = IDELEMS(toreor);
@@ -937,7 +930,7 @@ static void syReOrdResult_Hilb(syStrategy syzstr,int maxindex,int maxdeg)
         reor->m[j] = toreor->m[j];
         toreor->m[j] = NULL;
       }
-      m = 0; 
+      m = 0;
       for (j=0;j<togo;j++)
       {
         if (syzstr->res[i]->m[j]!=NULL)
@@ -958,13 +951,13 @@ static void syReOrdResult_Hilb(syStrategy syzstr,int maxindex,int maxdeg)
 }
 
 /*2
-* the CoCoA-algorithm for free resolutions, using a formula 
+* the CoCoA-algorithm for free resolutions, using a formula
 * for remaining pairs based on Hilbert-functions
 */
 syStrategy syHilb(ideal arg,int * length)
 {
-  int i,j,actdeg=32000,index=0,reg=-1;
-  int startdeg,howmuch,toSub=0;
+  int i,j,actdeg=32000,index=0;
+  int howmuch,toSub=0;
   int maxindex=0,maxdeg=0;
   ideal temp=NULL;
   SSet nextPairs;
@@ -978,7 +971,7 @@ syStrategy syHilb(ideal arg,int * length)
     syzstr->minres[0] = idInit(1,arg->rank);
     return syzstr;
   }
-  
+
   // Creare dp,S ring and change to it
   syzstr->syRing = rAssure_dp_C(origR);
   rChangeCurrRing(syzstr->syRing);
@@ -1027,7 +1020,6 @@ syStrategy syHilb(ideal arg,int * length)
   syzstr->sev = (unsigned long **)omAlloc0((*length+1)*sizeof(unsigned long*));
   syzstr->bucket = kBucketCreate(currRing);
   syzstr->syz_bucket = kBucketCreate(currRing);
-  startdeg = actdeg;
   nextPairs = syChosePairs(syzstr,&index,&howmuch,&actdeg);
 /*--- computes the resolution ----------------------*/
   while (nextPairs!=NULL)
@@ -1094,7 +1086,7 @@ crit_fails = 0;
   if (temp!=NULL) idDelete(&temp);
   kBucketDestroy(&(syzstr->bucket));
   kBucketDestroy(&(syzstr->syz_bucket));
-  if (origR != syzstr->syRing)  
+  if (origR != syzstr->syRing)
     rChangeCurrRing(origR);
   else
     currRing =  origR;

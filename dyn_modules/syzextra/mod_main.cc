@@ -1,3 +1,7 @@
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
+
 #include <kernel/mod2.h>
 
 #include <omalloc/omalloc.h>
@@ -30,6 +34,20 @@
 #include "singularxx_defs.h"
 #include "DebugPrint.h"
 #include "myNF.h"
+
+
+#include <Singular/mod_lib.h>
+
+
+#if GOOGLE_PROFILE_ENABLED 
+#include <google/profiler.h>
+#endif // #if GOOGLE_PROFILE_ENABLED 
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 
 extern void pISUpdateComponents(ideal F, const intvec *const V, const int MIN, const ring r);
 // extern ring rCurrRingAssure_SyzComp();
@@ -157,12 +175,41 @@ static int getOptionalInteger(const leftv& h, const int _n)
   return (_n);  
 }
 
-BOOLEAN noop(leftv __res, leftv /*__v*/)
+static BOOLEAN noop(leftv __res, leftv /*__v*/)
 {
   NoReturn(__res);
   return FALSE;
 }
 
+static BOOLEAN _ProfilerStart(leftv __res, leftv h)
+{
+  NoReturn(__res);
+#if GOOGLE_PROFILE_ENABLED
+  if( h!= NULL && h->Typ() == STRING_CMD )
+  {
+    const char* name = (char*)(h->Data());
+    assume( name != NULL );   
+    ProfilerStart(name);
+  } else
+    WerrorS("ProfilerStart requires a string [name] argument"); 
+#else
+  WarnS("Sorry no google profiler support (GOOGLE_PROFILE_ENABLE!=1)...");
+//  return TRUE; // ?
+#endif // #if GOOGLE_PROFILE_ENABLED
+  return FALSE;
+  (void)h;
+}
+static BOOLEAN _ProfilerStop(leftv __res, leftv /*__v*/)
+{
+  NoReturn(__res);
+#if GOOGLE_PROFILE_ENABLED
+  ProfilerStop();
+#else
+  WarnS("Sorry no google profiler support (GOOGLE_PROFILE_ENABLED!=1)...");
+//  return TRUE; // ?
+#endif // #if GOOGLE_PROFILE_ENABLED
+  return FALSE;
+}
 
 static inline number jjLONG2N(long d)
 {
@@ -653,7 +700,7 @@ static BOOLEAN GetInducedData(leftv res, leftv h)
 
   const int pos = rGetISPos(p, r);
 
-  if( (-1 == pos) )
+  if(  /*(*/ -1 == pos /*)*/  )
   {
     WerrorS("`GetInducedData([int])` called on incompatible ring (not created by 'MakeInducedSchreyerOrdering'!)");
     return TRUE;
@@ -729,7 +776,7 @@ static BOOLEAN SetInducedReferrence(leftv res, leftv h)
 
   const int posIS = rGetISPos(p, r);
 
-  if( (-1 == posIS) )
+  if(  /*(*/ -1 == posIS /*)*/  )
   {
     WerrorS("`SetInducedReferrence(<ideal/module>, [int[, int]])` called on incompatible ring (not created by 'MakeInducedSchreyerOrdering'!)");
     return TRUE;
@@ -779,7 +826,7 @@ static BOOLEAN ISUpdateComponents(leftv res, leftv h)
 /// NF using length
 static BOOLEAN reduce_syz(leftv res, leftv h)
 {
-  const ring r = currRing;
+  // const ring r = currRing;
 
   if ( !( (h!=NULL) && (h->Typ()==VECTOR_CMD || h->Typ()==POLY_CMD) ) )
   {
@@ -933,14 +980,32 @@ static BOOLEAN _p_Content(leftv res, leftv h)
   pWrite(p); PrintLn();
   
   NoReturn(res);
+  return false;
 }
+
+static BOOLEAN _m2_end(leftv res, leftv h)
+{
+  int ret = 0;
+  
+  if ( (h!=NULL) && (h->Typ()!=INT_CMD) )
+  {
+    WerrorS("`m2_end([<int>])` expected");
+    return TRUE;
+  }
+  ret = (int)(long)(h->Data());
+
+  m2_end( ret );
+
+  NoReturn(res);
+  return FALSE;
+}
+
+   
 
 END_NAMESPACE
 
-extern "C"
-{
 
-int mod_init(SModulFunctions* psModulFunctions) 
+int SI_MOD_INIT(syzextra)(SModulFunctions* psModulFunctions) 
 {
 #define ADD0(A,B,C,D,E) A(B, (char*)C, D, E)
 // #define ADD(A,B,C,D,E) ADD0(iiAddCproc, "", C, D, E)
@@ -955,23 +1020,32 @@ int mod_init(SModulFunctions* psModulFunctions)
 
   ADD(psModulFunctions, currPack->libname, "Tail", FALSE, Tail);
 
-
   ADD(psModulFunctions, currPack->libname, "ISUpdateComponents", FALSE, ISUpdateComponents);
   ADD(psModulFunctions, currPack->libname, "SetInducedReferrence", FALSE, SetInducedReferrence);
   ADD(psModulFunctions, currPack->libname, "GetInducedData", FALSE, GetInducedData);
   ADD(psModulFunctions, currPack->libname, "SetSyzComp", FALSE, SetSyzComp);
   ADD(psModulFunctions, currPack->libname, "MakeInducedSchreyerOrdering", FALSE, MakeInducedSchreyerOrdering);
   ADD(psModulFunctions, currPack->libname, "MakeSyzCompOrdering", FALSE, MakeSyzCompOrdering);
+
+  ADD(psModulFunctions, currPack->libname, "ProfilerStart", FALSE, _ProfilerStart); ADD(psModulFunctions, currPack->libname, "ProfilerStop",  FALSE, _ProfilerStop );
   
   ADD(psModulFunctions, currPack->libname, "noop", FALSE, noop);
- 
   ADD(psModulFunctions, currPack->libname, "idPrepare", FALSE, idPrepare);
   ADD(psModulFunctions, currPack->libname, "reduce_syz", FALSE, reduce_syz);
 
   ADD(psModulFunctions, currPack->libname, "p_Content", FALSE, _p_Content);
 
+  ADD(psModulFunctions, currPack->libname, "m2_end", FALSE, _m2_end);
   //  ADD(psModulFunctions, currPack->libname, "", FALSE, );
 #undef ADD  
   return 0;
 }
+
+#ifndef EMBED_PYTHON
+extern "C" { 
+int mod_init(SModulFunctions* psModulFunctions)
+{ 
+  return SI_MOD_INIT(syzextra)(psModulFunctions); 
 }
+}
+#endif

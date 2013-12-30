@@ -1,5 +1,5 @@
-//////////////////////////////////////////////////////////////////////////////
-version = "$Id$";
+/////////////////////////////////////////////////////////////////////////////
+version="version noether.lib 4.0.0.0 Jun_2013 "; // $Id$
 category="Commutative Algebra";
 info="
 LIBRARY: noether.lib   Noether normalization of an ideal (not nessecary
@@ -548,7 +548,7 @@ ASSUME:  i is a homogeneous ideal.
   d=dim(I);
   if (char(r1) > 0 and d == 0)
   {
-    def r2=changechar("0",r1);
+    def r2=changechar(0,r1);
     setring r2;
     ideal sbi,I,i,K,T;
     map phi;
@@ -558,7 +558,7 @@ ASSUME:  i is a homogeneous ideal.
   }
   else
   {
-    def r2=changechar(charstr(r1),r1);
+    def r2=changechar(ringlist(r1),r1);
     setring r2;
     ideal sbi,I,i,K,T,ic,Ic;
     map phi;

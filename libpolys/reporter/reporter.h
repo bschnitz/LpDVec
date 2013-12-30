@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <misc/auxiliary.h>
-#include <findexec/feFopen.h>
+#include <resources/feFopen.h>
 
 extern char*  feErrors;
 extern int    feErrorsLen;
@@ -29,11 +29,14 @@ extern int  traceit ;
 #define TRACE_SHOW_LINE1  16
 #define TRACE_BREAKPOINT  32
 #define TRACE_TMP_BREAKPOINT  64
+#define TRACE_CALL       128
+#define TRACE_ASSIGN     256
+#define TRACE_CONV       512
 
-#define PROT_NONE 0
-#define PROT_I    1
-#define PROT_O    2
-#define PROT_IO   3
+
+#define SI_PROT_I    1
+#define SI_PROT_O    2
+#define SI_PROT_IO   3
 
 /* the C-part: */
 #define mflush() fflush(stdout)
@@ -56,10 +59,11 @@ void    PrintS(const char* s);
 }
 /* the C++-part: */
 
-char *  StringAppend(const char *fmt, ...);
-char *  StringAppendS(const char *s);
-char *  StringSetS(const char* s);
-void    Warn(const char *fmt, ...);
+void  StringAppend(const char *fmt, ...);
+void  StringAppendS(const char *s);
+void  StringSetS(const char* s);
+char * StringEndS();
+void  Warn(const char *fmt, ...);
 
 const char *  eati(const char *s, int *i);
 
@@ -93,8 +97,8 @@ extern void dErrorBreak();
 #endif
 
 #ifndef HAVE_ASSUME
-#define assume(x) ((void) 0)
-#define r_assume(x) ((void) 0)
+#define assume(x) do {} while (0)
+#define r_assume(x) do {} while (0)
 #else /* ! HAVE_ASSUME */
 
 #define assume_violation(s,f,l) \

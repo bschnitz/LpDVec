@@ -5,7 +5,9 @@
 * ABSTRACT - implementation of functions for Copy/Move/Delete for Polys
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <omalloc/omalloc.h>
 #include <polys/monomials/ring.h>
 #include <polys/monomials/p_polys.h>
@@ -143,6 +145,7 @@ static inline ideal
 idrCopy(ideal id, ring src_r, ring dest_r, prCopyProc_t prproc)
 {
   if (id == NULL) return NULL;
+  assume(src_r->cf==dest_r->cf);
   poly p;
   ideal res = idInit(IDELEMS(id), id->rank);
   int i;
@@ -158,6 +161,7 @@ idrCopy(ideal id, ring src_r, ring dest_r, prCopyProc_t prproc)
 
 ideal idrCopyR(ideal id, ring src_r, ring dest_r)
 {
+  assume(src_r->cf==dest_r->cf);
   ideal res;
   prCopyProc_t prproc;
   if (rField_has_simple_Alloc(dest_r))
@@ -170,6 +174,7 @@ ideal idrCopyR(ideal id, ring src_r, ring dest_r)
 
 ideal idrCopyR_NoSort(ideal id, ring src_r, ring dest_r)
 {
+  assume(src_r->cf==dest_r->cf);
   ideal res;
   prCopyProc_t prproc;
   if (rField_has_simple_Alloc(dest_r))
@@ -197,18 +202,22 @@ ideal idrShallowCopyR_NoSort(ideal id, ring src_r, ring dest_r)
 static inline ideal
 idrMove(ideal &id, ring src_r, ring dest_r, prCopyProc_t prproc)
 {
+  assume(src_r->cf==dest_r->cf);
+  assume( prproc != NULL );
+   
   if (id == NULL) return NULL;
-  ideal res = id;
 
-  int i;
-  for (i=IDELEMS(id)-1; i>=0; i--)
-    res->m[i] = prproc(id->m[i], src_r, dest_r);
-  id = NULL;
+  ideal res = id; id = NULL;
+
+  for (int i = IDELEMS(res) - 1; i >= 0; i--)
+    res->m[i] = prproc(res->m[i], src_r, dest_r);
+   
   return res;
 }
 
 ideal idrMoveR(ideal &id, ring src_r, ring dest_r)
 {
+  assume(src_r->cf==dest_r->cf);
   prCopyProc_t prproc;
   ideal res;
   if (rField_has_simple_Alloc(dest_r))
@@ -221,6 +230,7 @@ ideal idrMoveR(ideal &id, ring src_r, ring dest_r)
 
 ideal idrMoveR_NoSort(ideal &id, ring src_r, ring dest_r)
 {
+  assume(src_r->cf==dest_r->cf);
   prCopyProc_t prproc;
   ideal res;
   if (rField_has_simple_Alloc(dest_r))

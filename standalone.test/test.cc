@@ -5,12 +5,10 @@
 #include <coeffs/numbers.h>
 
 #include <reporter/reporter.h>
-#include <findexec/feResource.h>
+#include <resources/feResource.h>
 
-#ifdef HAVE_FACTORY
 // int initializeGMP(){ return 1; }
 int mmInit(void) {return 1; }
-#endif
 
 #include <polys/monomials/ring.h>
 #include <polys/monomials/p_polys.h>
@@ -130,7 +128,7 @@ int main( int, char *argv[] )
 
   StringSetS("ressources in use (as reported by feStringAppendResources(0):\n");
   feStringAppendResources(0);
-  PrintS(StringAppendS("\n"));
+  { StringAppendS("\n"); char* s = StringEndS(); PrintS(s); omFree(s); }
   // longrat
   if( simple(n_Q) )
     PrintS("Q: Test Passed!");

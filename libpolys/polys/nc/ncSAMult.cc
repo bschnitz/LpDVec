@@ -17,7 +17,9 @@
 #endif
 
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
 #ifdef HAVE_PLURAL
@@ -270,7 +272,7 @@ BOOLEAN ncInitSpecialPairMultiplication(ring r)
   PrintLn();
 #endif
   
-  if(!rIsPluralRing(r));
+  if(!rIsPluralRing(r))// ; // :(((
     return TRUE;
   
   if(rIsSCA(r))
@@ -882,7 +884,7 @@ poly CPowerMultiplier::MultiplyME(const poly pMonom, const CExponent expRight)
     e = p_GetExp(pMonom, --v, r);
 
   // TODO: review this!
-  if( (v == j) )
+  if( v == j )
   {
     poly p = p_Head(pMonom, r);    
     p_SetExp(p, v, e + n, r);
@@ -1103,4 +1105,10 @@ poly CSpecialPairMultiplier::MultiplyEM(const CExponent expLeft, const poly pMon
 
   return MultiplyEE(expLeft, p_GetExp(pMonom, GetI(), GetBasering()));
 }
+
+template class CMultiplier<CPower>;
+template class CMultiplier<int>;
+template class CMultiplier<spolyrec*>;
+
+
 #endif

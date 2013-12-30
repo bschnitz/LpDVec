@@ -77,31 +77,6 @@ void IntGenerator::next()
     current++;
 }
 
-// replacement for factory's broken psr
-static CanonicalForm
-mypsr ( const CanonicalForm &rr, const CanonicalForm &vv, const Variable & x )
-{
-  CanonicalForm r=rr, v=vv, l, test, lu, lv, t, retvalue;
-  int dr, dv, d,n=0;
-
-
-  dr = degree( r, x );
-  dv = degree( v, x );
-  if (dv <= dr) {l=LC(v,x); v = v -l*power(x,dv);}
-  else { l = 1; }
-  d= dr-dv+1;
-  while ( ( dv <= dr  ) && ( r != r.genZero()) ){
-    test = power(x,dr-dv)*v*LC(r,x);
-    if ( dr == 0 ) { r= CanonicalForm(0); }
-    else { r= r - LC(r,x)*power(x,dr); }
-    r= l*r -test;
-    dr= degree(r,x);
-    n+=1;
-  }
-  r= power(l, d-n)*r;
-  return r;
-}
-
 // replacement for factory's broken resultant
 static CanonicalForm
 resultante( const CanonicalForm & f, const CanonicalForm& g, const Variable & v )
@@ -402,8 +377,7 @@ simpleextension(const CFList & Astar, const Variable & Extension,
       // spielt die Repraesentation eine Rolle?
       // muessen wir die Nachfolger aendern, wenn s != 0 ?
       DEBOUTLN(CERR, "simpleextension: g= ", g);
-      if ( s != 0 ) DEBOUTLN(CERR, "simpleextension: s= ", s);
-      else DEBOUTLN(CERR, "simpleextension: s= ", s);
+      DEBOUTLN(CERR, "simpleextension: s= ", s);
       DEBOUTLN(CERR, "simpleextension: R= ", R);
       Returnlist.insert(s);
     }
@@ -423,8 +397,13 @@ CanonicalForm alg_lc(const CanonicalForm &f)
 }
 
 // the heart of the algorithm: the one from Trager
+#ifndef DEBUGOUTPUT
+static CFFList
+alg_factor( const CanonicalForm & f, const CFList & Astar, const Variable & vminpoly, const Varlist /*& oldord*/, const CFList & as)
+#else
 static CFFList
 alg_factor( const CanonicalForm & f, const CFList & Astar, const Variable & vminpoly, const Varlist & oldord, const CFList & as)
+#endif
 {
   CFFList L, Factorlist;
   CanonicalForm R, Rstar, s, g, h;
@@ -708,7 +687,7 @@ newfactoras( const CanonicalForm & f, const CFList & as, int &success)
   // This is for now. we need alg_sqrfree implemented!
   CanonicalForm Fgcd;
           Fgcd= alg_gcd(f,f.deriv(),Astar);
-  if ( Fgcd == 0 ) DEBOUTMSG(CERR, "WARNING: p'th root ?");
+  if ( Fgcd == 0 ) {DEBOUTMSG(CERR, "WARNING: p'th root ?");}
   if (( degree(Fgcd, f.mvar()) > 0) && (!(f.deriv().isZero())) ){
     DEBOUTLN(CERR, "Nontrivial GCD found of ", f);
     CanonicalForm Ggcd= divide(f, Fgcd,Astar);

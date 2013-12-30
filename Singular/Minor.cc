@@ -1,15 +1,18 @@
-#include <iostream>
-
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
+
+#include "Minor.h"
+
 #include <kernel/structs.h>
 #include <kernel/polys.h>
-#include <Minor.h>
 #include <kernel/febase.h>
 
+using namespace std;
 
 void MinorKey::reset()
-{                     
+{
   _numberOfRowBlocks = 0;
   _numberOfColumnBlocks = 0;
   delete [] _rowKey;
@@ -55,7 +58,7 @@ MinorKey& MinorKey::operator=(const MinorKey& mk)
       _rowKey[r] = mk.getRowKey(r);
   for (int c = 0; c < _numberOfColumnBlocks; c++)
       _columnKey[c] = mk.getColumnKey(c);
-      
+
   return *this;
 }
 
@@ -113,7 +116,7 @@ MinorKey::~MinorKey()
 
 void MinorKey::print() const
 {
-  cout << this->toString();
+  PrintS(this->toString().c_str());
 }
 
 int MinorKey::getAbsoluteRowIndex(const int i) const
@@ -144,7 +147,8 @@ int MinorKey::getAbsoluteRowIndex(const int i) const
     }
   }
   /* We should never reach this line of code. */
-  assert(false);
+  assume(false);
+  return -1;
 }
 
 int MinorKey::getAbsoluteColumnIndex(const int i) const
@@ -175,7 +179,8 @@ int MinorKey::getAbsoluteColumnIndex(const int i) const
     }
   }
   /* We should never reach this line of code. */
-  assert(false);
+  assume(false);
+  return -1;
 }
 
 void MinorKey::getAbsoluteRowIndices(int* const target) const
@@ -197,7 +202,6 @@ void MinorKey::getAbsoluteRowIndices(int* const target) const
       exponent++;
     }
   }
-  return;
 }
 
 void MinorKey::getAbsoluteColumnIndices(int* const target) const
@@ -219,7 +223,6 @@ void MinorKey::getAbsoluteColumnIndices(int* const target) const
       exponent++;
     }
   }
-  return;
 }
 
 int MinorKey::getRelativeRowIndex(const int i) const
@@ -250,7 +253,8 @@ int MinorKey::getRelativeRowIndex(const int i) const
     }
   }
   /* We should never reach this line of code. */
-  assert(false);
+  assume(false);
+  return -1;
 }
 
 int MinorKey::getRelativeColumnIndex(const int i) const
@@ -281,7 +285,8 @@ int MinorKey::getRelativeColumnIndex(const int i) const
     }
   }
   /* We should never reach this line of code. */
-  assert(false);
+  assume(false);
+  return -1;
 }
 
 unsigned int MinorKey::getRowKey(const int blockIndex) const
@@ -438,7 +443,7 @@ int MinorKey::compare (const MinorKey& that) const
    this method should never be called */
 bool MinorKey::operator==(const MinorKey& mk) const
 {
-  assert(false);
+  assume(false);
   return this->compare(mk) == 0;
 }
 
@@ -446,7 +451,7 @@ bool MinorKey::operator==(const MinorKey& mk) const
    this method should never be called */
 bool MinorKey::operator<(const MinorKey& mk) const
 {
-  assert(false);
+  assume(false);
   return this->compare(mk) == -1;
 }
 
@@ -701,7 +706,7 @@ bool MinorKey::selectNextColumns (const int k, const MinorKey& mk)
     {
       if ((blockCount - 1 >= mkBlockIndex) &&
         (shiftedBit & this->getColumnKey(mkBlockIndex))) hitBits++;
-      else if (shiftedBit & currentInt) 
+      else if (shiftedBit & currentInt)
       {
         newBitToBeSet = shiftedBit;
         newBitBlockIndex = mkBlockIndex;
@@ -832,7 +837,7 @@ int MinorValue::g_rankingStrategy = -1;
 
 int MinorValue::getWeight () const
 {
-  assert(false);  /* must be overridden in derived classes */
+  assume(false);  /* must be overridden in derived classes */
   return 0;
 }
 
@@ -840,13 +845,13 @@ int MinorValue::getWeight () const
    this method should never be called */
 bool MinorValue::operator==(const MinorValue& mv) const
 {
-  assert(false);
+  assume(false);
   return (this == &mv);  /* compare addresses of both objects */
 }
 
 string MinorValue::toString () const
 {
-  assert(false);  /* must be overridden in derived classes */
+  assume(false);  /* must be overridden in derived classes */
   return "";
 }
 
@@ -854,7 +859,7 @@ string MinorValue::toString () const
    this method should never be called */
 bool MinorValue::operator<(const MinorValue& mv) const
 {
-  assert(false);
+  assume(false);
   return (this < &mv);  /* compare addresses of both objects */
 }
 
@@ -895,7 +900,7 @@ int MinorValue::getAccumulatedAdditions() const
 
 void MinorValue::print() const
 {
-  cout << this->toString();
+  PrintS(this->toString().c_str());
 }
 
 

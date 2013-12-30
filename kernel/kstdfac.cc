@@ -5,7 +5,9 @@
 *  ABSTRACT -  Kernel: factorizing alg. of Buchberger
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <omalloc/omalloc.h>
 #include <misc/options.h>
@@ -19,14 +21,10 @@
 #include <polys/weight.h>
 //#include "ipshell.h"
 #include <misc/intvec.h>
-#ifdef HAVE_FACTORY
 #include <polys/clapsing.h>
-#endif
 #include <kernel/ideals.h>
 #include <kernel/timer.h>
 #include <kernel/kstdfac.h>
-
-#ifdef HAVE_FACTORY
 
 #ifndef NDEBUG
 int strat_nr=0;
@@ -160,8 +158,8 @@ static void copyL (kStrategy o,kStrategy n)
 
 kStrategy kStratCopy(kStrategy o)
 {
-  int i;
-  kTest_TS(o);
+  // int i;
+  assume(kTest_TS(o));
   kStrategy s=new skStrategy;
   s->next=NULL;
   s->red=o->red;
@@ -245,7 +243,7 @@ kStrategy kStratCopy(kStrategy o)
 #ifdef HAVE_PLURAL
   s->no_prod_crit=o->no_prod_crit;
 #endif
-  kTest_TS(s);
+  assume(kTest_TS(s));
   return s;
 }
 
@@ -254,16 +252,7 @@ BOOLEAN k_factorize(poly p,ideal &rfac, ideal &fac_copy)
   int facdeg=currRing->pFDeg(p,currRing);
   ideal fac=singclap_factorize(pCopy(p),NULL,1,currRing);
   int fac_elems;
-#ifndef HAVE_FACTORY
-  if (fac==NULL)
-  {
-    fac=idInit(1,1);
-    fac->m[0]=pCopy(p);
-    fac_elems=1;
-  }
-  else
-#endif
-    fac_elems=IDELEMS(fac);
+  fac_elems=IDELEMS(fac);
   rfac=fac;
   fac_copy=idInit(fac_elems,1);
 
@@ -544,7 +533,7 @@ static void completeReduceFac (kStrategy strat, ideal_list FL)
   }
 }
 
-ideal bbafac (ideal F, ideal Q,intvec *w,kStrategy strat, ideal_list FL)
+ideal bbafac (ideal /*F*/, ideal Q,intvec */*w*/,kStrategy strat, ideal_list FL)
 {
   int   olddeg,reduc=0;
   int red_result = 1;
@@ -554,7 +543,7 @@ ideal bbafac (ideal F, ideal Q,intvec *w,kStrategy strat, ideal_list FL)
   {
     if (TEST_OPT_REDSB) completeReduceFac(strat,FL);
   }
-  kTest_TS(strat);
+  assume(kTest_TS(strat));
   while (strat->Ll >= 0)
   {
     if (TEST_OPT_DEBUG) messageSets(strat);
@@ -595,7 +584,7 @@ ideal bbafac (ideal F, ideal Q,intvec *w,kStrategy strat, ideal_list FL)
         message(currRing->pFDeg(strat->P.p,currRing),&olddeg,&reduc,strat, red_result);
     }
     /* reduction of the element choosen from L */
-    kTest_TS(strat);
+    assume(kTest_TS(strat));
     red_result = strat->red(&strat->P,strat);
     if (strat->P.p != NULL)
     {
@@ -642,7 +631,7 @@ ideal bbafac (ideal F, ideal Q,intvec *w,kStrategy strat, ideal_list FL)
         if (i>=1)
         {
           n=kStratCopy(strat); // includes memset(&n->P,0,sizeof(n->P));
-          kTest_TS(n);
+          assume(kTest_TS(n));
           n->next=strat->next;
           strat->next=n;
         }
@@ -653,7 +642,7 @@ ideal bbafac (ideal F, ideal Q,intvec *w,kStrategy strat, ideal_list FL)
 
         n->P.p=fac->m[i];
         n->initEcart(&n->P);
-        kTest_TS(n);
+        assume(kTest_TS(n));
 
         /* enter P.p into s and L */
         int pos;
@@ -679,7 +668,7 @@ ideal bbafac (ideal F, ideal Q,intvec *w,kStrategy strat, ideal_list FL)
             n->P.pLength=0;
           }
         }
-        kTest_TS(n);
+        assume(kTest_TS(n));
 
         if (TEST_OPT_DEBUG)
         {
@@ -706,7 +695,7 @@ ideal bbafac (ideal F, ideal Q,intvec *w,kStrategy strat, ideal_list FL)
             }
           }
         }
-        kTest_TS(n);
+        assume(kTest_TS(n));
         /* construct D */
         if (IDELEMS(fac)>1)
         {
@@ -862,12 +851,12 @@ ideal bbafac (ideal F, ideal Q,intvec *w,kStrategy strat, ideal_list FL)
 #ifdef KDEBUG
     strat->P.lcm=NULL;
 #endif
-    kTest_TS(strat);
+    assume(kTest_TS(strat));
     if ((strat->Ll==-1) && (strat->sl>=0))
     {
       if (TEST_OPT_REDSB) completeReduceFac(strat,FL);
     }
-    kTest_TS(strat);
+    assume(kTest_TS(strat));
   }
   if (TEST_OPT_DEBUG) messageSets(strat);
   /* complete reduction of the standard basis--------- */
@@ -886,11 +875,9 @@ ideal bbafac (ideal F, ideal Q,intvec *w,kStrategy strat, ideal_list FL)
   if (Q!=NULL) updateResult(strat->Shdl,Q,strat);
   return (strat->Shdl);
 }
-#endif
 
 ideal_list kStdfac(ideal F, ideal Q, tHomog h,intvec ** w,ideal D)
 {
-#ifdef HAVE_FACTORY
   ideal r;
   BOOLEAN b=currRing->pLexOrder,toReset=FALSE;
   BOOLEAN delete_w=(w==NULL);
@@ -904,7 +891,7 @@ ideal_list kStdfac(ideal F, ideal Q, tHomog h,intvec ** w,ideal D)
     strat->LazyPass=2;
   strat->LazyDegree = 1;
   strat->ak = id_RankFreeModule(F,currRing);
-  if ((h==testHomog))
+  if (h==testHomog)
   {
     if (strat->ak==0)
     {
@@ -998,7 +985,7 @@ ideal_list kStdfac(ideal F, ideal Q, tHomog h,intvec ** w,ideal D)
             Print("empty set L[%p] because:L[%p]\n",(void*)Lj,(void*)Li);
           }
           // delete L[j],
-          Li=L; 
+          Li=L;
           if (Lj_prev!=NULL)
           {
             Lj=Lj_prev;
@@ -1037,7 +1024,4 @@ ideal_list kStdfac(ideal F, ideal Q, tHomog h,intvec ** w,ideal D)
   }
   if ((delete_w)&&(w!=NULL)&&(*w!=NULL)) delete *w;
   return L;
-#else
-  return NULL;
-#endif
 }

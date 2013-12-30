@@ -5,13 +5,16 @@
 /*
 *  ABSTRACT - get the computing time
 */
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
+
+#include <kernel/mod2.h>
+
 #include <sys/resource.h>
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
-
-#include "config.h"
-#include <kernel/mod2.h>
 
 int        timerv = 0;
 static double timer_resolution = TIMER_RESOLUTION;

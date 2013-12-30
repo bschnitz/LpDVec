@@ -9,7 +9,9 @@
 //
 //}}}
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #ifdef HAVE_IOSTREAM
 #include <iostream>
@@ -197,7 +199,7 @@ printTable ( int d, int q, CanonicalForm mipo )
 
     // open file to write to
         ostrstream fname;
-    fname << "gftables/gftable." << p << "." << d << '\0';
+    fname << "gftables/" << q << '\0';
     char * fn = fname.str();
     ofstream outfile;
     outfile.open( fn, ios::out );

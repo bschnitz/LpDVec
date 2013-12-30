@@ -12,6 +12,11 @@
 #include <stdarg.h>
 #include <string.h>
 
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
+#include <misc/auxiliary.h>
+
 #include <kernel/mod2.h>
 #include <misc/mylimits.h>
 #include <omalloc/omalloc.h>
@@ -38,7 +43,7 @@
 #include <polys/monomials/maps.h>
 #include <kernel/syz.h>
 #include <Singular/lists.h>
-#include <kernel/longrat.h>
+#include <libpolys/coeffs/longrat.h>
 #include <Singular/libparse.h>
 #include <coeffs/bigintmat.h>
 
@@ -167,13 +172,9 @@ void yyerror(const char * fmt)
   {
     Werror("leaving %s",VoiceName());
   }
-#ifdef HAVE_FACTORY
   // libfac:
-#ifdef HAVE_LIBFAC
   extern int libfac_interruptflag;
   libfac_interruptflag=0;
-#endif // #ifdef HAVE_LIBFAC
-#endif
 }
 
 %}
@@ -312,6 +313,8 @@ void yyerror(const char * fmt)
 %token <name> UNKNOWN_IDENT RINGVAR PROC_DEF
 
 /* control */
+%token <i> APPLY
+%token <i> ASSUME_CMD
 %token <i> BREAK_CMD
 %token <i> CONTINUE_CMD
 %token <i> ELSE_CMD
@@ -509,7 +512,7 @@ elemexpr:
           {
             if(iiExprArith2(&$$, &$1, COLONCOLON, &$3)) YYERROR;
           }
-        | elemexpr '.' elemexpr
+        | expr '.' elemexpr
           {
             if(iiExprArith2(&$$, &$1, '.', &$3)) YYERROR;
           }
@@ -598,6 +601,102 @@ elemexpr:
           {
             if(iiExprArith1(&$$,&$3,$1)) YYERROR;
           }
+        | ROOT_DECL '(' expr ')'
+          {
+            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
+          }
+        | ROOT_DECL_LIST '(' exprlist ')'
+          {
+            if(iiExprArithM(&$$,&$3,$1)) YYERROR;
+          }
+        | ROOT_DECL_LIST '(' ')'
+          {
+            if(iiExprArithM(&$$,NULL,$1)) YYERROR;
+          }
+        | RING_DECL '(' expr ')'
+          {
+            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
+          }
+        | RING_DECL_LIST '(' exprlist ')'
+          {
+            if(iiExprArithM(&$$,&$3,$1)) YYERROR;
+          }
+        | RING_DECL_LIST '(' ')'
+          {
+            if(iiExprArithM(&$$,NULL,$1)) YYERROR;
+          }
+        | CMD_1 '(' expr ')'
+          {
+            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
+          }
+        | CMD_12 '(' expr ')'
+          {
+            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
+          }
+        | CMD_13 '(' expr ')'
+          {
+            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
+          }
+        | CMD_123 '(' expr ')'
+          {
+            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
+          }
+        | CMD_2 '(' expr ',' expr ')'
+          {
+            if(iiExprArith2(&$$,&$3,$1,&$5,TRUE)) YYERROR;
+          }
+        | CMD_12 '(' expr ',' expr ')'
+          {
+            if(iiExprArith2(&$$,&$3,$1,&$5,TRUE)) YYERROR;
+          }
+        | CMD_23 '(' expr ',' expr ')'
+          {
+            if(iiExprArith2(&$$,&$3,$1,&$5,TRUE)) YYERROR;
+          }
+        | CMD_123 '(' expr ',' expr ')'
+          {
+            if(iiExprArith2(&$$,&$3,$1,&$5,TRUE)) YYERROR;
+          }
+        | CMD_3 '(' expr ',' expr ',' expr ')'
+          {
+            if(iiExprArith3(&$$,$1,&$3,&$5,&$7)) YYERROR;
+          }
+        | CMD_13 '(' expr ',' expr ',' expr ')'
+          {
+            if(iiExprArith3(&$$,$1,&$3,&$5,&$7)) YYERROR;
+          }
+        | CMD_23 '(' expr ',' expr ',' expr ')'
+          {
+            if(iiExprArith3(&$$,$1,&$3,&$5,&$7)) YYERROR;
+          }
+        | CMD_123 '(' expr ',' expr ',' expr ')'
+          {
+            if(iiExprArith3(&$$,$1,&$3,&$5,&$7)) YYERROR;
+          }
+        | CMD_M '(' ')'
+          {
+            if(iiExprArithM(&$$,NULL,$1)) YYERROR;
+          }
+        | CMD_M '(' exprlist ')'
+          {
+            if(iiExprArithM(&$$,&$3,$1)) YYERROR;
+          }
+        | mat_cmd '(' expr ',' expr ',' expr ')'
+          {
+            if(iiExprArith3(&$$,$1,&$3,&$5,&$7)) YYERROR;
+          }
+        | mat_cmd '(' expr ')'
+          {
+            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
+          }
+        | RING_CMD '(' rlist ',' rlist ',' ordering ')'
+          {
+            if(iiExprArith3(&$$,RING_CMD,&$3,&$5,&$7)) YYERROR;
+          }
+        | RING_CMD '(' expr ')'
+          {
+            if(iiExprArith1(&$$,&$3,RING_CMD)) YYERROR;
+          }
         ;
 
 exprlist:
@@ -633,101 +732,29 @@ expr:   expr_arithmetic
           {
             if(iiExprArith2(&$$,&$1,'[',&$3)) YYERROR;
           }
-        | ROOT_DECL '(' expr ')'
+        | APPLY '('  expr ',' CMD_1 ')'
           {
-            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
+            if (iiApply(&$$, &$3, $5, NULL)) YYERROR;
           }
-        | ROOT_DECL_LIST '(' exprlist ')'
+        | APPLY '('  expr ',' CMD_12 ')'
           {
-            if(iiExprArithM(&$$,&$3,$1)) YYERROR;
+            if (iiApply(&$$, &$3, $5, NULL)) YYERROR;
           }
-        | ROOT_DECL_LIST '(' ')'
+        | APPLY '('  expr ',' CMD_13 ')'
           {
-            if(iiExprArithM(&$$,NULL,$1)) YYERROR;
+            if (iiApply(&$$, &$3, $5, NULL)) YYERROR;
           }
-        | RING_DECL '(' expr ')'
+        | APPLY '('  expr ',' CMD_123 ')'
           {
-            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
+            if (iiApply(&$$, &$3, $5, NULL)) YYERROR;
           }
-        | RING_DECL_LIST '(' exprlist ')'
+        | APPLY '('  expr ',' CMD_M ')'
           {
-            if(iiExprArithM(&$$,&$3,$1)) YYERROR;
+            if (iiApply(&$$, &$3, $5, NULL)) YYERROR;
           }
-        | RING_DECL_LIST '(' ')'
+        | APPLY '('  expr ',' expr ')'
           {
-            if(iiExprArithM(&$$,NULL,$1)) YYERROR;
-          }
-        | CMD_1 '(' expr ')'
-          {
-            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
-          }
-        | CMD_2 '(' expr ',' expr ')'
-          {
-            if(iiExprArith2(&$$,&$3,$1,&$5,TRUE)) YYERROR;
-          }
-        | CMD_3 '(' expr ',' expr ',' expr ')'
-          {
-            if(iiExprArith3(&$$,$1,&$3,&$5,&$7)) YYERROR;
-          }
-        | CMD_23 '(' expr ',' expr ')'
-          {
-            if(iiExprArith2(&$$,&$3,$1,&$5,TRUE)) YYERROR;
-          }
-        | CMD_23 '(' expr ',' expr ',' expr ')'
-          {
-            if(iiExprArith3(&$$,$1,&$3,&$5,&$7)) YYERROR;
-          }
-        | CMD_12 '(' expr ')'
-          {
-            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
-          }
-        | CMD_13 '(' expr ')'
-          {
-            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
-          }
-        | CMD_12 '(' expr ',' expr ')'
-          {
-            if(iiExprArith2(&$$,&$3,$1,&$5,TRUE)) YYERROR;
-          }
-        | CMD_123 '(' expr ')'
-          {
-            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
-          }
-        | CMD_123 '(' expr ',' expr ')'
-          {
-            if(iiExprArith2(&$$,&$3,$1,&$5,TRUE)) YYERROR;
-          }
-        | CMD_13 '(' expr ',' expr ',' expr ')'
-          {
-            if(iiExprArith3(&$$,$1,&$3,&$5,&$7)) YYERROR;
-          }
-        | CMD_123 '(' expr ',' expr ',' expr ')'
-          {
-            if(iiExprArith3(&$$,$1,&$3,&$5,&$7)) YYERROR;
-          }
-        | CMD_M '(' ')'
-          {
-            if(iiExprArithM(&$$,NULL,$1)) YYERROR;
-          }
-        | CMD_M '(' exprlist ')'
-          {
-            if(iiExprArithM(&$$,&$3,$1)) YYERROR;
-          }
-        | mat_cmd '(' expr ',' expr ',' expr ')'
-          {
-            if(iiExprArith3(&$$,$1,&$3,&$5,&$7)) YYERROR;
-          }
-        | mat_cmd '(' expr ')'
-          {
-            if(iiExprArith1(&$$,&$3,$1)) YYERROR;
-          }
-        | RING_CMD '(' rlist ',' rlist ',' ordering ')'
-          {
-            if(iiExprArith3(&$$,RING_CMD,&$3,&$5,&$7)) YYERROR;
-          }
-        | RING_CMD '(' expr ')'
-          {
-            if(iiExprArith1(&$$,&$3,RING_CMD)) YYERROR;
+            if (iiApply(&$$, &$3, 0, &$5)) YYERROR;
           }
         | quote_start expr quote_end
           {
@@ -750,6 +777,12 @@ expr:   expr_arithmetic
             siq--;
             #endif
           }
+	| assume_start expr ',' expr quote_end
+	  {
+	    iiTestAssume(&$2,&$4);
+            memset(&$$,0,sizeof($$));
+            $$.rtyp=NONE;
+	  }
         | EVAL  '('
           {
             #ifdef SIQ
@@ -769,6 +802,14 @@ expr:   expr_arithmetic
           ;
 
 quote_start:    QUOTE  '('
+          {
+            #ifdef SIQ
+            siq++;
+            #endif
+          }
+          ;
+
+assume_start:    ASSUME_CMD '('
           {
             #ifdef SIQ
             siq++;
@@ -835,10 +876,15 @@ expr_arithmetic:
           }
         | NOT expr
           {
-            memset(&$$,0,sizeof($$));
-            int i; TESTSETINT($2,i);
-            $$.rtyp  = INT_CMD;
-            $$.data = (void *)(long)(i == 0 ? 1 : 0);
+            if (siq>0)
+            { if (iiExprArith1(&$$,&$2,NOT)) YYERROR; }
+	    else
+	    {
+              memset(&$$,0,sizeof($$));
+              int i; TESTSETINT($2,i);
+              $$.rtyp  = INT_CMD;
+              $$.data = (void *)(long)(i == 0 ? 1 : 0);
+	    }
           }
         | '-' expr %prec UMINUS
           {
@@ -1097,6 +1143,7 @@ cmdeq:  '='
           }
         ;
 
+
 mat_cmd: MATRIX_CMD
             { $$ = $1; }
         | INTMAT_CMD
@@ -1142,7 +1189,7 @@ exportcmd:
         {
           if (basePack!=$2.req_packhdl)
           {
-            if(iiExport(&$2,0,currPackHdl)) YYERROR;
+            if(iiExport(&$2,0,currPack)) YYERROR;
           }
           else
             if (iiExport(&$2,0)) YYERROR;
@@ -1327,14 +1374,7 @@ ringcmd:
 scriptcmd:
          SYSVAR stringexpr
           {
-            if (($1!=LIB_CMD)||(iiLibCmd($2,TRUE,TRUE,TRUE)))
-            //if ($1==LIB_CMD)
-            //{
-            //  sleftv tmp;
-            //  if(iiExprArith1(&tmp,&$2,LIB_CMD)) YYERROR;
-            //}
-            //else
-                YYERROR;
+            if (($1!=LIB_CMD)||(jjLOAD($2,TRUE))) YYERROR;
           }
         ;
 
@@ -1531,7 +1571,6 @@ forcmd:
 proccmd:
         PROC_CMD extendedid BLOCKTOK
           {
-            procinfov pi;
             idhdl h = enterid($2,myynest,PROC_CMD,&IDROOT,TRUE);
             if (h==NULL) {omFree((ADDRESS)$2);omFree((ADDRESS)$3); YYERROR;}
             iiInitSingularProcinfo(IDPROC(h),"", $2, 0, 0);
@@ -1552,7 +1591,6 @@ proccmd:
             }
             char *args=iiProcArgs($2,FALSE);
             omFree((ADDRESS)$2);
-            procinfov pi;
             iiInitSingularProcinfo(IDPROC(h),"", $1, 0, 0);
             IDPROC(h)->data.s.body = (char *)omAlloc(strlen($3)+strlen(args)+14);;
             sprintf(IDPROC(h)->data.s.body,"%s\n%s;return();\n\n",args,$3);
@@ -1573,7 +1611,6 @@ proccmd:
             }
             char *args=iiProcArgs($2,FALSE);
             omFree((ADDRESS)$2);
-            procinfov pi;
             iiInitSingularProcinfo(IDPROC(h),"", $1, 0, 0);
             omFree((ADDRESS)$1);
             IDPROC(h)->data.s.body = (char *)omAlloc(strlen($4)+strlen(args)+14);;
@@ -1604,8 +1641,7 @@ parametercmd:
 returncmd:
         RETURN '(' exprlist ')'
           {
-            if(iiRETURNEXPR==NULL) YYERROR;
-            iiRETURNEXPR[myynest].Copy(&$3);
+            iiRETURNEXPR.Copy(&$3);
             $3.CleanUp();
             if (exitBuffer(BT_proc)) YYERROR;
           }
@@ -1613,9 +1649,8 @@ returncmd:
           {
             if ($1==RETURN)
             {
-              if(iiRETURNEXPR==NULL) YYERROR;
-              iiRETURNEXPR[myynest].Init();
-              iiRETURNEXPR[myynest].rtyp=NONE;
+              iiRETURNEXPR.Init();
+              iiRETURNEXPR.rtyp=NONE;
               if (exitBuffer(BT_proc)) YYERROR;
             }
           }

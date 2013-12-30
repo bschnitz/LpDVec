@@ -4,7 +4,8 @@
 /*
  * ABSTRACT: machine depend code for dynamic modules
  *
- * Provides: dynl_open()
+ * Provides: dynl_check_opened()
+ *           dynl_open()
  *           dynl_sym()
  *           dynl_error()
  *           dynl_close()
@@ -14,99 +15,26 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <errno.h>
+#include <unistd.h>
 
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
 #include <omalloc/omalloc.h>
 
 #include <reporter/reporter.h>
 
-#include <findexec/feResource.h>
+#include <resources/feResource.h>
 
 #include "mod_raw.h"
 
 #ifdef HAVE_STATIC
 #undef HAVE_DL
 #endif
-/*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
-#define BYTES_TO_CHECK 7
-
-lib_types type_of_LIB(char *newlib, char *libnamebuf)
-{
-  const unsigned char mach_o[]={0xfe,0xed,0xfa,0xce,0};
-  const unsigned char mach_O[]={0xce,0xfa,0xed,0xfe,0};
-   
-  const unsigned char mach_o64[]={0xfe,0xed,0xfa,0xcf,0};
-  const unsigned char mach_O64[]={0xcf,0xfa,0xed,0xfe,0};
-   
-  char        buf[BYTES_TO_CHECK+1];        /* one extra for terminating '\0' */
-  struct stat sb;
-  int nbytes = 0;
-  int ret;
-  lib_types LT=LT_NONE;
-
-  FILE * fp = feFopen( newlib, "r", libnamebuf, FALSE );
-  ret = stat(libnamebuf, &sb);
-
-  if (fp==NULL)
-  {
-    return LT_NOTFOUND;
-  }
-  if((sb.st_mode & S_IFMT) != S_IFREG)
-  {
-    goto lib_type_end;
-  }
-  if ((nbytes = fread((char *)buf, sizeof(char), BYTES_TO_CHECK, fp)) == -1)
-  {
-    goto lib_type_end;
-    /*NOTREACHED*/
-  }
-  if (nbytes == 0)
-    goto lib_type_end;
-  else
-  {
-    buf[nbytes++] = '\0';        /* null-terminate it */
-  }
-  if( (strncmp(buf, "\177ELF", 4)==0)) /* generic ELF */
-  {
-    LT = LT_ELF;
-    //omFree(newlib);
-    //newlib = omStrDup(libnamebuf);
-    goto lib_type_end;
-  }
-
-  if( (strncmp(buf, (const char *)mach_o, 4)==0) || (strncmp(buf, (const char *)mach_O, 4)==0)) /* generic Mach-O module */
-  {
-    LT = LT_MACH_O;
-    //omFree(newlib);
-    //newlib = omStrDup(libnamebuf);
-    goto lib_type_end;
-  }
-
-  if( (strncmp(buf, (const char *)mach_o64, 4)==0) || (strncmp(buf, (const char *)mach_O64, 4)==0)) /* generic Mach-O 64-bit module */
-  {
-    LT = LT_MACH_O;
-    //omFree(newlib);
-    //newlib = omStrDup(libnamebuf);
-    goto lib_type_end;
-  }
-   
-  if( (strncmp(buf, "\02\020\01\016\05\022@", 7)==0))
-  {
-    LT = LT_HPUX;
-    //omFree(newlib);
-    //newlib = omStrDup(libnamebuf);
-    goto lib_type_end;
-  }
-  if(isprint(buf[0]) || buf[0]=='\n')
-  { LT = LT_SINGULAR; goto lib_type_end; }
-
-  lib_type_end:
-  fclose(fp);
-  return LT;
-}
 /*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*/
 #if defined(HAVE_DL)
 
@@ -124,47 +52,51 @@ static BOOLEAN warn_proc = FALSE;
 #ifdef NDEBUG
 #define DL_TAIL ".so"
 #else
-#define DL_TAIL "_g.so"
+#define DL_TAIL ".so"
+//#define DL_TAIL "_g.so"
 #endif
 #endif
 
 void* dynl_open_binary_warn(const char* binary_name, const char* msg)
 {
   void* handle = NULL;
-  const char* bin_dir = feGetResource('b');
-  if (bin_dir != NULL)
+  char* binary_name_so=NULL;
+  BOOLEAN found=FALSE;
+
+  // try P_PROCS_DIR (%P)
+  char* proc_path = feGetResource('P');
+  if (proc_path != NULL)
   {
-    const int binary_name_so_length = 3 + strlen(DL_TAIL) + strlen(binary_name) + strlen(DIR_SEPP) + strlen(bin_dir);
-    char* binary_name_so = (char *)omAlloc0( binary_name_so_length * sizeof(char) );
-    snprintf(binary_name_so, binary_name_so_length, "%s%s%s%s", bin_dir, DIR_SEPP, binary_name, DL_TAIL);
-    handle = dynl_open(binary_name_so);
-    omFreeSize((ADDRESS)binary_name_so, binary_name_so_length * sizeof(char) );
-  }
-
-  if (handle == NULL )
-  {
-    const int binary_name_so_length = 3 + strlen(DL_TAIL) + strlen(binary_name);
-    char* binary_name_so = (char *)omAlloc0( binary_name_so_length * sizeof(char) );
-    snprintf(binary_name_so, binary_name_so_length, "%s%s", binary_name, DL_TAIL);
-
-    char* pp = (char *)omAlloc0( MAXPATHLEN * sizeof(char) );
-    lib_types type = type_of_LIB( binary_name_so, pp );
-    omFreeSize((ADDRESS)binary_name_so, binary_name_so_length * sizeof(char) );
-
-    if( type != LT_SINGULAR && type != LT_NONE && type != LT_NOTFOUND )
-      handle = dynl_open(pp);
-
-    omFreeSize((ADDRESS)pp, MAXPATHLEN * sizeof(char) );
+    char *p;
+    char *q;
+    p=proc_path;
+    int binary_name_so_length = 3 + strlen(DL_TAIL) + strlen(binary_name) + strlen(DIR_SEPP) + strlen(proc_path);
+    binary_name_so = (char *)omAlloc0( binary_name_so_length * sizeof(char) );
+    while((p!=NULL)&&(*p!='\0'))
+    {
+      q=strchr(p,fePathSep);
+      if (q!=NULL) *q='\0';
+      strcpy(binary_name_so,p);
+      if (q!=NULL) *q=fePathSep;
+      strcat(binary_name_so,DIR_SEPP);
+      strcat(binary_name_so,binary_name);
+      strcat(binary_name_so,DL_TAIL);
+      if(!access(binary_name_so, R_OK)) { found=TRUE; break; }
+      if (q!=NULL) p=q+1; else p=NULL;
+    }
+    if (found) handle = dynl_open(binary_name_so);
   }
 
   if (handle == NULL && ! warn_handle)
   {
-      Warn("Could not find dynamic library: %s%s", binary_name, DL_TAIL);
-      Warn("Error message from system: %s", dynl_error());
-      if (msg != NULL) Warn("%s", msg);
-      Warn("See the INSTALL section in the Singular manual for details.");
-      warn_handle = TRUE;
+    Warn("Could not find dynamic library: %s%s (path %s)",
+            binary_name, DL_TAIL,proc_path);
+    if (found) Warn("Error message from system: %s", dynl_error());
+    if (msg != NULL) Warn("%s", msg);
+    Warn("See the INSTALL section in the Singular manual for details.");
+    warn_handle = TRUE;
   }
+  omfree((ADDRESS)binary_name_so );
 
   return  handle;
 }
@@ -196,21 +128,17 @@ extern "C" {
  *                      SunOS-5 / IRIX-6 / ppcMac-Darwin / FreeeBSD          *
  *****************************************************************************/
 // relying on gcc to define __ELF__, check with cpp -dM /dev/null
-// Mac OsX is an ELF system, but does not define __ELF__
-// Solaris is an ELF system, but does not define __ELF__
 #if defined(__ELF__)
 #define HAVE_ELF_SYSTEM
 #endif
 
-#if defined(ppcMac_darwin)
+// Mac OsX is an ELF system, but does not define __ELF__
+#if (defined(__APPLE__) && defined(__MACH__)) && (!defined(HAVE_ELF_SYSTEM))
 #define HAVE_ELF_SYSTEM
 #endif
 
-#if defined(__APPLE__) && defined(__MACH__)
-#define HAVE_ELF_SYSTEM
-#endif
-
-#if defined(SunOS_5)
+// Solaris is an ELF system, but does not define __ELF__
+#if defined(__sun) && defined(__SVR4)
 #define HAVE_ELF_SYSTEM
 #endif
 
@@ -219,6 +147,13 @@ extern "C" {
 #define DL_IMPLEMENTED
 
 static void* kernel_handle = NULL;
+int dynl_check_opened(
+  char *filename    /* I: filename to check */
+  )
+{
+  return dlopen(filename,RTLD_NOW|RTLD_NOLOAD) != NULL;
+}
+
 void *dynl_open(
   char *filename    /* I: filename to load */
   )
@@ -264,6 +199,18 @@ const char *dynl_error()
 
 typedef char *((*func_ptr) ());
 
+int dynl_check_opened(    /* NOTE: untested */
+  char *filename    /* I: filename to check */
+  )
+{
+  struct shl_descriptor *desc;
+  for (int idx = 0; shl_get(idx, &desc) != -1; ++idx)
+  {
+    if (strcmp(filename, desc->filename) == 0) return TRUE;
+  }
+  return FALSE;
+}
+
 void *dynl_open(char *filename)
 {
   shl_t           handle = shl_load(filename, BIND_DEFERRED, 0);
@@ -306,6 +253,11 @@ const char *dynl_error()
  * SECTION generic: dynamic madules not available
  *****************************************************************************/
 #ifndef DL_IMPLEMENTED
+
+int dynl_check_opened(char *filename)
+{
+  return FALSE;
+}
 
 void *dynl_open(char *filename)
 {

@@ -7,7 +7,9 @@
 // to produce a non-inline version from lists.h
 #define LISTS_CC
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <Singular/tok.h>
 #include <kernel/febase.h>
@@ -24,7 +26,7 @@ omBin slists_bin = omGetSpecBin(sizeof(slists));
 int lSize(lists L)
 {
   int n=L->nr;
-  while ((n>=0)&&(L->m[n].rtyp==DEF_CMD)) n--;
+   while ((n>=0)&&((L->m[n].rtyp==DEF_CMD)||(L->m[n].rtyp==0))) n--;
   return n;
 }
 

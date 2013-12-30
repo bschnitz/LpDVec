@@ -1,14 +1,14 @@
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
-#ifdef HAVE_FACTORY
 #include <factory/factory.h>
-#endif
 
 #include <omalloc/omalloc.h>
 
 #include <reporter/reporter.h>
-#include <findexec/feResource.h>
+#include <resources/feResource.h>
 
 #include <coeffs/coeffs.h>
 #include <coeffs/numbers.h>
@@ -24,10 +24,8 @@
 #include <coeffs/rintegers.h>
 
 
-#ifdef HAVE_FACTORY
 int initializeGMP(void){ return 1; }
 int mmInit(void) {return 1; } // ? due to SINGULAR!!!...???
-#endif
 
 #include <iostream>
 
@@ -42,16 +40,11 @@ void Print(/*const*/ number a, const coeffs r, BOOLEAN eoln = TRUE)
   StringSetS("");
   n_Write(a, r);
 
-  char* s = NULL; 
 
   if( eoln ) 
-    s = StringAppend("\n");
-  else
-    s = StringAppend("");
+    PrintLn();
 
-  PrintS(s);
-
-  // free s?
+  { char* s = StringEndS(); PrintS(s); omFree(s); }
 }
 
 
@@ -170,7 +163,7 @@ namespace
       CASE(n_long_C);
       CASE(n_Z);
       CASE(n_Zn);
-      CASE(n_Zpn);
+      CASE(n_Znm);
       CASE(n_Z2m);
       CASE(n_CF);
       default: return o << "Unknown type: [" << (const unsigned long) type << "]";  
@@ -258,12 +251,23 @@ bool Test(const n_coeffType type, void* p = NULL)
 
 int main( int, char *argv[] ) 
 {
+  assume( sizeof(long) == SIZEOF_LONG );
+
+  if( sizeof(long) != SIZEOF_LONG )
+  {
+    WerrorS("Bad config.h: wrong size of long!");
+
+    return(1);
+  }
+
+   
   feInitResources(argv[0]);
 
   StringSetS("ressources in use (as reported by feStringAppendResources(0):\n");
   feStringAppendResources(0);
-  PrintS(StringAppendS("\n"));
+  PrintLn();
 
+  { char* s = StringEndS(); PrintS(s); omFree(s); }
 
   int c = 0;
   
@@ -338,7 +342,12 @@ int main( int, char *argv[] )
 #ifdef HAVE_RINGS
   type = n_Zn;
 
-  if( Test(type, (void*) 3) )
+  ZnmInfo Znmparam;
+  Znmparam.base= (mpz_ptr) omAlloc (sizeof (mpz_t));
+  mpz_init_set_ui (Znmparam.base, 3);
+  Znmparam.exp= 1;
+
+  if( Test(type, (void*) &Znmparam) )
     c ++;
 
 #endif
@@ -357,14 +366,6 @@ int main( int, char *argv[] )
     c ++;
 #endif
 
-
-#ifdef HAVE_RINGS
-  type = n_Zn;
-
-  if( Test(type, (void*) 3) )
-    c ++;
-#endif
-  
   // polynomial rings needed for: n_algExt, n_transExt !
   
   return c;

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 // emacs edit mode for this file is -*- C++ -*-
-static const char * errmsg = "\nYou found a bug!\nPlease inform singular@mathematik.uni-kl.de\n Please include above information and your input (the ideal/polynomial and characteristic) in your bug-report.\nThank you.";
+/*static const char * errmsg = "\nYou found a bug!\nPlease inform singular@mathematik.uni-kl.de\n Please include above information and your input (the ideal/polynomial and characteristic) in your bug-report.\nThank you.";*/
 ///////////////////////////////////////////////////////////////////////////////
 // FACTORY - Includes
 
@@ -218,7 +218,7 @@ SqrFreed( const CanonicalForm & r , const CanonicalForm &mipo=0)
 // and continue computations with pp(f)
   for (int k=1; k<=n; k++)
   {
-    if ((mipo.isZero())/*||(k!=1)*/)
+    if (/*(*/ mipo.isZero() /*)*/) /*||(k!=1)*/ 
     {
       g = swapvar(f,k,n); g = content(g);
       if ( ! (g.isOne() || (-g).isOne() || (degree(g)==0) ))
@@ -265,7 +265,7 @@ SqrFreed( const CanonicalForm & r , const CanonicalForm &mipo=0)
   {  // Pth roots only apply to char > 0
     for (int k=1; k<=n; k++)
     {
-      if ((mipo.isZero())/*||(k!=1)*/)
+      if (/*(*/ mipo.isZero() /*)*/) /*||(k!=1)*/ 
       {
         g=swapvar(f,k,n) ;
         g = g.deriv();

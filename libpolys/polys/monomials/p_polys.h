@@ -35,6 +35,15 @@
 #include <polys/nc/nc.h>
 #endif
 
+poly p_Farey(poly p, number N, const ring r);
+/*
+* xx,q: arrays of length 0..rl-1
+* xx[i]: SB mod q[i]
+* assume: char=0
+* assume: q[i]!=0
+* destroys xx
+*/
+poly p_ChineseRemainder(poly *xx, number *x,number *q, int rl, const ring R);
 /***************************************************************
  *
  * Divisiblity tests, args must be != NULL, except for
@@ -153,16 +162,16 @@ BOOLEAN _pp_Test(poly p, ring lmRing, ring tailRing, int level);
 
 #define pIsMonomOf(p, q)        (TRUE)
 #define pHaveCommonMonoms(p, q) (TRUE)
-#define p_LmCheckIsFromRing(p,r)  ((void)0)
-#define p_LmCheckPolyRing(p,r)    ((void)0)
-#define p_CheckIsFromRing(p,r)  ((void)0)
-#define p_CheckPolyRing(p,r)    ((void)0)
-#define p_CheckRing(r)          ((void)0)
-#define P_CheckIf(cond, check)  ((void)0)
+#define p_LmCheckIsFromRing(p,r)  do {} while (0)
+#define p_LmCheckPolyRing(p,r)    do {} while (0)
+#define p_CheckIsFromRing(p,r)  do {} while (0)
+#define p_CheckPolyRing(p,r)    do {} while (0)
+#define p_CheckRing(r)          do {} while (0)
+#define P_CheckIf(cond, check)  do {} while (0)
 
-#define p_Test(p,r)     ((void) 1)
-#define p_LmTest(p,r)   ((void) 1)
-#define pp_Test(p, lmRing, tailRing) ((void) 1)
+#define p_Test(p,r)     do {} while (0)
+#define p_LmTest(p,r)   do {} while (0)
+#define pp_Test(p, lmRing, tailRing) do {} while (0)
 
 #endif
 
@@ -193,6 +202,7 @@ poly p_Last(const poly a, int &l, const ring r);
 
 void      p_Norm(poly p1, const ring r);
 void      p_Normalize(poly p,const ring r);
+void      p_ProjectiveUnique(poly p,const ring r);
 
 void      p_Content(poly p, const ring r);
 #if 1
@@ -202,7 +212,7 @@ void      p_SimpleContent(poly p, int s, const ring r);
 
 poly      p_Cleardenom(poly p, const ring r);
 void      p_Cleardenom_n(poly p, const ring r,number &c);
-number    p_GetAllDenom(poly ph, const ring r);
+//number    p_GetAllDenom(poly ph, const ring r);// unused
 
 int       p_Size( poly p, const ring r );
 
@@ -337,17 +347,17 @@ void      pEnlargeSet(poly**p, int length, int increment);
  *
  ***************************************************************/
 /// print p according to ShortOut in lmRing & tailRing
-char*     p_String0(poly p, ring lmRing, ring tailRing);
+void      p_String0(poly p, ring lmRing, ring tailRing);
 char*     p_String(poly p, ring lmRing, ring tailRing);
 void      p_Write(poly p, ring lmRing, ring tailRing);
 void      p_Write0(poly p, ring lmRing, ring tailRing);
 void      p_wrp(poly p, ring lmRing, ring tailRing);
 
 /// print p in a short way, if possible
-char* p_String0Short(const poly p, ring lmRing, ring tailRing);
+void  p_String0Short(const poly p, ring lmRing, ring tailRing);
 
 /// print p in a long way
-char* p_String0Long(const poly p, ring lmRing, ring tailRing);
+void   p_String0Long(const poly p, ring lmRing, ring tailRing);
 
 
 /***************************************************************
@@ -408,7 +418,7 @@ static inline long p_GetOrder(poly p, ring r)
     {
       case ro_am:
       case ro_wp_neg:
-        return (((long)((p)->exp[r->pOrdIndex]))-POLY_NEGWEIGHT_OFFSET);
+        return ((p->exp[r->pOrdIndex])-POLY_NEGWEIGHT_OFFSET);
       case ro_syzcomp:
       case ro_syz:
       case ro_cp:
@@ -647,7 +657,7 @@ static inline int p_Comp_k_n(poly a, poly b, int k, ring r)
 #if PDEBUG > 2
 static inline poly p_New(const ring r, omBin bin)
 #else
-static inline poly p_New(const ring r, omBin bin)
+static inline poly p_New(const ring /*r*/, omBin bin)
 #endif
 {
   p_CheckRing2(r);
@@ -968,7 +978,7 @@ static inline poly p_Minus_mm_Mult_qq(poly p, const poly m, const poly q, int &l
   int shorter;
   const poly res = r->p_Procs->p_Minus_mm_Mult_qq(p, m, q, shorter, spNoether, r);
   lp += lq - shorter;
-  assume( lp == pLength(res) );
+//  assume( lp == pLength(res) );
   return res;
 }
 
@@ -1153,9 +1163,9 @@ static inline char*     p_String(poly p, ring p_ring)
 {
   return p_String(p, p_ring, p_ring);
 }
-static inline char*     p_String0(poly p, ring p_ring)
+static inline void     p_String0(poly p, ring p_ring)
 {
-  return p_String0(p, p_ring, p_ring);
+  p_String0(p, p_ring, p_ring);
 }
 static inline void      p_Write(poly p, ring p_ring)
 {
@@ -1191,7 +1201,7 @@ while(0)
 
 #endif
 
-#define pDivAssume(x)   ((void)0)
+#define pDivAssume(x)   do {} while (0)
 
 
 
@@ -1365,22 +1375,22 @@ static inline void p_ExpVectorSub(poly p1, poly p2, const ring r)
 
 }
 // ExpVector(p1) += ExpVector(p2) - ExpVector(p3)
-//static inline void p_ExpVectorAddSub(poly p1, poly p2, poly p3, const ring r)
-//{
-//  p_LmCheckPolyRing1(p1, r);
-//  p_LmCheckPolyRing1(p2, r);
-//  p_LmCheckPolyRing1(p3, r);
-//#if PDEBUG >= 1
-//  for (int i=1; i<=r->N; i++)
-//    pAssume1(p_GetExp(p1, i, r) + p_GetExp(p2, i, r) >= p_GetExp(p3, i, r));
-//  pAssume1(p_GetComp(p1, r) == 0 ||
-//           (p_GetComp(p2, r) - p_GetComp(p3, r) == 0) ||
-//           (p_GetComp(p1, r) == p_GetComp(p2, r) - p_GetComp(p3, r)));
-//#endif
-//
-//  p_MemAddSub_LengthGeneral(p1->exp, p2->exp, p3->exp, r->ExpL_Size);
-//  // no need to adjust in case of NegWeights
-//}
+static inline void p_ExpVectorAddSub(poly p1, poly p2, poly p3, const ring r)
+{
+  p_LmCheckPolyRing1(p1, r);
+  p_LmCheckPolyRing1(p2, r);
+  p_LmCheckPolyRing1(p3, r);
+#if PDEBUG >= 1
+  for (int i=1; i<=r->N; i++)
+    pAssume1(p_GetExp(p1, i, r) + p_GetExp(p2, i, r) >= p_GetExp(p3, i, r));
+  pAssume1(p_GetComp(p1, r) == 0 ||
+           (p_GetComp(p2, r) - p_GetComp(p3, r) == 0) ||
+           (p_GetComp(p1, r) == p_GetComp(p2, r) - p_GetComp(p3, r)));
+#endif
+
+  p_MemAddSub_LengthGeneral(p1->exp, p2->exp, p3->exp, r->ExpL_Size);
+  // no need to adjust in case of NegWeights
+}
 
 // ExpVector(pr) = ExpVector(p1) - ExpVector(p2)
 static inline void p_ExpVectorDiff(poly pr, poly p1, poly p2, const ring r)
@@ -1764,8 +1774,16 @@ static inline BOOLEAN p_IsConstantComp(const poly p, const ring r)
 
 static inline BOOLEAN p_IsConstant(const poly p, const ring r)
 {
+  assume( p_Test(p, r) );
   if (p == NULL) return TRUE;
   return (pNext(p)==NULL) && p_LmIsConstant(p, r);
+}
+
+/// either poly(1)  or gen(k)?!
+static inline BOOLEAN p_IsOne(const poly p, const ring R)
+{
+  assume( p_Test(p, R) );
+  return (p_IsConstant(p, R) && n_IsOne(p_GetCoeff(p, R), R->cf));
 }
 
 static inline BOOLEAN p_IsConstantPoly(const poly p, const ring r)

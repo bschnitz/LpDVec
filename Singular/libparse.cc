@@ -1055,15 +1055,15 @@ char *yytext;
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #ifdef STANDALONE_PARSER
 #include <Singular/utils.h>
 
-# ifdef HAVE_FACTORY
 int initializeGMP(){ return 1; } // NEEDED FOR MAIN APP. LINKING!!!
 int mmInit(void) {return 1; } // ? due to SINGULAR!!!...???
-# endif
 
   #define HAVE_LIBPARSER
   #define YYLPDEBUG 1
@@ -1202,7 +1202,7 @@ do                                            \
 while(0)
 
 #undef YY_DECL
-#define YY_DECL int yylex(char *newlib, char *libfile, \
+#define YY_DECL int yylex(const char *newlib, const char *libfile, \
                            lib_style_types *lib_style, \
                            idhdl pl, BOOLEAN autoexport, lp_modes mode)
 #undef YY_INPUT
@@ -1618,11 +1618,7 @@ YY_RULE_SETUP
                printpi(pi);
                pi_clear(pi);
              }
-             #ifdef STANDALONE_PARSER
              pi = (procinfo *)malloc(sizeof(procinfo));
-             #else
-             pi = (procinfo *)omAlloc(sizeof(procinfo));
-             #endif
              iiInitSingularProcinfo(pi, newlib, proc, yylplineno,
                                     current_pos(0), p_static);
              #else /*STANDALONE_PARSER*/
@@ -3509,14 +3505,14 @@ void print_version(lp_modes mode, char *p)
 }
 
 #ifdef STANDALONE_PARSER
-main( int argc, char *argv[] )
+int main( int argc, char *argv[] )
 {
   lib_style_types lib_style;
   main_init(argc, argv);
   if(yyin == NULL)
   {
     fprintf(stderr, "No library found to parse.\n");
-    exit(1);
+    return 1;
   }
   if (! (texinfo_out || category_out))
   {
@@ -3538,7 +3534,7 @@ main( int argc, char *argv[] )
   else if(pi!=NULL) printpi(pi);
   if (texinfo_out)
     printf("1;");
-  exit(0);
+  return 0;
 }
 
 #endif /* STANDALONE_PARSER */

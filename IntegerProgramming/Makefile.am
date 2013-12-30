@@ -1,9 +1,13 @@
+ACLOCAL_AMFLAGS = -I ../m4
+
 AM_CPPFLAGS = -I${srcdir} $(GMP_CFLAGS)
 AM_LDFLAGS = $(GMP_LIBS)
 
 noinst_HEADERS = list.h binomial__term_ordering.h BigInt.h LLL.h matrix.h ideal.h binomial__term_ordering.h ideal.h \
 		term_ordering.h globals.h IP_algorithms.h binomial.h testdata.h
 # Ikernel_to_send.c  # never used?
+
+# bindir=$(libexecdir)/singular/
 
 bin_PROGRAMS = toric_ideal solve_IP change_cost gen_test LLL
 

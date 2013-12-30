@@ -1,6 +1,8 @@
 /* emacs edit mode for this file is -*- C++ -*- */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include "cf_assert.h"
 
@@ -58,7 +60,7 @@ void gmp_denominator ( const CanonicalForm & f, mpz_ptr result )
 int gf_value (const CanonicalForm & f )
 {
     InternalCF * ff = f.getval();
-    return ((long)ff) >>2;
+    return ((intptr_t)ff) >>2;
 }
 
 CanonicalForm

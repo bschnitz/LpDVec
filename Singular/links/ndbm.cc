@@ -13,7 +13,10 @@
 //
 //**************************************************************************/
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
+#include <Singular/si_signals.h>
 #include <kernel/mod2.h>
 #ifdef HAVE_DBM
 #ifndef HPUX_9
@@ -60,7 +63,6 @@ static  int getbit(register DBM *db);
 static  void setbit(register DBM *db);
 static  datum makdatum(char buf[PBLKSIZ], int n);
 static  int finddatum(char buf[PBLKSIZ], datum item);
-static  long hashinc(register DBM *db, long hash);
 static  long dcalchash(datum item);
 static  int delitem(char buf[PBLKSIZ], int n);
 static  int additem(char buf[PBLKSIZ], datum item, datum item1);
@@ -86,12 +88,12 @@ DBM * dbm_open(char *file, int flags, int mode)
     flags = (flags & ~03) | O_RDWR;
   strcpy(db->dbm_pagbuf, file);
   strcat(db->dbm_pagbuf, ".pag");
-  db->dbm_pagf = open(db->dbm_pagbuf, flags, mode);
+  db->dbm_pagf = si_open(db->dbm_pagbuf, flags, mode);
   if (db->dbm_pagf < 0)
     goto bad;
   strcpy(db->dbm_pagbuf, file);
   strcat(db->dbm_pagbuf, ".dir");
-  db->dbm_dirf = open(db->dbm_pagbuf, flags, mode);
+  db->dbm_dirf = si_open(db->dbm_pagbuf, flags, mode);
   if (db->dbm_dirf < 0)
     goto bad1;
   singular_fstat(db->dbm_dirf, &statb);
@@ -99,7 +101,7 @@ DBM * dbm_open(char *file, int flags, int mode)
   db->dbm_pagbno = db->dbm_dirbno = -1;
   return (db);
 bad1:
-  (void) close(db->dbm_pagf);
+  (void) si_close(db->dbm_pagf);
 bad:
   free((char *)db);
   return ((DBM *)0);
@@ -107,8 +109,8 @@ bad:
 
 void dbm_close(DBM *db)
 {
-  (void) close(db->dbm_dirf);
-  (void) close(db->dbm_pagf);
+  (void) si_close(db->dbm_dirf);
+  (void) si_close(db->dbm_pagf);
   free((char *)db);
 }
 
@@ -150,7 +152,7 @@ err:
 int dbm_delete(register DBM *db, datum key)
 {
   register int i;
-  datum item;
+  // datum item;
 
   if (dbm_error(db))
     return (-1);
@@ -166,7 +168,7 @@ int dbm_delete(register DBM *db, datum key)
     goto err;
   db->dbm_pagbno = db->dbm_blkno;
   (void) lseek(db->dbm_pagf, db->dbm_blkno*PBLKSIZ, L_SET);
-  if (write(db->dbm_pagf, db->dbm_pagbuf, PBLKSIZ) != PBLKSIZ)
+  if (si_write(db->dbm_pagf, db->dbm_pagbuf, PBLKSIZ) != PBLKSIZ)
   {
   err:
     db->dbm_flags |= _DBM_IOERR;
@@ -206,7 +208,7 @@ _loop:
     goto split;
   db->dbm_pagbno = db->dbm_blkno;
   (void) lseek(db->dbm_pagf, db->dbm_blkno*PBLKSIZ, L_SET);
-  if ( (ret=write(db->dbm_pagf, db->dbm_pagbuf, PBLKSIZ)) != PBLKSIZ)
+  if ( (ret=si_write(db->dbm_pagf, db->dbm_pagbuf, PBLKSIZ)) != PBLKSIZ)
   {
     db->dbm_flags |= _DBM_IOERR;
     return (-1);
@@ -245,13 +247,13 @@ split:
   }
   db->dbm_pagbno = db->dbm_blkno;
   (void) lseek(db->dbm_pagf, db->dbm_blkno*PBLKSIZ, L_SET);
-  if (write(db->dbm_pagf, db->dbm_pagbuf, PBLKSIZ) != PBLKSIZ)
+  if (si_write(db->dbm_pagf, db->dbm_pagbuf, PBLKSIZ) != PBLKSIZ)
   {
     db->dbm_flags |= _DBM_IOERR;
     return (-1);
   }
   (void) lseek(db->dbm_pagf, (db->dbm_blkno+db->dbm_hmask+1)*PBLKSIZ, L_SET);
-  if (write(db->dbm_pagf, ovfbuf, PBLKSIZ) != PBLKSIZ)
+  if (si_write(db->dbm_pagf, ovfbuf, PBLKSIZ) != PBLKSIZ)
   {
     db->dbm_flags |= _DBM_IOERR;
     return (-1);
@@ -284,7 +286,7 @@ datum dbm_nextkey(register DBM *db)
     {
       db->dbm_pagbno = db->dbm_blkptr;
       (void) lseek(db->dbm_pagf, db->dbm_blkptr*PBLKSIZ, L_SET);
-      if (read(db->dbm_pagf, db->dbm_pagbuf, PBLKSIZ) != PBLKSIZ)
+      if (si_read(db->dbm_pagf, db->dbm_pagbuf, PBLKSIZ) != PBLKSIZ)
         memset(db->dbm_pagbuf, 0, PBLKSIZ);
 #ifdef DEBUG
       else if (chkblk(db->dbm_pagbuf) < 0)
@@ -323,7 +325,7 @@ static void dbm_access(register DBM *db, long hash)
   {
     db->dbm_pagbno = db->dbm_blkno;
     (void) lseek(db->dbm_pagf, db->dbm_blkno*PBLKSIZ, L_SET);
-    if (read(db->dbm_pagf, db->dbm_pagbuf, PBLKSIZ) != PBLKSIZ)
+    if (si_read(db->dbm_pagf, db->dbm_pagbuf, PBLKSIZ) != PBLKSIZ)
       memset(db->dbm_pagbuf, 0, PBLKSIZ);
 #ifdef DEBUG
     else if (chkblk(db->dbm_pagbuf) < 0)
@@ -348,7 +350,7 @@ static int getbit(register DBM *db)
   {
     db->dbm_dirbno = b;
     (void) lseek(db->dbm_dirf, (long)b*DBLKSIZ, L_SET);
-    if (read(db->dbm_dirf, db->dbm_dirbuf, DBLKSIZ) != DBLKSIZ)
+    if (si_read(db->dbm_dirf, db->dbm_dirbuf, DBLKSIZ) != DBLKSIZ)
       memset(db->dbm_dirbuf, 0, DBLKSIZ);
   }
   return (db->dbm_dirbuf[i] & (1<<n));
@@ -369,13 +371,13 @@ static void setbit(register DBM *db)
   {
     db->dbm_dirbno = b;
     (void) lseek(db->dbm_dirf, (long)b*DBLKSIZ, L_SET);
-    if (read(db->dbm_dirf, db->dbm_dirbuf, DBLKSIZ) != DBLKSIZ)
+    if (si_read(db->dbm_dirf, db->dbm_dirbuf, DBLKSIZ) != DBLKSIZ)
       memset(db->dbm_dirbuf, 0, DBLKSIZ);
   }
   db->dbm_dirbuf[i] |= 1<<n;
   db->dbm_dirbno = b;
   (void) lseek(db->dbm_dirf, (long)b*DBLKSIZ, L_SET);
-  if (write(db->dbm_dirf, db->dbm_dirbuf, DBLKSIZ) != DBLKSIZ)
+  if (si_write(db->dbm_dirf, db->dbm_dirbuf, DBLKSIZ) != DBLKSIZ)
     db->dbm_flags |= _DBM_IOERR;
 }
 
@@ -448,29 +450,12 @@ static  long hltab[64]
         04723077174L,03642763134L,05750130273L,03655541561L,
 };
 
-static long hashinc(register DBM *db, long hash)
-{
-  long bit;
-
-  hash &= db->dbm_hmask;
-  bit = db->dbm_hmask+1;
-  for (;;)
-  {
-    bit >>= 1;
-    if (bit == 0)
-      return (0L);
-    if ((hash & bit) == 0)
-      return (hash | bit);
-    hash &= ~bit;
-  }
-}
-
 static long dcalchash(datum item)
 {
   register int s, c, j;
   register char *cp;
-  register long hashl;
-  register int hashi;
+  register unsigned long hashl;
+  register unsigned int hashi;
 
   hashl = 0;
   hashi = 0;
@@ -484,7 +469,7 @@ static long dcalchash(datum item)
       c >>= 4;
     }
   }
-  return (hashl);
+  return (long)(hashl);
 }
 
 /*

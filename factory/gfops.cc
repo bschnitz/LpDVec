@@ -1,6 +1,8 @@
 /* emacs edit mode for this file is -*- C++ -*- */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #ifdef HAVE_CSTDIO
 #include <cstdio>
@@ -105,7 +107,7 @@ static void gf_get_table ( int p, int n )
     FILE * inputfile;
     if (gftable_dir)
     {
-      sprintf( buffer, "/gftable.%d.%d", p, n );
+      sprintf( buffer, "gftables/%d", q);
       gffilename = (char *)malloc(strlen(gftable_dir) + strlen(buffer) + 1);
       STICKYASSERT(gffilename,"out of memory");
       strcpy(gffilename,gftable_dir);
@@ -115,7 +117,7 @@ static void gf_get_table ( int p, int n )
     else
     {
 #ifndef SINGULAR
-      sprintf( buffer, GFTABLEDIR "/gftable.%d.%d", p, n );
+      sprintf( buffer, "gftables/%d", q );
       gffilename = buffer;
       inputfile = fopen( buffer, "r" );
 #else
@@ -221,6 +223,28 @@ void gf_setcharacteristic ( int p, int n, char name )
     gf_get_table( p, n );
 }
 
+long gf_gf2ff ( long a )
+{
+    if ( gf_iszero( a ) )
+        return 0;
+    else
+    {
+        // starting from z^0=1, step through the table
+        // counting the steps until we hit z^a or z^0
+        // again.  since we are working in char(p), the
+        // latter is guaranteed to be fulfilled.
+        long i = 0, ff = 1;
+        do
+        {
+            if ( i == a )
+                return ff;
+            ff++;
+            i = gf_table[i];
+        } while ( i != 0 );
+        return -1;
+    }
+}
+
 int gf_gf2ff ( int a )
 {
     if ( gf_iszero( a ) )
@@ -240,6 +264,17 @@ int gf_gf2ff ( int a )
             i = gf_table[i];
         } while ( i != 0 );
         return -1;
+    }
+}
+
+bool gf_isff ( long a )
+{
+    if ( gf_iszero( a ) )
+        return true;
+    else
+    {
+        // z^a in GF(p) iff (z^a)^p-1=1
+        return gf_isone( gf_power( a, gf_p - 1 ) );
     }
 }
 

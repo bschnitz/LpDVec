@@ -7,7 +7,7 @@
  *
  * This file implements the GCD of two polynomials over \f$ F_{p} \f$ ,
  * \f$ F_{p}(\alpha ) \f$ or GF based on Alg. 7.2. as described in "Algorithms
- * for Computer Algebra" by Geddes, Czapor, Labahnn
+ * for Computer Algebra" by Geddes, Czapor, Labahn
  *
  * @par Copyright:
  *   (c) by The SINGULAR Team, see LICENSE file
@@ -15,7 +15,9 @@
 **/
 //*****************************************************************************
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include "cf_assert.h"
 #include "debug.h"
@@ -32,6 +34,7 @@
 #include "cf_iter.h"
 #include "cfNewtonPolygon.h"
 #include "cf_algorithm.h"
+#include "cf_primes.h"
 
 // iinline helper functions:
 #include "cf_map_ext.h"
@@ -40,10 +43,19 @@
 #include <NTLconvert.h>
 #endif
 
+#ifdef HAVE_FLINT
+#include "FLINTconvert.h"
+#endif
+
 #include "cf_gcd_smallp.h"
 
 TIMING_DEFINE_PRINT(gcd_recursion)
 TIMING_DEFINE_PRINT(newton_interpolation)
+TIMING_DEFINE_PRINT(termination_test)
+TIMING_DEFINE_PRINT(ez_p_compress)
+TIMING_DEFINE_PRINT(ez_p_hensel_lift)
+TIMING_DEFINE_PRINT(ez_p_eval)
+TIMING_DEFINE_PRINT(ez_p_content)
 
 bool
 terminationTest (const CanonicalForm& F, const CanonicalForm& G,
@@ -372,7 +384,7 @@ randomElement (const CanonicalForm & F, const Variable & alpha, CFList & list,
   mipo= getMipo (alpha);
   int p= getCharacteristic ();
   int d= degree (mipo);
-  int bound= ipower (p, d);
+  double bound= pow ((double) p, (double) d);
   do
   {
     if (list.length() == bound)
@@ -404,7 +416,11 @@ randomElement (const CanonicalForm & F, const Variable & alpha, CFList & list,
 static inline
 Variable chooseExtension (const Variable & alpha)
 {
-  zz_p::init (getCharacteristic());
+  if (fac_NTL_char != getCharacteristic())
+  {
+    fac_NTL_char= getCharacteristic();
+    zz_p::init (getCharacteristic());
+  }
   zz_pX NTLIrredpoly;
   int i, m;
   // extension of F_p needed
@@ -421,25 +437,6 @@ Variable chooseExtension (const Variable & alpha)
   BuildIrred (NTLIrredpoly, i*m);
   CanonicalForm newMipo= convertNTLzzpX2CF (NTLIrredpoly, Variable (1));
   return rootOf (newMipo);
-}
-
-/// chooses a suitable extension of \f$ F_{p}(\alpha ) \f$
-/// we do not extend \f$ F_{p}(\alpha ) \f$ itself but extend \f$ F_{p} \f$ ,
-/// s.t. \f$ F_{p}(\alpha ) \subset F_{p}(\beta ) \f$
-static inline
-void choose_extension (const int& d, const int& num_vars, Variable& beta)
-{
-  int p= getCharacteristic();
-  zz_p::init (p);
-  zz_pX NTLirredpoly;
-  //TODO: replace d by max_{i} (deg_x{i}(f))
-  int i= (int) (log ((double) ipower (d + 1, num_vars))/log ((double) p));
-  int m= degree (getMipo (beta));
-  if (i <= 1)
-    i= 2;
-  BuildIrred (NTLirredpoly, i*m);
-  CanonicalForm mipo= convertNTLzzpX2CF (NTLirredpoly, Variable(1));
-  beta= rootOf (mipo);
 }
 
 CanonicalForm
@@ -541,84 +538,11 @@ GCD_Fp_extension (const CanonicalForm& F, const CanonicalForm& G,
   ppA= A/cA;
   ppB= B/cB;
 
-  int sizeNewtonPolyg;
-  int ** newtonPolyg= NULL;
-  mat_ZZ MM;
-  vec_ZZ V;
-  bool compressConvexDense= false; //(ppA.level() == 2 && ppB.level() == 2);
-  if (compressConvexDense)
-  {
-    CanonicalForm bufcA= cA;
-    CanonicalForm bufcB= cB;
-    cA= content (ppA, 1);
-    cB= content (ppB, 1);
-    ppA /= cA;
-    ppB /= cB;
-    gcdcAcB *= gcd (cA, cB);
-    cA *= bufcA;
-    cB *= bufcB;
-    if (ppA.isUnivariate() || ppB.isUnivariate())
-    {
-      if (ppA.level() == ppB.level())
-      {
-        CanonicalForm result= gcd (ppA, ppB);
-        coF= N ((ppA/result)*(cA/gcdcAcB));
-        coG= N ((ppB/result)*(cB/gcdcAcB));
-        return N (result*gcdcAcB);
-      }
-      else
-      {
-        coF= N (ppA*(cA/gcdcAcB));
-        coG= N (ppB*(cB/gcdcAcB));
-        return N (gcdcAcB);
-      }
-    }
-
-    newtonPolyg= newtonPolygon (ppA,ppB, sizeNewtonPolyg);
-    convexDense (newtonPolyg, sizeNewtonPolyg, MM, V);
-
-    for (int i= 0; i < sizeNewtonPolyg; i++)
-      delete [] newtonPolyg[i];
-    delete [] newtonPolyg;
-
-    ppA= compress (ppA, MM, V, false);
-    ppB= compress (ppB, MM, V, false);
-    MM= inv (MM);
-
-    if (ppA.isUnivariate() && ppB.isUnivariate())
-    {
-      if (ppA.level() == ppB.level())
-      {
-        CanonicalForm result= gcd (ppA, ppB);
-        coF= N (decompress ((ppA/result), MM, V)*(cA/gcdcAcB));
-        coG= N (decompress ((ppB/result), MM, V)*(cB/gcdcAcB));
-        return N (decompress (result, MM, V)*gcdcAcB);
-      }
-      else
-      {
-        coF= N (decompress (ppA, MM, V));
-        coG= N (decompress (ppB, MM, V));
-        return N (gcdcAcB);
-      }
-    }
-  }
-
   CanonicalForm lcA, lcB;  // leading coefficients of A and B
   CanonicalForm gcdlcAlcB;
 
   lcA= uni_lcoeff (ppA);
   lcB= uni_lcoeff (ppB);
-
-  /*if (fdivides (lcA, lcB))
-  {
-    if (fdivides (A, B))
-      return F/Lc(F);
-  }
-  if (fdivides (lcB, lcA))
-  {
-    if (fdivides (B, A))
-      return G/Lc(G);
-  }*/
 
   gcdlcAlcB= gcd (lcA, lcB);
 
@@ -796,40 +720,35 @@ GCD_Fp_extension (const CanonicalForm& F, const CanonicalForm& G,
     //termination test
     if ((uni_lcoeff (H) == gcdlcAlcB) || (G_m == H))
     {
+      TIMING_START (termination_test);
       if (gcdlcAlcB.isOne())
         cH= 1;
       else
         cH= uni_content (H);
       ppH= H/cH;
+      ppH /= Lc (ppH);
       CanonicalForm lcppH= gcdlcAlcB/cH;
-      CanonicalForm ccoF= lcA/lcppH;
-      ccoF /= Lc (ccoF);
-      CanonicalForm ccoG= lcB/lcppH;
-      ccoG /= Lc (ccoG);
+      CanonicalForm ccoF= lcppH/Lc (lcppH);
+      CanonicalForm ccoG= lcppH/Lc (lcppH);
       ppCoF= coF/ccoF;
       ppCoG= coG/ccoG;
       if (inextension)
       {
         if (((degree (ppCoF,1)+degree (ppH,1) == bound1) &&
              (degree (ppCoG,1)+degree (ppH,1) == bound2) &&
-             terminationTest (ppA, ppB, ppCoF, ppCoG, ppH)) || 
+             terminationTest (ppA, ppB, ppCoF, ppCoG, ppH)) ||
              (fdivides (ppH, ppA, ppCoF) && fdivides (ppH, ppB, ppCoG)))
         {
           CFList u, v;
           DEBOUTLN (cerr, "ppH before mapDown= " << ppH);
-          ppH /= Lc(ppH);
           ppH= mapDown (ppH, prim_elem, im_prim_elem, alpha, u, v);
           ppCoF= mapDown (ppCoF, prim_elem, im_prim_elem, alpha, u, v);
-          ppCoF= mapDown (ppCoG, prim_elem, im_prim_elem, alpha, u, v);
+          ppCoG= mapDown (ppCoG, prim_elem, im_prim_elem, alpha, u, v);
           DEBOUTLN (cerr, "ppH after mapDown= " << ppH);
-          if (compressConvexDense)
-          {
-            ppH= decompress (ppH, MM, V);
-            ppCoF= decompress (ppCoF, MM, V);
-            ppCoG= decompress (ppCoG, MM, V);
-          }
           coF= N ((cA/gcdcAcB)*ppCoF);
           coG= N ((cB/gcdcAcB)*ppCoG);
+          TIMING_END_AND_PRINT (termination_test,
+                                "time for successful termination test Fq: ");
           return N(gcdcAcB*ppH);
         }
       }
@@ -838,16 +757,14 @@ GCD_Fp_extension (const CanonicalForm& F, const CanonicalForm& G,
                 terminationTest (ppA, ppB, ppCoF, ppCoG, ppH)) ||
                 (fdivides (ppH, ppA, ppCoF) && fdivides (ppH, ppB, ppCoG)))
       {
-        if (compressConvexDense)
-        {
-          ppH= decompress (ppH, MM, V);
-          ppCoF= decompress (ppCoF, MM, V);
-          ppCoG= decompress (ppCoG, MM, V);
-        }
         coF= N ((cA/gcdcAcB)*ppCoF);
-        coG= N ((cB/gcdcAcB)*ppCoG);;
+        coG= N ((cB/gcdcAcB)*ppCoG);
+        TIMING_END_AND_PRINT (termination_test,
+                              "time for successful termination test Fq: ");
         return N(gcdcAcB*ppH);
       }
+      TIMING_END_AND_PRINT (termination_test,
+                            "time for unsuccessful termination test Fq: ");
     }
 
     G_m= H;
@@ -997,96 +914,11 @@ GCD_GF (const CanonicalForm& F, const CanonicalForm& G,
   ppA= A/cA;
   ppB= B/cB;
 
-  int sizeNewtonPolyg;
-  int ** newtonPolyg= NULL;
-  mat_ZZ MM;
-  vec_ZZ V;
-  bool compressConvexDense= false; //(ppA.level() == 2 && ppB.level() == 2);
-  if (compressConvexDense)
-  {
-    CanonicalForm bufcA= cA;
-    CanonicalForm bufcB= cB;
-    cA= content (ppA, 1);
-    cB= content (ppB, 1);
-    ppA /= cA;
-    ppB /= cB;
-    gcdcAcB *= gcd (cA, cB);
-    cA *= bufcA;
-    cB *= bufcB;
-    if (ppA.isUnivariate() || ppB.isUnivariate())
-    {
-      if (ppA.level() == ppB.level())
-      {
-        CanonicalForm result= gcd (ppA, ppB);
-        coF= N ((ppA/result)*(cA/gcdcAcB));
-        coG= N ((ppB/result)*(cB/gcdcAcB));
-        return N (result*gcdcAcB);
-      }
-      else
-      {
-        coF= N (ppA*(cA/gcdcAcB));
-        coG= N (ppB*(cB/gcdcAcB));
-        return N (gcdcAcB);
-      }
-    }
-
-    newtonPolyg= newtonPolygon (ppA,ppB, sizeNewtonPolyg);
-    convexDense (newtonPolyg, sizeNewtonPolyg, MM, V);
-
-    for (int i= 0; i < sizeNewtonPolyg; i++)
-      delete [] newtonPolyg[i];
-    delete [] newtonPolyg;
-
-    ppA= compress (ppA, MM, V, false);
-    ppB= compress (ppB, MM, V, false);
-    MM= inv (MM);
-
-    if (ppA.isUnivariate() && ppB.isUnivariate())
-    {
-      if (ppA.level() == ppB.level())
-      {
-        CanonicalForm result= gcd (ppA, ppB);
-        coF= N (decompress ((ppA/result), MM, V)*(cA/gcdcAcB));
-        coG= N (decompress ((ppB/result), MM, V)*(cB/gcdcAcB));
-        return N (decompress (result, MM, V)*gcdcAcB);
-      }
-      else
-      {
-        coF= N (decompress (ppA, MM, V));
-        coG= N (decompress (ppB, MM, V));
-        return N (gcdcAcB);
-      }
-    }
-  }
-
   CanonicalForm lcA, lcB;  // leading coefficients of A and B
   CanonicalForm gcdlcAlcB;
 
   lcA= uni_lcoeff (ppA);
   lcB= uni_lcoeff (ppB);
-
-  /*if (fdivides (lcA, lcB))
-  {
-    if (fdivides (ppA, ppB, coG))
-    {
-      coF= 1;
-      if (compressConvexDense)
-        coG= decompress (coG, MM, V);
-      coG= N (coG*(cB/gcdcAcB));
-      return F;
-    }
-  }
-  if (fdivides (lcB, lcA))
-  {
-    if (fdivides (ppB, ppA, coF))
-    {
-      coG= 1;
-      if (compressConvexDense)
-        coF= decompress (coF, MM, V);
-      coF= N (coF*(cA/gcdcAcB));
-      return G;
-    }
-  }*/
 
   gcdlcAlcB= gcd (lcA, lcB);
 
@@ -1118,7 +950,7 @@ GCD_GF (const CanonicalForm& F, const CanonicalForm& G,
   coG= 0;
   H= 0;
   bool fail= false;
-  //topLevel= false;
+  topLevel= false;
   bool inextension= false;
   int p=-1;
   int k= getGFDegree();
@@ -1189,7 +1021,11 @@ GCD_GF (const CanonicalForm& F, const CanonicalForm& G,
     if (d0 == 0)
     {
       if (inextension)
+      {
+        ppA= GFMapDown (ppA, k);
+        ppB= GFMapDown (ppB, k);
         setCharacteristic (p, k, gf_name_buf);
+      }
       coF= N (ppA*(cA/gcdcAcB));
       coG= N (ppB*(cB/gcdcAcB));
       return N(gcdcAcB);
@@ -1236,16 +1072,16 @@ GCD_GF (const CanonicalForm& F, const CanonicalForm& G,
     //termination test
     if ((uni_lcoeff (H) == gcdlcAlcB) || (G_m == H))
     {
+      TIMING_START (termination_test);
       if (gcdlcAlcB.isOne())
         cH= 1;
       else
         cH= uni_content (H);
       ppH= H/cH;
+      ppH /= Lc (ppH);
       CanonicalForm lcppH= gcdlcAlcB/cH;
-      CanonicalForm ccoF= lcA/lcppH;
-      ccoF /= Lc (ccoF);
-      CanonicalForm ccoG= lcB/lcppH;
-      ccoG /= Lc (ccoG);
+      CanonicalForm ccoF= lcppH/Lc (lcppH);
+      CanonicalForm ccoG= lcppH/Lc (lcppH);
       ppCoF= coF/ccoF;
       ppCoG= coG/ccoG;
       if (inextension)
@@ -1260,15 +1096,11 @@ GCD_GF (const CanonicalForm& F, const CanonicalForm& G,
           ppCoF= GFMapDown (ppCoF, k);
           ppCoG= GFMapDown (ppCoG, k);
           DEBOUTLN (cerr, "ppH after mapDown= " << ppH);
-          if (compressConvexDense)
-          {
-            ppH= decompress (ppH, MM, V);
-            ppCoF= decompress (ppCoF, MM, V);
-            ppCoG= decompress (ppCoG, MM, V);
-          }
           coF= N ((cA/gcdcAcB)*ppCoF);
           coG= N ((cB/gcdcAcB)*ppCoG);
           setCharacteristic (p, k, gf_name_buf);
+          TIMING_END_AND_PRINT (termination_test,
+                                "time for successful termination GF: ");
           return N(gcdcAcB*ppH);
         }
       }
@@ -1279,17 +1111,15 @@ GCD_GF (const CanonicalForm& F, const CanonicalForm& G,
            terminationTest (ppA, ppB, ppCoF, ppCoG, ppH)) ||
            (fdivides (ppH, ppA, ppCoF) && fdivides (ppH, ppB, ppCoG)))
         {
-          if (compressConvexDense)
-          {
-            ppH= decompress (ppH, MM, V);
-            ppCoF= decompress (ppCoF, MM, V);
-            ppCoG= decompress (ppCoG, MM, V);
-          }
           coF= N ((cA/gcdcAcB)*ppCoF);
           coG= N ((cB/gcdcAcB)*ppCoG);
+          TIMING_END_AND_PRINT (termination_test,
+                                "time for successful termination GF: ");
           return N(gcdcAcB*ppH);
         }
       }
+      TIMING_END_AND_PRINT (termination_test,
+                            "time for unsuccessful termination GF: ");
     }
 
     G_m= H;
@@ -1302,14 +1132,17 @@ GCD_GF (const CanonicalForm& F, const CanonicalForm& G,
   } while (1);
 }
 
-/// F is assumed to be an univariate polynomial in x,
-/// computes a random monic irreducible univariate polynomial of random
-/// degree < i in x which does not divide F
+/// computes a random monic irreducible univariate polynomial in x of random
+/// degree < i
 CanonicalForm
 randomIrredpoly (int i, const Variable & x)
 {
   int p= getCharacteristic();
-  zz_p::init (p);
+  if (fac_NTL_char != p)
+  {
+    fac_NTL_char= p;
+    zz_p::init (p);
+  }
   zz_pX NTLirredpoly;
   CanonicalForm CFirredpoly;
   BuildIrred (NTLirredpoly, i + 1);
@@ -1444,83 +1277,10 @@ GCD_small_p (const CanonicalForm& F, const CanonicalForm&  G,
   ppA= A/cA;
   ppB= B/cB;
 
-  int sizeNewtonPolyg;
-  int ** newtonPolyg= NULL;
-  mat_ZZ MM;
-  vec_ZZ V;
-  bool compressConvexDense= false; //(ppA.level() == 2 && ppB.level() == 2);
-  if (compressConvexDense)
-  {
-    CanonicalForm bufcA= cA;
-    CanonicalForm bufcB= cB;
-    cA= content (ppA, 1);
-    cB= content (ppB, 1);
-    ppA /= cA;
-    ppB /= cB;
-    gcdcAcB *= gcd (cA, cB);
-    cA *= bufcA;
-    cB *= bufcB;
-    if (ppA.isUnivariate() || ppB.isUnivariate())
-    {
-      if (ppA.level() == ppB.level())
-      {
-        CanonicalForm result= gcd (ppA, ppB);
-        coF= N ((ppA/result)*(cA/gcdcAcB));
-        coG= N ((ppB/result)*(cB/gcdcAcB));
-        return N (result*gcdcAcB);
-      }
-      else
-      {
-        coF= N (ppA*(cA/gcdcAcB));
-        coG= N (ppB*(cB/gcdcAcB));
-        return N (gcdcAcB);
-      }
-    }
-
-    newtonPolyg= newtonPolygon (ppA,ppB, sizeNewtonPolyg);
-    convexDense (newtonPolyg, sizeNewtonPolyg, MM, V);
-
-    for (int i= 0; i < sizeNewtonPolyg; i++)
-      delete [] newtonPolyg[i];
-    delete [] newtonPolyg;
-
-    ppA= compress (ppA, MM, V, false);
-    ppB= compress (ppB, MM, V, false);
-    MM= inv (MM);
-
-    if (ppA.isUnivariate() && ppB.isUnivariate())
-    {
-      if (ppA.level() == ppB.level())
-      {
-        CanonicalForm result= gcd (ppA, ppB);
-        coF= N (decompress ((ppA/result), MM, V)*(cA/gcdcAcB));
-        coG= N (decompress ((ppB/result), MM, V)*(cB/gcdcAcB));
-        return N (decompress (result, MM, V)*gcdcAcB);
-      }
-      else
-      {
-        coF= N (decompress (ppA, MM, V));
-        coG= N (decompress (ppB, MM, V));
-        return N (gcdcAcB);
-      }
-    }
-  }
-
   CanonicalForm lcA, lcB;  // leading coefficients of A and B
   CanonicalForm gcdlcAlcB;
   lcA= uni_lcoeff (ppA);
   lcB= uni_lcoeff (ppB);
-
-  /*if (fdivides (lcA, lcB))
-  {
-    if (fdivides (A, B))
-      return F/Lc(F);
-  }
-  if (fdivides (lcB, lcA))
-  {
-    if (fdivides (B, A))
-      return G/Lc(G);
-  }*/
 
   gcdlcAlcB= gcd (lcA, lcB);
 
@@ -1588,7 +1348,7 @@ GCD_small_p (const CanonicalForm& F, const CanonicalForm&  G,
       TIMING_START (gcd_recursion);
       G_random_element=
       GCD_Fp_extension (ppA (random_element, x), ppB (random_element, x),
-                        coF_random_element, coG_random_element, alpha,
+                        coF_random_element, coG_random_element, V_buf,
                         list, topLevel);
       TIMING_END_AND_PRINT (gcd_recursion,
                             "time for recursive call: ");
@@ -1743,6 +1503,7 @@ GCD_small_p (const CanonicalForm& F, const CanonicalForm&  G,
     //termination test
     if ((uni_lcoeff (H) == gcdlcAlcB) || (G_m == H))
     {
+      TIMING_START (termination_test);
       if (gcdlcAlcB.isOne())
         cH= 1;
       else
@@ -1760,16 +1521,14 @@ GCD_small_p (const CanonicalForm& F, const CanonicalForm&  G,
            terminationTest (ppA, ppB, ppCoF, ppCoG, ppH)) ||
            (fdivides (ppH, ppA, ppCoF) && fdivides (ppH, ppB, ppCoG)))
       {
-        if (compressConvexDense)
-        {
-          ppH= decompress (ppH, MM, V);
-          ppCoF= decompress (ppCoF, MM, V);
-          ppCoG= decompress (ppCoG, MM, V);
-        }
         coF= N ((cA/gcdcAcB)*ppCoF);
         coG= N ((cB/gcdcAcB)*ppCoG);
+        TIMING_END_AND_PRINT (termination_test,
+                              "time for successful termination Fp: ");
         return N(gcdcAcB*ppH);
       }
+      TIMING_END_AND_PRINT (termination_test,
+                            "time for unsuccessful termination Fp: ");
     }
 
     G_m= H;
@@ -1956,12 +1715,28 @@ gaussianElimFp (CFMatrix& M, CFArray& L)
   int j= 1;
   for (int i= 0; i < L.size(); i++, j++)
     (*N) (j, M.columns() + 1)= L[i];
+#ifdef HAVE_FLINT
+  nmod_mat_t FLINTN;
+  convertFacCFMatrix2nmod_mat_t (FLINTN, *N);
+  long rk= nmod_mat_rref (FLINTN);
+
+  delete N;
+  N= convertNmod_mat_t2FacCFMatrix (FLINTN);
+  nmod_mat_clear (FLINTN);
+#else
   int p= getCharacteristic ();
-  zz_p::init (p);
+  if (fac_NTL_char != p)
+  {
+    fac_NTL_char= p;
+    zz_p::init (p);
+  }
   mat_zz_p *NTLN= convertFacCFMatrix2NTLmat_zz_p(*N);
+  delete N;
   long rk= gauss (*NTLN);
 
   N= convertNTLmat_zz_p2FacCFMatrix (*NTLN);
+  delete NTLN;
+#endif
 
   L= CFArray (M.rows());
   for (int i= 0; i < M.rows(); i++)
@@ -1986,13 +1761,20 @@ gaussianElimFq (CFMatrix& M, CFArray& L, const Variable& alpha)
   for (int i= 0; i < L.size(); i++, j++)
     (*N) (j, M.columns() + 1)= L[i];
   int p= getCharacteristic ();
-  zz_p::init (p);
+  if (fac_NTL_char != p)
+  {
+    fac_NTL_char= p;
+    zz_p::init (p);
+  }
   zz_pX NTLMipo= convertFacCF2NTLzzpX (getMipo (alpha));
   zz_pE::init (NTLMipo);
   mat_zz_pE *NTLN= convertFacCFMatrix2NTLmat_zz_pE(*N);
   long rk= gauss (*NTLN);
 
+  delete N;
   N= convertNTLmat_zz_pE2FacCFMatrix (*NTLN, alpha);
+
+  delete NTLN;
 
   M= (*N) (1, M.rows(), 1, M.columns());
   L= CFArray (M.rows());
@@ -2017,17 +1799,38 @@ solveSystemFp (const CFMatrix& M, const CFArray& L)
   int j= 1;
   for (int i= 0; i < L.size(); i++, j++)
     (*N) (j, M.columns() + 1)= L[i];
+
+#ifdef HAVE_FLINT
+  nmod_mat_t FLINTN;
+  convertFacCFMatrix2nmod_mat_t (FLINTN, *N);
+  long rk= nmod_mat_rref (FLINTN);
+#else
   int p= getCharacteristic ();
-  zz_p::init (p);
+  if (fac_NTL_char != p)
+  {
+    fac_NTL_char= p;
+    zz_p::init (p);
+  }
   mat_zz_p *NTLN= convertFacCFMatrix2NTLmat_zz_p(*N);
   long rk= gauss (*NTLN);
+#endif
+  delete N;
   if (rk != M.columns())
   {
-    delete N;
+#ifdef HAVE_FLINT
+    nmod_mat_clear (FLINTN);
+#else
+    delete NTLN;
+#endif
     return CFArray();
   }
+#ifdef HAVE_FLINT
+  N= convertNmod_mat_t2FacCFMatrix (FLINTN);
+  nmod_mat_clear (FLINTN);
+#else
   N= convertNTLmat_zz_p2FacCFMatrix (*NTLN);
-
+  delete NTLN;
+#endif
   CFArray A= readOffSolution (*N, rk);
 
   delete N;
@@ -2048,17 +1851,25 @@ solveSystemFq (const CFMatrix& M, const CFArray& L, const Variable& alpha)
   for (int i= 0; i < L.size(); i++, j++)
     (*N) (j, M.columns() + 1)= L[i];
   int p= getCharacteristic ();
-  zz_p::init (p);
+  if (fac_NTL_char != p)
+  {
+    fac_NTL_char= p;
+    zz_p::init (p);
+  }
   zz_pX NTLMipo= convertFacCF2NTLzzpX (getMipo (alpha));
   zz_pE::init (NTLMipo);
   mat_zz_pE *NTLN= convertFacCFMatrix2NTLmat_zz_pE(*N);
   long rk= gauss (*NTLN);
+
+  delete N;
   if (rk != M.columns())
   {
-    delete N;
+    delete NTLN;
     return CFArray();
   }
   N= convertNTLmat_zz_pE2FacCFMatrix (*NTLN, alpha);
+
+  delete NTLN;
 
   CFArray A= readOffSolution (*N, rk);
 
@@ -2171,19 +1982,19 @@ evaluationPoints (const CanonicalForm& F, const CanonicalForm& G,
   FFRandom genFF;
   GFRandom genGF;
   int p= getCharacteristic ();
-  int bound;
+  double bound;
   if (alpha != Variable (1))
   {
-    bound= ipower (p, degree (getMipo(alpha)));
-    bound= ipower (bound, k);
+    bound= pow ((double) p, (double) degree (getMipo(alpha)));
+    bound= pow (bound, (double) k);
   }
   else if (GF)
   {
-    bound= ipower (p, getGFDegree());
-    bound= ipower (bound, k);
+    bound= pow ((double) p, (double) getGFDegree());
+    bound= pow ((double) bound, (double) k);
   }
   else
-    bound= ipower (p, k);
+    bound= pow ((double) p, (double) k);
 
   CanonicalForm random;
   int j;
@@ -2325,6 +2136,9 @@ monicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
   if (G.isUnivariate() && fdivides(G, F)) return G/Lc(G);
   if (F == G) return F/Lc(F);
 
+  ASSERT (degree (A, 1) == 0, "expected degree (F, 1) == 0");
+  ASSERT (degree (B, 1) == 0, "expected degree (G, 1) == 0");
+
   CFMap M,N;
   int best_level= myCompress (A, B, M, N, false);
 
@@ -2335,8 +2149,6 @@ monicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
   B= M(B);
 
   Variable x= Variable (1);
-  ASSERT (degree (A, x) == 0, "expected degree (F, 1) == 0");
-  ASSERT (degree (B, x) == 0, "expected degree (G, 1) == 0");
 
   //univariate case
   if (A.isUnivariate() && B.isUnivariate())
@@ -2492,8 +2304,8 @@ monicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
 
   if (Monoms.size() == 0)
     Monoms= getMonoms (skel);
-  if (coeffMonoms == NULL)
-    coeffMonoms= new CFArray [skelSize];
+
+  coeffMonoms= new CFArray [skelSize];
   j= 0;
   for (CFIterator i= skel; i.hasTerms(); i++, j++)
     coeffMonoms[j]= getMonoms (i.coeff());
@@ -2549,6 +2361,7 @@ monicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
   delete[] pEvalPoints;
   delete[] pM;
   delete[] pL;
+  delete[] coeffMonoms;
 
   if (alpha.level() != 1 && V_buf != alpha)
   {
@@ -2561,7 +2374,6 @@ monicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
     return result;
   else
   {
-    delete[] coeffMonoms;
     fail= true;
     return 0;
   }
@@ -2583,6 +2395,9 @@ nonMonicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
   if (G.isUnivariate() && fdivides(G, F)) return G/Lc(G);
   if (F == G) return F/Lc(F);
 
+  ASSERT (degree (A, 1) == 0, "expected degree (F, 1) == 0");
+  ASSERT (degree (B, 1) == 0, "expected degree (G, 1) == 0");
+
   CFMap M,N;
   int best_level= myCompress (A, B, M, N, false);
 
@@ -2593,8 +2408,6 @@ nonMonicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
   B= M(B);
 
   Variable x= Variable (1);
-  ASSERT (degree (A, x) == 0, "expected degree (F, 1) == 0");
-  ASSERT (degree (B, x) == 0, "expected degree (G, 1) == 0");
 
   //univariate case
   if (A.isUnivariate() && B.isUnivariate())
@@ -2755,8 +2568,7 @@ nonMonicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
   if (Monoms.size() == 0)
     Monoms= getMonoms (skel);
 
-  if (coeffMonoms == NULL)
-    coeffMonoms= new CFArray [skelSize];
+  coeffMonoms= new CFArray [skelSize];
 
   j= 0;
   for (CFIterator i= skel; i.hasTerms(); i++, j++)
@@ -3067,25 +2879,18 @@ nonMonicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
       result= mapDown (result, prim_elem, im_prim_elem, alpha, u, v);
     }
     result= N(result);
+    delete[] pEvalPoints;
+    delete[] pMat;
+    delete[] pL;
+    delete[] coeffMonoms;
+    delete[] pM;
+
+    if (bufpEvalPoints != NULL)
+      delete [] bufpEvalPoints;
     if (fdivides (result, F) && fdivides (result, G))
-    {
-      delete[] pEvalPoints;
-      delete[] pMat;
-      delete[] pL;
-      delete[] pM;
-      if (bufpEvalPoints != NULL)
-        delete [] bufpEvalPoints;
       return result;
-    }
     else
     {
-      delete[] pEvalPoints;
-      delete[] pMat;
-      delete[] pL;
-      delete[] coeffMonoms;
-      delete[] pM;
-      if (bufpEvalPoints != NULL)
-        delete [] bufpEvalPoints;
       fail= true;
       return 0;
     }
@@ -3151,6 +2956,7 @@ nonMonicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
   delete[] pMat;
   delete[] pL;
   delete[] pM;
+  delete[] coeffMonoms;
 
   if (alpha.level() != 1 && V_buf != alpha)
   {
@@ -3163,7 +2969,6 @@ nonMonicSparseInterpol (const CanonicalForm& F, const CanonicalForm& G,
     return result;
   else
   {
-    delete[] coeffMonoms;
     fail= true;
     return 0;
   }
@@ -3393,7 +3198,7 @@ CanonicalForm sparseGCDFq (const CanonicalForm& F, const CanonicalForm& G,
     if (getCharacteristic () > 3 && size (skeleton) < 100)
     {
       CFArray Monoms;
-      CFArray *coeffMonoms= NULL;
+      CFArray *coeffMonoms;
       do //second do
       {
         random_element= randomElement (m, V_buf, l, fail);
@@ -3825,10 +3630,10 @@ CanonicalForm sparseGCDFp (const CanonicalForm& F, const CanonicalForm& G,
     if (!find (l, random_element))
       l.append (random_element);
 
-    if ((getCharacteristic() > 3 && size (skeleton) < 100))
+    if ((getCharacteristic() > 3 && size (skeleton) < 200))
     {
       CFArray Monoms;
-      CFArray* coeffMonoms= NULL;
+      CFArray* coeffMonoms;
 
       do //second do
       {
@@ -4040,6 +3845,8 @@ CanonicalForm sparseGCDFp (const CanonicalForm& F, const CanonicalForm& G,
 
       } while (1); //end of second do
     }
+    else
+      return N(gcdcAcB*GCD_small_p (ppA, ppB));
   } while (1); //end of first do
 }
 
@@ -4228,7 +4035,6 @@ Evaluation optimize4Lift (const CanonicalForm& F, CFMap & M,
 
   Evaluation result= Evaluation (A.min(), A.max());
   ASSERT (A.min() == 2, "expected A.min() == 2");
-  ASSERT (A.max() >= n, "expected A.max() >= n");
   int max_deg;
   int k= n;
   int l= 1;
@@ -4302,8 +4108,18 @@ int Hensel_P (const CanonicalForm & UU, CFArray & G, const Evaluation & AA,
   LCs [2]= MM (LeadCoeffs [2]);
 
   CFList evaluation;
+  long termEstimate= size (U);
   for (int i= A.min(); i <= A.max(); i++)
+  {
+    if (!A[i].isZero() && (getCharacteristic() > degree (U,i))) //TODO find a good estimate for getCharacteristic() <= degree (U,i)
+    {
+      termEstimate *= degree (U,i)*2;
+      termEstimate /= 3;
+    }
     evaluation.append (A [i]);
+  }
+  if (termEstimate/getNumVars(U) > 500)
+    return -1;
   CFList UEval;
   CanonicalForm shiftedU= myShift2Zero (U, UEval, evaluation);
 
@@ -4433,6 +4249,21 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
   if (GG.isUnivariate() && fdivides(GG, FF)) return GG/Lc(GG);
   if (FF == GG) return FF/Lc(FF);
 
+  int maxNumVars= tmax (getNumVars (FF), getNumVars (GG));
+  Variable a, oldA;
+  int sizeF= size (FF);
+  int sizeG= size (GG);
+
+  if (sizeF/maxNumVars > sizePerVars1 && sizeG/maxNumVars > sizePerVars1)
+  {
+    if (hasFirstAlgVar (FF, a) || hasFirstAlgVar (GG, a))
+      return GCD_Fp_extension (FF, GG, a);
+    else if (CFFactory::gettype() == GaloisFieldDomain)
+      return GCD_GF (FF, GG);
+    else
+      return GCD_small_p (FF, GG);
+  }
+
   CanonicalForm F, G, f, g, d, Fb, Gb, Db, Fbt, Gbt, Dbt, B0, B, D0, lcF, lcG,
                 lcD;
   CFArray DD( 1, 2 ), lcDD( 1, 2 );
@@ -4450,28 +4281,43 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
 
   CFMap M,N;
   int smallestDegLev;
+  TIMING_START (ez_p_compress)
   int best_level= compress4EZGCD (F, G, M, N, smallestDegLev);
 
   if (best_level == 0) return G.genOne();
 
   F= M (F);
   G= M (G);
+  TIMING_END_AND_PRINT (ez_p_compress, "time for compression in EZ_P: ")
 
+  TIMING_START (ez_p_content)
   f = content( F, x ); g = content( G, x );
   d = gcd( f, g );
   F /= f; G /= g;
+  TIMING_END_AND_PRINT (ez_p_content, "time to extract content in EZ_P: ")
 
   if( F.isUnivariate() && G.isUnivariate() )
   {
     if( F.mvar() == G.mvar() )
       d *= gcd( F, G );
+    else
+      return N (d);
     return N (d);
   }
+  if ( F.isUnivariate())
+  {
+    g= content (G,G.mvar());
+    return N(d*gcd(F,g));
+  }
+  if ( G.isUnivariate())
+  {
+    f= content (F,F.mvar());
+    return N(d*gcd(G,f));
+  }
 
-  int maxNumVars= tmax (getNumVars (F), getNumVars (G));
-  Variable a, oldA;
-  int sizeF= size (F);
-  int sizeG= size (G);
+  maxNumVars= tmax (getNumVars (F), getNumVars (G));
+  sizeF= size (F);
+  sizeG= size (G);
 
   if (sizeF/maxNumVars > sizePerVars1 && sizeG/maxNumVars > sizePerVars1)
   {
@@ -4483,7 +4329,8 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
       return N (d*GCD_small_p (F, G));
   }
 
-  if( gcd_test_one( F, G, false ) )
+  int dummy= 0;
+  if( gcd_test_one( F, G, false, dummy ) )
   {
     return N (d);
   }
@@ -4498,7 +4345,7 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
   if (p < 50 && CFFactory::gettype() != GaloisFieldDomain && !algExtension)
   {
     if (p == 2)
-      setCharacteristic (2, 6, 'Z');
+      setCharacteristic (2, 12, 'Z');
     else if (p == 3)
       setCharacteristic (3, 4, 'Z');
     else if (p == 5 || p == 7)
@@ -4522,14 +4369,18 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
     G= GFMapUp (G, k);
     maxeval= tmin (2*ipower (p, getGFDegree()), maxNumEval);
   }
-  else if (p < 50 && algExtension && !CFFactory::gettype() == GaloisFieldDomain)
+  else if (p < 50 && algExtension && CFFactory::gettype() != GaloisFieldDomain)
   {
     int d= degree (getMipo (a));
     oldA= a;
     Variable v2;
     if (p == 2 && d < 6)
     {
-      zz_p::init (p);
+      if (fac_NTL_char != p)
+      {
+        fac_NTL_char= p;
+        zz_p::init (p);
+      }
       bool primFail= false;
       Variable vBuf;
       primElem= primitiveElement (a, vBuf, primFail);
@@ -4553,7 +4404,11 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
     }
     else if ((p == 3 && d < 4) || ((p == 5 || p == 7) && d < 3))
     {
-      zz_p::init (p);
+      if (fac_NTL_char != p)
+      {
+        fac_NTL_char= p;
+        zz_p::init (p);
+      }
       bool primFail= false;
       Variable vBuf;
       primElem= primitiveElement (a, vBuf, primFail);
@@ -4598,6 +4453,7 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
   int goodPointCount= 0;
   while( !gcdfound )
   {
+    TIMING_START (ez_p_eval);
     if( !findeval_P( F, G, Fb, Gb, Db, b, delta, degF, degG, maxeval, count, o,
          maxeval/maxNumVars, t ))
     { // too many eval. used --> try another method
@@ -4620,6 +4476,7 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
         result= mapDown (result, primElem, imPrimElem, oldA, dest, source);
       return N (d*result);
     }
+    TIMING_END_AND_PRINT (ez_p_eval, "time for eval point search in EZ_P1: ");
     delta = degree( Db );
     if( delta == 0 )
     {
@@ -4632,6 +4489,7 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
     while( true )
     {
       bt = b;
+      TIMING_START (ez_p_eval);
       if( !findeval_P(F,G,Fbt,Gbt,Dbt, bt, delta, degF, degG, maxeval, count, o,
            maxeval/maxNumVars, t ))
       { // too many eval. used --> try another method
@@ -4654,6 +4512,7 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
           result= mapDown (result, primElem, imPrimElem, oldA, dest, source);
         return N (d*result);
       }
+      TIMING_END_AND_PRINT (ez_p_eval, "time for eval point search in EZ_P2: ");
       int dd = degree( Dbt );
       if( dd == 0 )
       {
@@ -4807,38 +4666,56 @@ CanonicalForm EZGCD_P( const CanonicalForm & FF, const CanonicalForm & GG )
           return N (d*GCD_small_p (F,G));
       }
 
+      TIMING_START (ez_p_hensel_lift);
       gcdfound= Hensel_P (B*lcD, DD, b, lcDD);
+      TIMING_END_AND_PRINT (ez_p_hensel_lift, "time for Hensel lift in EZ_P: ");
 
-      if (gcdfound == -1)
+      if (gcdfound == -1) //things became dense
       {
-        Off (SW_USE_EZGCD_P);
-        result= gcd (F,G);
-        On (SW_USE_EZGCD_P);
-        if (passToGF)
+        if (algExtension)
         {
-          CanonicalForm mipo= gf_mipo;
-          setCharacteristic (p);
-          Variable alpha= rootOf (mipo.mapinto());
-          result= GF2FalphaRep (result, alpha);
+          result= GCD_Fp_extension (F, G, a);
+          if (extOfExt)
+            result= mapDown (result, primElem, imPrimElem, oldA, dest, source);
+          return N (d*result);
         }
-        if (k > 1)
+        if (CFFactory::gettype() == GaloisFieldDomain)
         {
-          result= GFMapDown (result, k);
-          setCharacteristic (p, k, gf_name);
+          result= GCD_GF (F, G);
+          if (passToGF)
+          {
+            CanonicalForm mipo= gf_mipo;
+            setCharacteristic (p);
+            Variable alpha= rootOf (mipo.mapinto());
+            result= GF2FalphaRep (result, alpha);
+          }
+          if (k > 1)
+          {
+            result= GFMapDown (result, k);
+            setCharacteristic (p, k, gf_name);
+          }
+          return N (d*result);
         }
-        if (extOfExt)
-          result= mapDown (result, primElem, imPrimElem, oldA, dest, source);
-        return N (d*result);
+        else
+        {
+          if (p >= cf_getBigPrime(0))
+            return N (d*sparseGCDFp (F,G));
+          else
+            return N (d*GCD_small_p (F,G));
+        }
       }
 
       if (gcdfound == 1)
       {
+        TIMING_START (termination_test);
         contcand= content (DD[2], Variable (1));
         cand = DD[2] / contcand;
         if (B_is_F)
           gcdfound = fdivides( cand, G ) && cand*(DD[1]/(lcD/contcand)) == F;
         else
           gcdfound = fdivides( cand, F ) && cand*(DD[1]/(lcD/contcand)) == G;
+        TIMING_END_AND_PRINT (termination_test,
+                              "time for termination test EZ_P: ");
 
         if (passToGF && gcdfound)
         {

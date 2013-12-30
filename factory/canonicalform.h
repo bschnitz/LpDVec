@@ -17,10 +17,14 @@
 # endif
 #endif /* NOSTREAMIO */
 
+#include <stdint.h>
+
 #include "cf_defs.h"
 #include "variable.h"
+#include <factory/cf_gmp.h>
 #include <factory/templates/ftmpl_list.h>
 #include <factory/templates/ftmpl_array.h>
+#include <factory/templates/ftmpl_afactor.h>
 #include <factory/templates/ftmpl_factor.h>
 #include <factory/templates/ftmpl_matrix.h>
 
@@ -48,7 +52,7 @@ class InternalCF;
 inline int is_imm ( const InternalCF * const ptr )
 {
     // returns 0 if ptr is not immediate
-    return ( ((int)((long)ptr)) & 3 );
+    return ( ((int)((intptr_t)ptr)) & 3 );
 }
 
 
@@ -68,6 +72,7 @@ public:
     CF_INLINE CanonicalForm( const CanonicalForm& );
     CF_INLINE CanonicalForm( InternalCF* );
     CF_INLINE CanonicalForm( const int );
+    CF_INLINE CanonicalForm( const long );
     CF_INLINE CanonicalForm( const Variable & );
     CF_INLINE CanonicalForm( const Variable &, int );
     CanonicalForm( const char *, const int base=10 ); // use with caution - does only handle integers !!!
@@ -78,6 +83,7 @@ public:
 
     CanonicalForm deepCopy() const;
 
+    void mpzval(mpz_t val) const;
     // predicates
     CF_NO_INLINE bool isOne() const;
     CF_NO_INLINE bool isZero() const;
@@ -99,7 +105,7 @@ public:
     bool isHomogeneous() const;
 
     // conversion functions
-    int intval() const;
+    long intval() const;
     CanonicalForm mapinto () const;
 
     CanonicalForm lc () const;
@@ -122,7 +128,7 @@ public:
 
     // assignment operators
     CF_NO_INLINE CanonicalForm& operator = ( const CanonicalForm& );
-    CF_NO_INLINE CanonicalForm& operator = ( const int );
+    CF_NO_INLINE CanonicalForm& operator = ( const long );
 
     CanonicalForm& operator += ( const CanonicalForm& );
     CanonicalForm& operator -= ( const CanonicalForm& );
@@ -171,7 +177,6 @@ public:
 #endif /* NOSTREAMIO */
 
     // obsolete methods
-    static CanonicalForm genCoeff( int what, int i = 0 );
     CanonicalForm genZero() const;
     CanonicalForm genOne() const;
 
@@ -357,6 +362,9 @@ bool isOn( int );
 //}}}
 
 //{{{ type definitions
+typedef AFactor<CanonicalForm> CFAFactor;
+typedef List <CFAFactor> CFAFList;
+typedef ListIterator<CFAFactor> CFAFListIterator;
 typedef Factor<CanonicalForm> CFFactor;
 typedef List<CFFactor> CFFList;
 typedef ListIterator<CFFactor> CFFListIterator;

@@ -1,3 +1,4 @@
+Short/absfact.tst
 Short/alexpoly.tst
 Short/algebralib.tst
 Short/allres_s.tst
@@ -52,6 +53,8 @@ Short/bug_52.tst
 Short/bug_53.tst
 Short/bug_54.tst
 Short/bug_55.tst
+Short/bug_532_s.tst
+Short/bug_538_s.tst
 Short/bug_5.tst
 Short/bug_6.tst
 Short/bug_7.tst
@@ -115,6 +118,7 @@ Short/bug_tr379.tst
 Short/bug_tr380.tst
 Short/bug_tr387.tst
 Short/bug_tr404.tst
+Short/bug_tr485.tst
 Short/bug_x_i_j.tst
 Short/classify_s.tst
 Short/cyc5_lp.tst
@@ -135,6 +139,7 @@ Short/equising_s.tst
 ;;;; Short/facstd.tst
 Short/factorizep_s.tst
 Short/factorizeQa_s.tst
+Short/factorizeQ_s.tst
 Short/fetch_s.tst
 Short/fglm1_s.tst
 Short/fglmquot1_s.tst
@@ -190,7 +195,8 @@ Short/normal.tst
 Short/pAddManyVarsManyL_s.tst
 Short/pAddManyVars_s.tst
 Short/pAdd_s.tst
-;;;;;;;;;;;;;;;;;;; Short/parallel_s.tst
+;;; Short/parallel_s.tst
+;;; Short/parallel_l.tst
 Short/paraplan_s.tst
 Short/pMultManyVarsManyL_s.tst
 Short/pMultManyVars_s.tst
@@ -242,6 +248,7 @@ Short/sres_s.tst
 Short/std_s.tst
 ;MP Short/stratify.tst
 Short/string.tst
+;;; Short/symodstd.tst ; the test  is also in Long/
 Short/test_c_dp.tst
 Short/triang_s.tst
 ; Short/tropical.tst ;; too long ?
@@ -292,3 +299,23 @@ Short/zerodim_9_32003_lp_slimgb.tst
 Short/ZidealAdd_s.tst
 Short/sba_s.tst
 Short/countedref_s.tst 
+;;;; new tests from master
+Short/alias.tst
+Short/bug_charseries2.tst
+Short/bug_idlen.tst
+Short/bug_newstruct2.tst
+Short/bug_ring_quot.tst
+Short/bug_tr329.tst
+;;; Short/divisors_s.tst ; no uu!?
+Short/jmbtest.tst
+Short/ncfactor_example2_7FromMaster_s.tst
+Short/ncfactor_koepfShift_s.tst
+Short/ncfactor_koepf_s.tst
+Short/ncfactor_tsai_s.tst
+; Short/polybori_s.tst
+Short/realizationMatroids.tst
+;
+Short/ncfactor_example2_7FromMaster_s.tst
+Short/ncfactor_koepf_s.tst
+Short/ncfactor_koepfShift_s.tst
+Short/ncfactor_tsai_s.tst

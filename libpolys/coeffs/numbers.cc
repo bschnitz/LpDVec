@@ -9,13 +9,12 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
-#ifdef HAVE_FACTORY
 #include <factory/factory.h>
-#endif
-
 
 #include "coeffs.h"
 #include <coeffs/numbers.h>
@@ -44,12 +43,17 @@
 
 
 //static int characteristic = 0;
-extern int IsPrime(int p);
+//extern int IsPrime(int p);
 
 n_Procs_s *cf_root=NULL;
 
 void   nNew(number* d) { *d=NULL; }
 void   ndDelete(number* d, const coeffs) { *d=NULL; }
+char* ndCoeffString(const coeffs r)
+{
+  char *s=(char *)omAlloc(11);snprintf(s,11,"Coeffs(%d)",r->type);
+  return s;
+}
 void   ndInpMult(number &a, number b, const coeffs r)
 {
   number n=n_Mult(a,b,r);
@@ -76,7 +80,7 @@ number ndFarey(number,number,const coeffs r)
   Werror("farey not implemented for (c=%d)",getCoeffType(r));
   return NULL;
 }
-number ndChineseRemainder(number *,number *,int,const coeffs r)
+number ndChineseRemainder(number *,number *,int,BOOLEAN,const coeffs r)
 {
   Werror("ChineseRemainder not implemented for (c=%d)",getCoeffType(r));
   return n_Init(0,r); 
@@ -227,7 +231,6 @@ BOOLEAN ndIsUnit(number a, const coeffs r) { return !n_IsZero(a,r); }
 number  ndExtGcd (number, number, number *, number *, const coeffs r) { return n_Init(1,r); }
 #endif
 
-#ifdef HAVE_FACTORY
 CanonicalForm ndConvSingNFactoryN( number, BOOLEAN /*setChar*/, const coeffs)
 {
   CanonicalForm term(0);
@@ -240,7 +243,6 @@ number ndConvFactoryNSingN( const CanonicalForm, const coeffs)
   Werror("no conversion from factory");
   return NULL;
 }
-#endif
 
 number  ndInit_bigint(number, const coeffs, const coeffs)
 {
@@ -288,12 +290,12 @@ cfInitCharProc nInitCharTableDefault[]=
  #ifdef HAVE_RINGS
  nrzInitChar,  /* n_Z */
  nrnInitChar,  /* n_Zn */
- NULL,         /* n_Zpn */
+ nrnInitChar,  /* n_Znm */
  nr2mInitChar, /* n_Z2m */
  #else
  NULL,         /* n_Z */
  NULL,         /* n_Zn */
- NULL,         /* n_Zpn */
+ NULL,         /* n_Znm */
  NULL,         /* n_Z2m */
  #endif
  NULL	/* n_CF */
@@ -318,13 +320,16 @@ coeffs nInitChar(n_coeffType t, void * parameter)
     n->type=t;
 
     // default entries (different from NULL) for some routines:
+    n->nCoeffIsEqual = ndCoeffIsEqual;
     n->cfSize = ndSize;
     n->cfGetDenom= ndGetDenom;
     n->cfGetNumerator= ndGetNumerator;
     n->cfName =  ndName;
     n->cfImPart=ndReturn0;
     n->cfDelete= ndDelete;
+    n->cfCoeffString = ndCoeffString; // should alway be changed!
     n->cfInpMult=ndInpMult;
+    n->cfInpAdd=ndInpAdd;
     n->cfCopy = ndCopy;
     n->cfIntMod=ndIntMod; /* dummy !! */
     n->cfNormalize=ndNormalize;
@@ -334,7 +339,7 @@ coeffs nInitChar(n_coeffType t, void * parameter)
     n->cfInitMPZ = ndInitMPZ;
     n->cfMPZ = ndMPZ;
 
-    //n->cfKillChar = ndKillChar; /* dummy */
+    // n->cfKillChar = ndKillChar; /* dummy */
     n->cfSetChar = ndSetChar; /* dummy */
     // temp. removed to catch all the coeffs which miss to implement this!
 
@@ -385,6 +390,7 @@ coeffs nInitChar(n_coeffType t, void * parameter)
 
     assume(n->nCoeffIsEqual!=NULL);
     assume(n->cfSetChar!=NULL);
+    assume(n->cfCoeffString!=ndCoeffString);
     assume(n->cfMult!=NULL);
     assume(n->cfSub!=NULL);
     assume(n->cfAdd!=NULL);
@@ -442,7 +448,8 @@ coeffs nInitChar(n_coeffType t, void * parameter)
     assume(n->cfClearDenominators != NULL);
     
 #ifdef LDEBUG
-    assume(n->cfDBTest!=NULL);
+    if(n->cfDBTest==NULL)
+    { n->cfDBTest=ndDBTest;Warn("cfDBTest is NULL for coeff %d",t); }
 #endif
     assume(n->type==t);
      
@@ -450,6 +457,7 @@ coeffs nInitChar(n_coeffType t, void * parameter)
     if(n->cfKillChar==NULL) Warn("cfKillChar is NULL for coeff %d",t);
     if(n->cfWriteLong==NULL) Warn("cfWrite is NULL for coeff %d",t);
     if(n->cfWriteShort==NULL) Warn("cfWriteShort is NULL for coeff %d",t);
+    if(n->cfCoeffString==ndCoeffString) Warn("cfCoeffString is undefined for coeff %d",t);
 #endif
      
    if( n->nNULL == NULL )
@@ -521,3 +529,13 @@ n_coeffType nRegister(n_coeffType n, cfInitCharProc p)
   }
 }
 
+
+void n_Print(number& a,  const coeffs r)
+{ 
+   assume(r != NULL); 
+   n_Test(a,r); 
+   
+   StringSetS("");  
+   n_Write(a, r); 
+   { char* s = StringEndS(); Print("%s", s); omFree(s); }
+}

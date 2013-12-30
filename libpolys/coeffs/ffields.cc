@@ -5,7 +5,9 @@
 * ABSTRACT: finite fields with a none-prime number of elements (via tables)
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 
 #include <omalloc/omalloc.h>
 
@@ -21,6 +23,7 @@
 
 #include <string.h>
 #include <math.h>
+#include <errno.h>
 
 BOOLEAN nfGreaterZero (number k, const coeffs r);
 number  nfMult        (number a, number b, const coeffs r);
@@ -224,7 +227,7 @@ number nfInit (long i, const coeffs r)
 number nfParameter (int i, const coeffs)
 {
   assume(i==1);
-  
+
   if( i == 1 )
     return (number)1;
 
@@ -575,35 +578,8 @@ const char * nfRead (const char *s, number *a, const coeffs r)
   return s;
 }
 
-#ifdef HAVE_FACTORY
 int gf_tab_numdigits62 ( int q );
 int convertback62 ( char * p, int n );
-#else
-static int gf_tab_numdigits62 ( int q )
-{
-    if ( q < 62 )          return 1;
-    else  if ( q < 62*62 ) return 2;
-    /*else*/               return 3;
-}
-
-static int convback62 ( char c )
-{
-    if ( c >= '0' && c <= '9' )
-        return int(c) - int('0');
-    else  if ( c >= 'A' && c <= 'Z' )
-        return int(c) - int('A') + 10;
-    else
-        return int(c) - int('a') + 36;
-}
-
-static int convertback62 ( char * p, int n )
-{
-    int r = 0;
-    for ( int j = 0; j < n; j++ )
-        r = r * 62 + convback62( p[j] );
-    return r;
-}
-#endif
 
 int nfMinPoly[16];
 
@@ -654,13 +630,15 @@ void nfReadTable(const int c, const coeffs r)
   if ((c==r->m_nfCharQ)||(c==-r->m_nfCharQ))
     /*this field is already set*/  return;
   int i=0;
-  
-  while ((fftable[i]!=c) && (fftable[i]!=0)) 
+
+  while ((fftable[i]!=c) && (fftable[i]!=0))
     i++;
-  
+
   if (fftable[i]==0)
   {
-    Werror("illegal GF-table size: %d", c);
+#ifndef NDEBUG
+    Warn("illegal GF-table size: %d", c);
+#endif
     return;
   }
 
@@ -690,7 +668,13 @@ void nfReadTable(const int c, const coeffs r)
       goto err;
     }
     int q;
-    sscanf(buf,"%d %d",&r->m_nfCharP,&q);
+    int res = -1;
+    do
+    {
+      res = sscanf(buf,"%d %d",&r->m_nfCharP,&q);
+    }
+    while((res < 0) and (errno == EINTR));
+
     nfReadMipo(buf);
     r->m_nfCharQ1=r->m_nfCharQ-1;
     //Print("nfCharQ=%d,nfCharQ1=%d,mipo=>>%s<<\n",nfCharQ,nfCharQ1,buf);
@@ -812,7 +796,7 @@ nMapFunc nfSetMap(const coeffs src, const coeffs dst)
         return NULL;
     }
   }
-  if (nCoeff_is_Zp(src,src->m_nfCharP))
+  if (nCoeff_is_Zp(src,dst->m_nfCharP))
   {
     return nfMapP;    /* Z/p -> GF(p,n) */
   }
@@ -826,12 +810,20 @@ static void nfKillChar(coeffs r)
   char** p = (char**)n_ParameterNames(r);
 
   const int P = n_NumberOfParameters(r);
-  
+
   for( int i = 1; i <= P; i++ )
-    if (p[i-1] != NULL) 
+    if (p[i-1] != NULL)
       omFree( (ADDRESS)p[i-1] );
-  
-  omFreeSize((ADDRESS)p, P * sizeof(char*));  
+
+  omFreeSize((ADDRESS)p, P * sizeof(char*));
+}
+
+static char* nfCoeffString(const coeffs r)
+{
+  const char *p=n_ParameterNames(r)[0];
+  char *s=(char*)omAlloc(11+1+strlen(p));
+  sprintf(s,"%d,%s",r->m_nfCharQ,p);
+  return s;
 }
 
 BOOLEAN nfInitChar(coeffs r,  void * parameter)
@@ -839,6 +831,7 @@ BOOLEAN nfInitChar(coeffs r,  void * parameter)
   //r->cfInitChar=npInitChar;
   r->cfKillChar=nfKillChar;
   r->nCoeffIsEqual=nfCoeffIsEqual;
+  r->cfCoeffString=nfCoeffString;
 
   r->cfMult  = nfMult;
   r->cfSub   = nfSub;
@@ -862,7 +855,7 @@ BOOLEAN nfInitChar(coeffs r,  void * parameter)
   //r->cfCopy  = ndCopy;
   //r->cfRePart = ndCopy;
   //r->cfImPart = ndReturn0;
-  
+
   r->cfWriteLong = nfWriteLong;
   r->cfInit_bigint = nlModP;
   r->cfRead = nfRead;
@@ -881,13 +874,13 @@ BOOLEAN nfInitChar(coeffs r,  void * parameter)
   //r->cfName = ndName;
   // debug stuff
   r->cfCoeffWrite=nfCoeffWrite;
-   
+
   r->cfParDeg = nfParDeg;
 
 #ifdef LDEBUG
   r->cfDBTest=nfDBTest;
 #endif
-  
+
   // the variables:
   r->nNULL = (number)0;
   assume( getCoeffType(r) == n_GF );
@@ -897,7 +890,7 @@ BOOLEAN nfInitChar(coeffs r,  void * parameter)
   assume (p->GFDegree > 0);
 
   const char * name = p->GFPar_name;
-  
+
   r->m_nfCharQ = 0;
   r->m_nfCharP = p->GFChar;
   r->m_nfCharQ1 = 0;
@@ -910,7 +903,7 @@ BOOLEAN nfInitChar(coeffs r,  void * parameter)
 
   assume( pParameterNames != NULL );
   assume( pParameterNames[0] != NULL );
-  
+
   r->pParameterNames = pParameterNames;
   // NOTE: r->m_nfParameter was replaced by n_ParameterNames(r)[0]
 
@@ -928,36 +921,42 @@ BOOLEAN nfInitChar(coeffs r,  void * parameter)
 
   if(p->GFChar > (2<<15))
   {
-    Werror("illegal characteristic");
+#ifndef NDEBUG
+    Warn("illegal characteristic");
+#endif
     return TRUE;
   }
 
-  const double check= log ((double) (p->GFChar)); 
+  const double check= log ((double) (p->GFChar));
 
   if( (p->GFDegree * check) > sixteenlog2 )
   {
-    Werror("Sorry: illegal size: %u ^ %u", p->GFChar, p->GFDegree );
+#ifndef NDEBUG
+    Warn("Sorry: illegal size: %u ^ %u", p->GFChar, p->GFDegree );
+#endif
     return TRUE;
   }
 
   int c = pow (p->GFChar, p->GFDegree);
 
   nfReadTable(c, r);
-  
+
   if( r->m_nfPlus1Table == NULL )
   {
-    Werror("Sorry: cannot init lookup table!");
+#ifndef NDEBUG
+    Warn("Sorry: cannot init lookup table!");
+#endif
     return TRUE;
   }
-  
-  
+
+
   assume (r -> m_nfCharQ > 0);
 
-  r->ch = r->m_nfCharP; 
+  r->ch = r->m_nfCharP;
   assume( r->m_nfPlus1Table != NULL );
-  
+
   return FALSE;
-  
+
 }
 
 void    nfCoeffWrite  (const coeffs r, BOOLEAN details)
@@ -969,9 +968,10 @@ void    nfCoeffWrite  (const coeffs r, BOOLEAN details)
   {
     StringSetS("//   minpoly        : ");
     nfShowMipo(r);
-    PrintS(StringAppendS("\n"));
+    StringAppendS("\n");
+    char *s=StringEndS(); PrintS(s); omFree(s);
   }
-  else PrintS("//   minpoly        : ...\n"); 
+  else PrintS("//   minpoly        : ...\n");
 }
 
 static BOOLEAN nfCoeffIsEqual (const coeffs r, n_coeffType n, void * parameter)

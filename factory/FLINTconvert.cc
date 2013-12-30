@@ -12,7 +12,9 @@
 /*****************************************************************************/
 
 
+#ifdef HAVE_CONFIG_H
 #include <config.h>
+#endif /* HAVE_CONFIG_H */
 
 #include "canonicalform.h"
 #include "fac_util.h"
@@ -35,12 +37,14 @@ extern "C"
 #ifndef __GMP_BITS_PER_MP_LIMB
 #define __GMP_BITS_PER_MP_LIMB GMP_LIMB_BITS
 #endif
-#include <fmpz.h>
-#include <fmpq.h>
-#include <fmpz_poly.h>
-#include <fmpz_mod_poly.h>
-#include <nmod_poly.h>
-#include <fmpq_poly.h>
+#include <flint/fmpz.h>
+#include <flint/fmpq.h>
+#include <flint/fmpz_poly.h>
+#include <flint/fmpz_mod_poly.h>
+#include <flint/nmod_poly.h>
+#include <flint/fmpq_poly.h>
+#include <flint/nmod_mat.h>
+#include <flint/fmpz_mat.h>
 #ifdef __cplusplus
 }
 #endif
@@ -54,7 +58,7 @@ void convertCF2Fmpz (fmpz_t result, const CanonicalForm& f)
   else
   {
     mpz_t gmp_val;
-    gmp_val[0]= *getmpi(f.getval());
+    f.mpzval(gmp_val);
     fmpz_set_mpz (result, gmp_val);
     mpz_clear (gmp_val);
   }
@@ -70,7 +74,8 @@ void convertFacCF2Fmpz_poly_t (fmpz_poly_t result, const CanonicalForm& f)
 
 CanonicalForm convertFmpz2CF (fmpz_t coefficient)
 {
-  if (fmpz_cmp_si (coefficient, MINIMMEDIATE) >= 0 && fmpz_cmp_si (coefficient, MAXIMMEDIATE) <= 0) //this should work with flint 2.3 now
+  if (fmpz_cmp_si (coefficient, MINIMMEDIATE) >= 0 &&
+      fmpz_cmp_si (coefficient, MAXIMMEDIATE) <= 0)
   {
     long coeff= fmpz_get_si (coefficient);
     return CanonicalForm (coeff);
@@ -83,19 +88,6 @@ CanonicalForm convertFmpz2CF (fmpz_t coefficient)
     CanonicalForm result= CanonicalForm (CFFactory::basic (gmp_val));
     return result;
   }
-
-  /*mpz_t gmp_val;
-  mpz_init (gmp_val);
-  fmpz_get_mpz (gmp_val, coefficient); //TODO fmpz_fits_si
-  if (mpz_is_imm (gmp_val)) //TODO for long
-  {
-    long coeff= mpz_get_si (gmp_val);
-    mpz_clear (gmp_val);
-    return CanonicalForm (coeff);
-  }
-
-  CanonicalForm result= CanonicalForm (CFFactory::basic (gmp_val));
-  return result;*/
 }
 
 CanonicalForm convertFmpz_poly_t2FacCF (fmpz_poly_t poly, const Variable& x)
@@ -119,7 +111,7 @@ void convertFacCF2nmod_poly_t (nmod_poly_t result, const CanonicalForm& f)
   for (CFIterator i= f; i.hasTerms(); i++)
   {
     CanonicalForm c= i.coeff();
-    if (!c.isImm()) c.mapinto(); //c%= getCharacteristic();
+    if (!c.isImm()) c=c.mapinto(); //c%= getCharacteristic();
     if (!c.isImm())
     {  //This case will never happen if the characteristic is in fact a prime
        // number, since all coefficients are represented as immediates
@@ -139,12 +131,12 @@ CanonicalForm convertnmod_poly_t2FacCF (nmod_poly_t poly, const Variable& x)
   {
     ulong coeff= nmod_poly_get_coeff_ui (poly, i);
     if (!coeff == 0)
-      result += CanonicalForm (coeff)*power (x,i);
+      result += CanonicalForm ((long)coeff)*power (x,i);
   }
   return result;
 }
 
-void convertCF2Fmpq (fmpq_t result, const CanonicalForm& f) //TODO wie oben bei CF2Fmpz
+void convertCF2Fmpq (fmpq_t result, const CanonicalForm& f)
 {
   ASSERT (isOn (SW_RATIONAL), "expected rational");
   fmpz_t tmp1, tmp2;
@@ -175,7 +167,6 @@ void convertCF2Fmpq (fmpq_t result, const CanonicalForm& f) //TODO wie oben bei 
 CanonicalForm convertFmpq_t2CF (const fmpq_t q)
 {
   ASSERT (isOn (SW_RATIONAL), "expected rational");
-  //TODO as for Fmpz check first if num and den are immediate
 
   CanonicalForm num, den;
   mpz_t nnum, nden;
@@ -198,20 +189,6 @@ CanonicalForm convertFmpq_t2CF (const fmpq_t q)
 
 CanonicalForm convertFmpq_poly_t2FacCF (fmpq_poly_t p, const Variable& x)
 {
-#if 0
-  ASSERT (isOn (SW_RATIONAL), "expected poly over Q");
-  CanonicalForm den= convertFmpz2CF (fmpq_poly_denref (p));
-  fmpz_poly_t FLINTnum;
-  long n= fmpq_poly_length (p);
-  fmpz_poly_init2 (FLINTnum, fmpq_poly_length (p));
-
-  for (long i= 0; i < n; i++)
-    fmpz_set (FLINTnum->coeffs + i,fmpq_poly_numref (p) + i);
-  _fmpz_poly_set_length (FLINTnum, n);
-  CanonicalForm result= convertFmpz_poly_t2FacCF (FLINTnum, x);
-  fmpz_poly_clear (FLINTnum);
-  return result/den;
-#else
   CanonicalForm result= 0;
   fmpq_t coeff;
   long n= fmpq_poly_length (p);
@@ -228,7 +205,6 @@ CanonicalForm convertFmpq_poly_t2FacCF (fmpq_poly_t p, const Variable& x)
     fmpq_clear (coeff);
   }
   return result;
-#endif
 }
 
 void convertFacCF2Fmpz_array (fmpz* result, const CanonicalForm& f)
@@ -237,7 +213,6 @@ void convertFacCF2Fmpz_array (fmpz* result, const CanonicalForm& f)
     convertCF2Fmpz (&result[i.exp()], i.coeff());
 }
 
-//TODO multiply by bCommonDen and convertFacCF2Fmpz_poly_t
 void convertFacCF2Fmpq_poly_t (fmpq_poly_t result, const CanonicalForm& f)
 {
   ASSERT (isOn (SW_RATIONAL), "expected poly over Q");
@@ -247,14 +222,6 @@ void convertFacCF2Fmpq_poly_t (fmpq_poly_t result, const CanonicalForm& f)
   CanonicalForm den= bCommonDen (f);
   convertFacCF2Fmpz_array (fmpq_poly_numref (result), f*den);
   convertCF2Fmpz (fmpq_poly_denref (result), den);
-  /*fmpq_t coeff;
-  for (CFIterator i= f; i.hasTerms(); i++)
-  {
-    fmpq_init (coeff);
-    convertCF2Fmpq (coeff, i.coeff());
-    fmpq_poly_set_coeff_fmpq (result, i.exp(), coeff);
-    fmpq_clear (coeff);
-  }*/
 }
 
 CFFList
@@ -269,9 +236,9 @@ convertFLINTnmod_poly_factor2FacCFFList (nmod_poly_factor_t fac,
 
   long i;
 
-  for (i = 0; i < fac->num_factors; i++)
-    result.append (CFFactor (convertnmod_poly_t2FacCF ((nmod_poly_t &)fac->factors[i],x),
-                             fac->exponents[i]));
+  for (i = 0; i < fac->num; i++)
+    result.append (CFFactor (convertnmod_poly_t2FacCF ((nmod_poly_t &)fac->p[i],x),
+                             fac->exp[i]));
   return result;
 }
 
@@ -296,6 +263,65 @@ convertFmpz_mod_poly_t2FacCF (fmpz_mod_poly_t poly, const Variable& x,
   CanonicalForm result= convertFmpz_poly_t2FacCF (buf, x);
   fmpz_poly_clear (buf);
   return b (result);
+}
+
+void convertFacCFMatrix2Fmpz_mat_t (fmpz_mat_t M, CFMatrix &m)
+{
+  fmpz_mat_init (M, (long) m.rows(), (long) m.columns());
+
+  int i,j;
+  for(i=m.rows();i>0;i--)
+  {
+    for(j=m.columns();j>0;j--)
+    {
+      convertCF2Fmpz (fmpz_mat_entry (M,i-1,j-1), m(i,j));
+    }
+  }
+}
+CFMatrix* convertFmpz_mat_t2FacCFMatrix(fmpz_mat_t m)
+{
+  CFMatrix *res=new CFMatrix(fmpz_mat_nrows (m),fmpz_mat_ncols (m));
+  int i,j;
+  for(i=res->rows();i>0;i--)
+  {
+    for(j=res->columns();j>0;j--)
+    {
+      (*res)(i,j)=convertFmpz2CF(fmpz_mat_entry (m,i-1,j-1));
+    }
+  }
+  return res;
+}
+
+void convertFacCFMatrix2nmod_mat_t (nmod_mat_t M, CFMatrix &m)
+{
+  nmod_mat_init (M, (long) m.rows(), (long) m.columns(), getCharacteristic());
+
+  bool save_sym_ff= isOn (SW_SYMMETRIC_FF);
+  if (save_sym_ff) Off (SW_SYMMETRIC_FF);
+  int i,j;
+  for(i=m.rows();i>0;i--)
+  {
+    for(j=m.columns();j>0;j--)
+    {
+      if(!(m(i,j)).isImm()) printf("convertFacCFMatrix2FLINTmat_zz_p: not imm.\n");
+      nmod_mat_entry (M,i-1,j-1)= (m(i,j)).intval();
+    }
+  }
+  if (save_sym_ff) On (SW_SYMMETRIC_FF);
+}
+
+CFMatrix* convertNmod_mat_t2FacCFMatrix(nmod_mat_t m)
+{
+  CFMatrix *res=new CFMatrix(nmod_mat_nrows (m), nmod_mat_ncols (m));
+  int i,j;
+  for(i=res->rows();i>0;i--)
+  {
+    for(j=res->columns();j>0;j--)
+    {
+      (*res)(i,j)=CanonicalForm((long) nmod_mat_entry (m, i-1, j-1));
+    }
+  }
+  return res;
 }
 
 #endif

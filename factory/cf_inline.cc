@@ -73,7 +73,9 @@
 #define INCL_CF_INLINE_CC
 #endif
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include "cf_assert.h"
 
@@ -120,7 +122,7 @@
 //}}}
 CF_INLINE
 CanonicalForm::CanonicalForm ()
-    : value( CFFactory::basic( (int)0 ) )
+    : value( CFFactory::basic( (long)0 ) )
 {
 }
 //}}}
@@ -139,6 +141,12 @@ CanonicalForm::CanonicalForm ()
 //}}}
 CF_INLINE
 CanonicalForm::CanonicalForm ( const int i )
+    : value( CFFactory::basic( (long)i ) )
+{
+}
+
+CF_INLINE
+CanonicalForm::CanonicalForm ( const long i )
     : value( CFFactory::basic( i ) )
 {
 }
@@ -299,7 +307,7 @@ CanonicalForm::operator = ( const CanonicalForm & cf )
 //
 //}}}
 CF_INLINE CanonicalForm &
-CanonicalForm::operator = ( const int cf )
+CanonicalForm::operator = ( const long cf )
 {
     if ( (! is_imm( value )) && value->deleteObject() )
         delete value;

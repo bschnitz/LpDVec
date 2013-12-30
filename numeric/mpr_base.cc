@@ -8,7 +8,9 @@
  */
 
 //-> includes
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 #include <misc/auxiliary.h>
@@ -24,9 +26,7 @@
 #include <polys/matpol.h>
 #include <polys/sparsmat.h>
 
-#ifdef HAVE_FACTORY
 #include <polys/clapsing.h>
-#endif
 
 #include <kernel/febase.h>
 #include <kernel/polys.h>
@@ -726,7 +726,7 @@ poly monomAt( poly p, int i )
 {
   assume( i > 0 );
   poly iter= p;
-  for ( int j= 1; (j < i) && (iter!=NULL); j++ ) iter= pIter(iter);
+  for ( int j= 1; (j < i) && (iter!=NULL); j++ ) pIter(iter);
   return iter;
 }
 //<-
@@ -1738,7 +1738,7 @@ resMatrixSparse::~resMatrixSparse()
 
 ideal resMatrixSparse::getMatrix()
 {
-  int i,j,cp;
+  int i,/*j,*/cp;
   poly pp,phelp,piter,pgls;
 
   // copy original sparse res matrix
@@ -1860,7 +1860,7 @@ number resMatrixSparse::getDetAt( const number* evpoint )
 poly resMatrixSparse::getUDet( const number* evpoint )
 {
   int i,cp;
-  poly pp,phelp,piter;
+  poly pp,phelp/*,piter*/;
 
   mprPROTnl("smCallDet");
 
@@ -1869,7 +1869,7 @@ poly resMatrixSparse::getUDet( const number* evpoint )
     pp= (rmat->m)[IMATELEM(*uRPos,i,1)];
     pDelete( &pp );
     phelp= NULL;
-    piter= NULL;
+    // piter= NULL;
     for ( cp= 2; cp <= idelem; cp++ )
     { // u1 .. un
       if ( !nIsZero(evpoint[cp-1]) )
@@ -1927,7 +1927,7 @@ poly resMatrixSparse::getUDet( const number* evpoint )
 
 //-> dense resultant matrix
 //
-class resVector;
+struct resVector;
 
 /* dense resultant matrix */
 class resMatrixDense : virtual public resMatrixBase
@@ -2572,11 +2572,7 @@ number resMatrixDense::getDetAt( const number* evpoint )
   mprSTICKYPROT(ST__DET);
 
   // evaluate determinant of matrix m using factory singclap_det
-#ifdef HAVE_FACTORY
   poly res= singclap_det( m, currRing );
-#else
-  poly res= NULL;
-#endif
 
   // avoid errors for det==0
   number numres;
@@ -2636,11 +2632,7 @@ number resMatrixDense::getSubDet()
     j++;
   }
 
-#ifdef HAVE_FACTORY
   poly res= singclap_det( mat, currRing );
-#else
-  poly res= NULL;
-#endif
 
   number numres;
   if ((res != NULL) && (!nIsZero(pGetCoeff( res ))) )
@@ -2710,10 +2702,8 @@ uResultant::uResultant( const ideal _gls, const resMatType _rmt, BOOLEAN extIdea
     resMat= new resMatrixSparse( gls );
     break;
   case denseResMat:
-#ifdef HAVE_FACTORY
     resMat= new resMatrixDense( gls );
     break;
-#endif
   default:
     WerrorS("uResultant::uResultant: Unknown resultant matrix type choosen!");
   }
@@ -3071,7 +3061,7 @@ rootContainer ** uResultant::interpolateDenseSP( BOOLEAN matchUp, const number s
 
 rootContainer ** uResultant::specializeInU( BOOLEAN matchUp, const number subDetVal )
 {
-  int i,p,uvar;
+  int i,/*p,*/uvar;
   long tdg;
   poly pures,piter;
   int loops=(matchUp?n-2:n-1);
@@ -3091,7 +3081,7 @@ rootContainer ** uResultant::specializeInU( BOOLEAN matchUp, const number subDet
 
   // now we evaluate D(u0,-1,0,...0), D(u0,0,-1,0,...,0), ..., D(u0,0,..,0,-1)
   // or D(u0,k1,k2,0,...,0), D(u0,k1,k2,k3,0,...,0), ..., D(u0,k1,k2,k3,...,kn)
-  p=3;
+  // p=3;
   for ( uvar= 0; uvar < loops; uvar++ )
   {
     // generate initial evaluation point
@@ -3187,6 +3177,7 @@ int uResultant::nextPrime( const int i )
 {
   int init=i;
   int ii=i+2;
+  extern int IsPrime(int p); // from Singular/ipshell.{h,cc}
   int j= IsPrime( ii );
   while ( j <= init )
   {
@@ -3204,10 +3195,10 @@ ideal loNewtonPolytope( const ideal id )
 {
   simplex * LP;
   int i;
-  int n,totverts,idelem;
+  int /*n,*/totverts,idelem;
   ideal idr;
 
-  n= (currRing->N);
+  // n= (currRing->N);
   idelem= IDELEMS(id);  // should be n+1
 
   totverts = 0;

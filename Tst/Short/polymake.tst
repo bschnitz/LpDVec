@@ -7,12 +7,10 @@ LIB "polymake.lib";
 // A) Test for Procedures using Polymake
 ///////////////////////////////////////////////////////////////////////////
 example polymakePolytope;
-example newtonPolytope;
+example newtonPolytopeP;
 example newtonPolytopeLP;
-example normalFan;
+example normalFanL;
 example groebnerFan;
-example intmatToPolymake;
-example polymakeToIntmat;
 ///////////////////////////////////////////////////////////////////////////
 // B) Test for Procedures using Topcom
 ///////////////////////////////////////////////////////////////////////////

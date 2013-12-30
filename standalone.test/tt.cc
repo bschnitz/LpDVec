@@ -3,9 +3,7 @@
 #include <Singular/libsingular.h>
 #include <unistd.h>
 
-#ifdef HAVE_FACTORY
 int mmInit(void) {return 1; } // ? due to SINGULAR!!!...???
-#endif
 
 
 int main( int, char *argv[] ) 
@@ -14,8 +12,9 @@ int main( int, char *argv[] )
 
   StringSetS("ressources in use (as reported by feStringAppendResources(0):\n");
   feStringAppendResources(0);
-  PrintS(StringAppendS("\n"));
-
+   
+  { StringAppendS("\n"); char* s = StringEndS(); PrintS(s); omFree(s); }
+    
 //  // init path names etc.
 //  siInit(argv[0]);
 

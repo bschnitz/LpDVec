@@ -2,7 +2,9 @@
 *  Computer Algebra System SINGULAR     *
 ****************************************/
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <kernel/structs.h>
 #include <kernel/structs.h>

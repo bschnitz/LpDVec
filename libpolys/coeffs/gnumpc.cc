@@ -7,7 +7,9 @@
 * ngc == number gnu complex
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 
 #include <omalloc/omalloc.h>
 
@@ -455,12 +457,21 @@ static void ngcKillChar(coeffs r)
   omFreeSize((ADDRESS)p, P * sizeof(char*));  
 }
 
+static char* ngcCoeffString(const coeffs r)
+{
+  const char *p=n_ParameterNames(r)[0];
+  char *s=(char*)omAlloc(31+strlen(p));
+  sprintf(s,"complex,%d,%d,%s",r->float_len,r->float_len2,p);
+  return s;
+}
+
 BOOLEAN ngcInitChar(coeffs n, void* parameter)
 {
   assume( getCoeffType(n) == ID );
 
   n->cfKillChar = ngcKillChar;
   n->ch = 0;
+  n->cfCoeffString=ngcCoeffString;
 
   n->cfDelete  = ngcDelete;
   n->cfNormalize=ndNormalize;
@@ -697,7 +708,7 @@ nMapFunc ngcSetMap(const coeffs src, const coeffs dst)
   return NULL;
 }
 
-void    ngcCoeffWrite  (const coeffs r, BOOLEAN details)
+void    ngcCoeffWrite  (const coeffs r, BOOLEAN /*details*/)
 {
   Print("//   characteristic : 0 (complex:%d digits, additional %d digits)\n",
         r->float_len, r->float_len2);  /* long C */

@@ -8,7 +8,9 @@
 #include "canonicalform.h"
 #include <factory/cf_gmp.h>
 
-#include <findexec/feFopen.h>
+#ifdef SINGULAR
+#include <resources/feFopen.h>
+#endif
 
 /*BEGINPUBLIC*/
 

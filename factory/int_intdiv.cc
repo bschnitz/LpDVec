@@ -6,7 +6,9 @@
 //
 //}}}
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include "canonicalform.h"
 #include "imm.h"
@@ -65,7 +67,7 @@ InternalInteger::dividecoeff ( InternalCF * c, bool invert )
     ASSERT( invert || imm2int( c ) != 0,
             "math error: divide by zero" );
 
-    int intC = imm2int( c );
+    long intC = imm2int( c );
 
     if ( cf_glob_switches.isOn( SW_RATIONAL ) ) {
         mpz_t n, d;
@@ -207,7 +209,7 @@ InternalInteger::modulocoeff ( InternalCF * c, bool invert )
         return int2imm( 0 );
     }
 
-    int intC = imm2int( c );
+    long intC = imm2int( c );
 
     if ( invert ) {
         if ( intC >= 0 ) {
@@ -292,7 +294,7 @@ InternalInteger::divremcoeff ( InternalCF * c, InternalCF * & quot, InternalCF *
     ASSERT( invert || imm2int( c ) != 0,
             "math error: divide by zero" );
 
-    int intC = imm2int( c );
+    long intC = imm2int( c );
 
     if ( cf_glob_switches.isOn( SW_RATIONAL ) ) {
         mpz_t n, d;

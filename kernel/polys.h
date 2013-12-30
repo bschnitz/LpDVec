@@ -79,12 +79,12 @@ static inline void pLmFree(poly *p)   {p_LmFree(p, currRing);}
  *
  ***************************************************************/
 
-#define pExpVectorCopy(d_p, s_p)    p_ExpVectorCopy(d_p, s_p, currRing)
-#define pExpVectorAdd(p1, p2)       p_ExpVectorAdd(p1, p2, currRing)
-#define pExpVectorSub(p1, p2)       p_ExpVectorSub(p1, p2, currRing)
-#define pExpVectorAddSub(p1, p2, p3)p_ExpVectorAddSub(p1, p2, p3, currRing)
-#define pExpVectorSum(pr, p1, p2)   p_ExpVectorSum(pr, p1, p2, currRing)
-#define pExpVectorDiff(pr, p1, p2)  p_ExpVectorDiff(pr, p1, p2, currRing)
+#define pExpVectorCopy(d_p, s_p)      p_ExpVectorCopy(d_p, s_p, currRing)
+#define pExpVectorAdd(p1, p2)         p_ExpVectorAdd(p1, p2, currRing)
+#define pExpVectorSub(p1, p2)         p_ExpVectorSub(p1, p2, currRing)
+#define pExpVectorAddSub(p1, p2, p3)  p_ExpVectorAddSub(p1, p2, p3, currRing)
+#define pExpVectorSum(pr, p1, p2)     p_ExpVectorSum(pr, p1, p2, currRing)
+#define pExpVectorDiff(pr, p1, p2)    p_ExpVectorDiff(pr, p1, p2, currRing)
 
 // Gets a copy of (resp. set) the exponent vector, where e is assumed
 // to point to (r->N +1)*sizeof(long) memory. Exponents are
@@ -245,7 +245,7 @@ extern BOOLEAN  pVectorOut;
  *
  ***************************************************************/
 inline int pWeight(int i, const ring R = currRing){ return p_Weight(i, R); }
- 
+
 
 static inline long pTotaldegree(poly p) { return p_Totaldegree(p,currRing); }
 #define pWTotaldegree(p) p_WTotaldegree(p,currRing)
@@ -272,7 +272,7 @@ static inline long pTotaldegree(poly p) { return p_Totaldegree(p,currRing); }
 
 // let's inline those, so that we can call them from the debugger
 inline char*   pString(poly p)    {return p_String(p, currRing, currRing);}
-inline char*   pString0(poly p)   {return p_String0(p, currRing, currRing);}
+inline void    pString0(poly p)   {p_String0(p, currRing, currRing);}
 inline void    pWrite(poly p)     {p_Write(p, currRing, currRing);}
 inline void    pWrite0(poly p)    {p_Write0(p, currRing, currRing);}
 inline void    wrp(poly p)        {p_wrp(p, currRing, currRing);}
@@ -305,7 +305,7 @@ BOOLEAN   pIsHomogeneous (poly p);
 // component == comp and *p of all other monoms *lq == pLength(*q)
 // On return all components pf *q == 0
 inline void pTakeOutComp(poly *p, long comp, poly *q, int *lq, const ring R = currRing)
-{ 
+{
   return p_TakeOutComp(p, comp, q, lq, R);
 }
 
@@ -341,6 +341,8 @@ inline void pNorm(poly p, const ring R = currRing){ p_Norm(p, R); }
 #define   pInvers(n,p,w) p_Invers(n,p,w,currRing)
 // maximum weigthed degree of all monomials of p, w is indexed from
 // 1..pVariables
+
+/// Deprecated: only for compatibility with older code!
 #define    pDegW(p,w) p_DegW(p,w,currRing)
 
 /*-----------type conversions ----------------------------*/
@@ -379,8 +381,8 @@ static inline poly pLast(poly a) { int l; return pLast(a, l); }
 
 #else // ! PDEBUG
 
-#define pTest(p)        ((void)0)
-#define pLmTest(p)      ((void)0)
+#define pTest(p)        do {} while (0)
+#define pLmTest(p)      do {} while (0)
 #endif
 
 #endif // POLYS_H

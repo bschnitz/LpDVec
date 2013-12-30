@@ -9,7 +9,9 @@
  *******************************************************************/
 
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 
 #include <ctype.h>
 
@@ -54,10 +56,97 @@
 #endif
 
 #include "coeffrings.h"
-#ifdef HAVE_FACTORY
 #include "clapsing.h"
-#endif
 
+#define ADIDEBUG 0
+
+/*
+ * lift ideal with coeffs over Z (mod N) to Q via Farey
+ */
+poly p_Farey(poly p, number N, const ring r)
+{
+  poly h=p_Copy(p,r);
+  poly hh=h;
+  while(h!=NULL)
+  {
+    number c=pGetCoeff(h);
+    pSetCoeff0(h,n_Farey(c,N,r->cf));
+    n_Delete(&c,r->cf);
+    pIter(h);
+  }
+  while((hh!=NULL)&&(n_IsZero(pGetCoeff(hh),r->cf)))
+  {
+    p_LmDelete(&hh,r);
+  }
+  h=hh;
+  while((h!=NULL) && (pNext(h)!=NULL))
+  {
+    if(n_IsZero(pGetCoeff(pNext(h)),r->cf))
+    {
+      p_LmDelete(&pNext(h),r);
+    }
+    else pIter(h);
+  }
+  return hh;
+}
+/*2
+* xx,q: arrays of length 0..rl-1
+* xx[i]: SB mod q[i]
+* assume: char=0
+* assume: q[i]!=0
+* destroys xx
+*/
+poly p_ChineseRemainder(poly *xx, number *x,number *q, int rl, const ring R)
+{
+  poly r,h,hh;
+  int j;
+  poly  res_p=NULL;
+  loop
+  {
+    /* search the lead term */
+    r=NULL;
+    for(j=rl-1;j>=0;j--)
+    {
+      h=xx[j];
+      if ((h!=NULL)
+      &&((r==NULL)||(p_LmCmp(r,h,R)==-1)))
+        r=h;
+    }
+    /* nothing found -> return */
+    if (r==NULL) break;
+    /* create the monomial in h */
+    h=p_Head(r,R);
+    /* collect the coeffs in x[..]*/
+    for(j=rl-1;j>=0;j--)
+    {
+      hh=xx[j];
+      if ((hh!=NULL) && (p_LmCmp(r,hh,R)==0))
+      {
+        x[j]=pGetCoeff(hh);
+        hh=p_LmFreeAndNext(hh,R);
+        xx[j]=hh;
+      }
+      else
+        x[j]=n_Init(0, R);
+    }
+    number n=n_ChineseRemainderSym(x,q,rl,TRUE,R->cf);
+    for(j=rl-1;j>=0;j--)
+    {
+      x[j]=NULL; // nlInit(0...) takes no memory
+    }
+    if (n_IsZero(n,R)) p_Delete(&h,R);
+    else
+    {
+      //Print("new mon:");pWrite(h);
+      p_SetCoeff(h,n,R);
+      pNext(h)=res_p;
+      res_p=h; // building res_p in reverse order!
+    }
+  }
+  res_p=pReverse(res_p);
+  p_Test(res_p, R);
+  return res_p;
+}
 /***************************************************************
  *
  * Completing what needs to be set for the monomial
@@ -84,7 +173,7 @@ void p_Setm_General(poly p, const ring r)
   {
     loop
     {
-      long ord=0;
+      unsigned long ord=0;
       sro_ord* o=&(r->typ[pos]);
       switch(o->ord_typ)
       {
@@ -107,7 +196,7 @@ void p_Setm_General(poly p, const ring r)
           e=o->data.wp.end;
           int *w=o->data.wp.weights;
 #if 1
-          for(int i=a;i<=e;i++) ord+=p_GetExp(p,i,r)*w[i-a];
+          for(int i=a;i<=e;i++) ord+=((unsigned long)p_GetExp(p,i,r))*((unsigned long)w[i-a]);
 #else
           long ai;
           int ei,wi;
@@ -149,14 +238,14 @@ void p_Setm_General(poly p, const ring r)
           const int c = p_GetComp(p,r);
 
           const short len_gen= o->data.am.len_gen;
-          
+
           if ((c > 0) && (c <= len_gen))
           {
             assume( w == o->data.am.weights_m );
             assume( w[0] == len_gen );
             ord += w[c];
           }
-          
+
           p->exp[o->data.am.place] = ord;
           break;
         }
@@ -245,11 +334,11 @@ void p_Setm_General(poly p, const ring r)
           const short place = o->data.syz.place;
           const int limit = o->data.syz.limit;
 
-          if (c > limit)
+          if (c > (unsigned long)limit)
             p->exp[place] = o->data.syz.curr_index;
           else if (c > 0)
           {
-            assume( (1 <= c) && (c <= limit) );
+            assume( (1 <= c) && (c <= (unsigned long)limit) );
             p->exp[place]= o->data.syz.syz_index[c];
           }
           else
@@ -351,12 +440,12 @@ void p_Setm_General(poly p, const ring r)
               break;
 
             assume( c < IDELEMS(F) ); // What about others???
-            
+
             const poly pp = F->m[c]; // get reference monomial!!!
 
             if(pp == NULL)
               break;
-            
+
             assume(pp != NULL);
 
 #ifndef NDEBUG
@@ -529,7 +618,6 @@ long p_WTotaldegree(poly p, const ring r)
 {
   p_LmCheckPolyRing(p, r);
   int i, k;
-  int pIS = 0;
   long j =0;
 
   // iterate through each block:
@@ -605,7 +693,9 @@ long p_WTotaldegree(poly p, const ring r)
 
 long p_DegW(poly p, const short *w, const ring R)
 {
-  long r=~0L;
+  assume( p_Test(p, R) );
+  assume( w != NULL );
+  long r=-LONG_MAX;
 
   while (p!=NULL)
   {
@@ -635,7 +725,7 @@ long p_WDegree(poly p, const ring r)
   for(i=1;i<=r->firstBlockEnds;i++)
     j+=p_GetExp(p, i, r)*r->firstwv[i-1];
 
-  for (;i<=r->N;i++)
+  for (;i<=rVar(r);i++)
     j+=p_GetExp(p,i, r)*p_Weight(i, r);
 
   return j;
@@ -1142,6 +1232,13 @@ BOOLEAN p_OneComp(poly p, const ring r)
 */
 int p_IsPurePower(const poly p, const ring r)
 {
+#ifdef HAVE_RINGS 
+  if (rField_is_Ring(r))
+          {
+          if (p == NULL) return 0;
+          if (!n_IsUnit(pGetCoeff(p), r->cf)) return 0;
+          }
+#endif
   int i,k=0;
 
   for (i=r->N;i;i--)
@@ -1271,7 +1368,7 @@ const char * p_Read(const char *st, poly &rc, const ring r)
   if (s==st)
   /* i.e. it does not start with a coeff: test if it is a ringvar*/
   {
-    j = r_IsRingVar(s,r);
+    j = r_IsRingVar(s,r->names,r->N);
     if (j >= 0)
     {
       p_IncrExp(rc,1+j,r);
@@ -1284,7 +1381,7 @@ const char * p_Read(const char *st, poly &rc, const ring r)
     char ss[2];
     ss[0] = *s++;
     ss[1] = '\0';
-    j = r_IsRingVar(ss,r);
+    j = r_IsRingVar(ss,r->names,r->N);
     if (j >= 0)
     {
       const char *s_save=s;
@@ -1303,7 +1400,7 @@ const char * p_Read(const char *st, poly &rc, const ring r)
       // We return the parsed polynomial nevertheless. This is needed when
       // we are parsing coefficients in a rational function field.
       s--;
-      return s;
+      break;
     }
   }
 done:
@@ -1487,7 +1584,7 @@ void p_Lcm(const poly a, const poly b, poly m, const ring r)
 {
   for (int i=rVar(r); i; --i)
     p_SetExp(m,i, si_max( p_GetExp(a,i,r), p_GetExp(b,i,r)),r);
-  
+
   p_SetComp(m, si_max(p_GetComp(a,r), p_GetComp(b,r)),r);
   /* Don't do a pSetm here, otherwise hres/lres chockes */
 }
@@ -1518,6 +1615,7 @@ poly      p_PolyDiv(poly &p, const poly divisor, const BOOLEAN needResult, const
     /* determine t = LT(p) / LT(divisor) */
     poly t = p_ISet(1, r);
     number c = n_Div(p_GetCoeff(p, r), divisorLC, r->cf);
+    n_Normalize(c,r->cf);
     p_SetCoeff(t, c, r);
     int e = p_GetExp(p, 1, r) - divisorLE;
     p_SetExp(t, 1, e, r);
@@ -1907,18 +2005,19 @@ poly p_Power(poly p, int i, const ring r)
 
 static number p_InitContent(poly ph, const ring r);
 
-#define CLEARENUMERATORS 0
+#define CLEARENUMERATORS 1
 
 void p_Content(poly ph, const ring r)
 {
   assume( ph != NULL );
 
-  assume( r != NULL ); assume( r->cf != NULL ); const coeffs C = r->cf;
+  assume( r != NULL ); assume( r->cf != NULL );
 
 
 #if CLEARENUMERATORS
   if( 0 )
   {
+    const coeffs C = r->cf;
       // experimentall (recursive enumerator treatment) of alg. Ext!
     CPolyCoeffsEnumerator itr(ph);
     n_ClearContent(itr, r->cf);
@@ -1930,8 +2029,8 @@ void p_Content(poly ph, const ring r)
     return;
   }
 #endif
-  
-  
+
+
 #ifdef HAVE_RINGS
   if (rField_is_Ring(r))
   {
@@ -1970,20 +2069,20 @@ void p_Content(poly ph, const ring r)
   {
     assume( pNext(ph) != NULL );
 #if CLEARENUMERATORS
-    if( nCoeff_is_Q(r->cf) || nCoeff_is_Q_a(r->cf) )
+    if( nCoeff_is_Q(r->cf) )
     {
       // experimentall (recursive enumerator treatment) of alg. Ext!
       CPolyCoeffsEnumerator itr(ph);
       n_ClearContent(itr, r->cf);
 
-      p_Test(ph, r); n_Test(pGetCoeff(ph), C);
-      assume(n_GreaterZero(pGetCoeff(ph), C)); // ??
-      
+      p_Test(ph, r); n_Test(pGetCoeff(ph), r->cf);
+      assume(n_GreaterZero(pGetCoeff(ph), r->cf)); // ??
+
       // if(!n_GreaterZero(pGetCoeff(ph),r->cf)) ph = p_Neg(ph,r);
       return;
     }
 #endif
-    
+
     n_Normalize(pGetCoeff(ph),r->cf);
     if(!n_GreaterZero(pGetCoeff(ph),r->cf)) ph = p_Neg(ph,r);
     if (rField_is_Q(r)) // should not be used anymore if CLEARENUMERATORS is 1
@@ -2020,7 +2119,7 @@ void p_Content(poly ph, const ring r)
         //{
         //  StringSetS("** div0:");nWrite(pGetCoeff(p));StringAppendS("/");
         //  nWrite(h);StringAppendS("=");nWrite(d);StringAppendS(" int:");
-        //  nWrite(tmp);Print(StringAppendS("\n"));
+        //  nWrite(tmp);Print(StringEndS("\n")); // NOTE/TODO: use StringAppendS("\n"); omFree(s);
         //}
         //nDelete(&tmp);
         d = n_IntDiv(pGetCoeff(p),h,r->cf);
@@ -2029,19 +2128,12 @@ void p_Content(poly ph, const ring r)
       }
     }
     n_Delete(&h,r->cf);
-#ifdef HAVE_FACTORY
-//    if ( (n_GetChar(r) == 1) || (n_GetChar(r) < 0) ) /* Q[a],Q(a),Zp[a],Z/p(a) */
-//    {
-//      singclap_divide_content(ph, r);
-//      if(!n_GreaterZero(pGetCoeff(ph),r->cf)) ph = p_Neg(ph,r);
-//    }
-#endif
-    if (rField_is_Q_a(r)) 
+    if (rField_is_Q_a(r))
     {
-      // we only need special handling for alg. ext.
+      // special handling for alg. ext.:
       if (getCoeffType(r->cf)==n_algExt)
       {
-        number hzz = n_Init(1, r->cf->extRing->cf);
+        h = n_Init(1, r->cf->extRing->cf);
         p=ph;
         while (p!=NULL)
         { // each monom: coeff in Q_a
@@ -2049,17 +2141,15 @@ void p_Content(poly ph, const ring r)
           poly c_n=c_n_n;
           while (c_n!=NULL)
           { // each monom: coeff in Q
-            d=n_Lcm(hzz,pGetCoeff(c_n),r->cf->extRing->cf);
-            n_Delete(&hzz,r->cf->extRing->cf);
-            hzz=d;
+            d=n_Lcm(h,pGetCoeff(c_n),r->cf->extRing->cf);
+            n_Delete(&h,r->cf->extRing->cf);
+            h=d;
             pIter(c_n);
           }
           pIter(p);
         }
-        /* hzz contains the 1/lcm of all denominators in c_n_n*/
-        h=n_Invers(hzz,r->cf->extRing->cf);
-        n_Delete(&hzz,r->cf->extRing->cf);
-        n_Normalize(h,r->cf->extRing->cf);
+        /* h contains the 1/lcm of all denominators in c_n_n*/
+        //n_Normalize(h,r->cf->extRing->cf);
         if(!n_IsOne(h,r->cf->extRing->cf))
         {
           p=ph;
@@ -2079,6 +2169,46 @@ void p_Content(poly ph, const ring r)
         }
         n_Delete(&h,r->cf->extRing->cf);
       }
+      /*else
+      {
+      // special handling for rat. functions.:
+        number hzz =NULL;
+        p=ph;
+        while (p!=NULL)
+        { // each monom: coeff in Q_a (Z_a)
+          fraction f=(fraction)pGetCoeff(p);
+          poly c_n=NUM(f);
+          if (hzz==NULL)
+          {
+            hzz=n_Copy(pGetCoeff(c_n),r->cf->extRing->cf);
+            pIter(c_n);
+          }
+          while ((c_n!=NULL)&&(!n_IsOne(hzz,r->cf->extRing->cf)))
+          { // each monom: coeff in Q (Z)
+            d=n_Gcd(hzz,pGetCoeff(c_n),r->cf->extRing->cf);
+            n_Delete(&hzz,r->cf->extRing->cf);
+            hzz=d;
+            pIter(c_n);
+          }
+          pIter(p);
+        }
+        /* hzz contains the gcd of all numerators in f*/
+        /*h=n_Invers(hzz,r->cf->extRing->cf);
+        n_Delete(&hzz,r->cf->extRing->cf);
+        n_Normalize(h,r->cf->extRing->cf);
+        if(!n_IsOne(h,r->cf->extRing->cf))
+        {
+          p=ph;
+          while (p!=NULL)
+          { // each monom: coeff in Q_a (Z_a)
+            fraction f=(fraction)pGetCoeff(p);
+            NUM(f)=p_Mult_nn(NUM(f),h,r->cf->extRing);
+            p_Normalize(NUM(f),r->cf->extRing);
+            pIter(p);
+          }
+        }
+        n_Delete(&h,r->cf->extRing->cf);
+      }*/
     }
   }
   if(!n_GreaterZero(pGetCoeff(ph),r->cf)) ph = p_Neg(ph,r);
@@ -2283,14 +2413,12 @@ static number p_InitContent(poly ph, const ring r)
 //      }
 //    }
 //    nDelete(&h);
-//#ifdef HAVE_FACTORY
 //    if ( (nGetChar() == 1) || (nGetChar() < 0) ) /* Q[a],Q(a),Zp[a],Z/p(a) */
 //    {
 //      pTest(ph);
 //      singclap_divide_content(ph);
 //      pTest(ph);
 //    }
-//#endif
 //  }
 //}
 #if 0
@@ -2333,7 +2461,7 @@ void p_Content(poly ph, const ring r)
         //{
         //  StringSetS("** div0:");nWrite(pGetCoeff(p));StringAppendS("/");
         //  nWrite(h);StringAppendS("=");nWrite(d);StringAppendS(" int:");
-        //  nWrite(tmp);Print(StringAppendS("\n"));
+        //  nWrite(tmp);Print(StringEndS("\n")); // NOTE/TODO: use StringAppendS("\n"); omFree(s);
         //}
         //nDelete(&tmp);
         d = n_IntDiv(pGetCoeff(p),h,r->cf);
@@ -2342,69 +2470,63 @@ void p_Content(poly ph, const ring r)
       }
     }
     n_Delete(&h,r->cf);
-#ifdef HAVE_FACTORY
     //if ( (n_GetChar(r) == 1) || (n_GetChar(r) < 0) ) /* Q[a],Q(a),Zp[a],Z/p(a) */
     //{
     //  singclap_divide_content(ph);
     //  if(!n_GreaterZero(pGetCoeff(ph),r)) ph = p_Neg(ph,r);
     //}
-#endif
   }
 }
 #endif
 /* ---------------------------------------------------------------------------*/
 /* cleardenom suff                                                           */
-poly p_Cleardenom(poly ph, const ring r)
+poly p_Cleardenom(poly p, const ring r)
 {
-  if( ph == NULL )
+  if( p == NULL )
     return NULL;
 
   assume( r != NULL ); assume( r->cf != NULL ); const coeffs C = r->cf;
-  
+
 #if CLEARENUMERATORS
   if( 0 )
   {
-    CPolyCoeffsEnumerator itr(ph);
+    CPolyCoeffsEnumerator itr(p);
 
     n_ClearDenominators(itr, C);
 
     n_ClearContent(itr, C); // divide out the content
 
-    p_Test(ph, r); n_Test(pGetCoeff(ph), C);
-    assume(n_GreaterZero(pGetCoeff(ph), C)); // ??
-//    if(!n_GreaterZero(pGetCoeff(ph),C)) ph = p_Neg(ph,r);
+    p_Test(p, r); n_Test(pGetCoeff(p), C);
+    assume(n_GreaterZero(pGetCoeff(p), C)); // ??
+//    if(!n_GreaterZero(pGetCoeff(p),C)) p = p_Neg(p,r);
 
-    return ph;
+    return p;
   }
 #endif
 
-  poly start=ph;
 
   number d, h;
-  poly p;
 
 #ifdef HAVE_RINGS
   if (rField_is_Ring(r))
   {
-    p_Content(ph,r);
-    assume( n_GreaterZero(pGetCoeff(ph),C) );
-    if(!n_GreaterZero(pGetCoeff(ph),C)) ph = p_Neg(ph,r);
-    return start;
+    p_Content(p,r);
+    if(!n_GreaterZero(pGetCoeff(p),C)) p = p_Neg(p,r);
+    return p;
   }
 #endif
 
   if (rField_is_Zp(r) && TEST_OPT_INTSTRATEGY)
   {
-    assume( n_GreaterZero(pGetCoeff(ph),C) );
-    if(!n_GreaterZero(pGetCoeff(ph),C)) ph = p_Neg(ph,r);
-    return start;
+    if(!n_GreaterZero(pGetCoeff(p),C)) p = p_Neg(p,r);
+    return p;
   }
-  p = ph;
 
   assume(p != NULL);
-  
+
   if(pNext(p)==NULL)
   {
+    /*
     if (TEST_OPT_CONTENTSB)
     {
       number n=n_GetDenom(pGetCoeff(p),r->cf);
@@ -2417,29 +2539,33 @@ poly p_Cleardenom(poly ph, const ring r)
       n_Delete(&n,r->cf);
     }
     else
+    */
       p_SetCoeff(p,n_Init(1,r->cf),r);
 
-    assume( n_GreaterZero(pGetCoeff(ph),C) );
-    if(!n_GreaterZero(pGetCoeff(ph),C)) ph = p_Neg(ph,r);
-    
-    return start;
+    /*assume( n_GreaterZero(pGetCoeff(p),C) );
+    if(!n_GreaterZero(pGetCoeff(p),C)) p = p_Neg(p,r);
+    */
+    return p;
   }
 
   assume(pNext(p)!=NULL);
+  poly start=p;
 
-#if CLEARENUMERATORS
+#if 0 && CLEARENUMERATORS
+//CF: does not seem to work that well..
+
   if( nCoeff_is_Q(C) || nCoeff_is_Q_a(C) )
   {
-    CPolyCoeffsEnumerator itr(ph);
+    CPolyCoeffsEnumerator itr(p);
 
     n_ClearDenominators(itr, C);
 
     n_ClearContent(itr, C); // divide out the content
 
-    p_Test(ph, r); n_Test(pGetCoeff(ph), C);
-    assume(n_GreaterZero(pGetCoeff(ph), C)); // ??
-//    if(!n_GreaterZero(pGetCoeff(ph),C)) ph = p_Neg(ph,r);
-    
+    p_Test(p, r); n_Test(pGetCoeff(p), C);
+    assume(n_GreaterZero(pGetCoeff(p), C)); // ??
+//    if(!n_GreaterZero(pGetCoeff(p),C)) p = p_Neg(p,r);
+
     return start;
   }
 #endif
@@ -2458,7 +2584,7 @@ poly p_Cleardenom(poly ph, const ring r)
     /* contains the 1/lcm of all denominators */
     if(!n_IsOne(h,r->cf))
     {
-      p = ph;
+      p = start;
       while (p!=NULL)
       {
         /* should be:
@@ -2478,67 +2604,23 @@ poly p_Cleardenom(poly ph, const ring r)
         pIter(p);
       }
       n_Delete(&h,r->cf);
-      if (n_GetChar(r->cf)==1)
-      {
-        loop
-        {
-          h = n_Init(1,r->cf);
-          p=ph;
-          while (p!=NULL)
-          {
-            d=n_Lcm(h,pGetCoeff(p),r->cf);
-            n_Delete(&h,r->cf);
-            h=d;
-            pIter(p);
-          }
-          /* contains the 1/lcm of all denominators */
-          if(!n_IsOne(h,r->cf))
-          {
-            p = ph;
-            while (p!=NULL)
-            {
-              /* should be:
-              * number hh;
-              * nGetDenom(p->coef,&hh);
-              * nMult(&h,&hh,&d);
-              * nNormalize(d);
-              * nDelete(&hh);
-              * nMult(d,p->coef,&hh);
-              * nDelete(&d);
-              * nDelete(&(p->coef));
-              * p->coef =hh;
-              */
-              d=n_Mult(h,pGetCoeff(p),r->cf);
-              n_Normalize(d,r->cf);
-              p_SetCoeff(p,d,r);
-              pIter(p);
-            }
-            n_Delete(&h,r->cf);
-          }
-          else
-          {
-            n_Delete(&h,r->cf);
-            break;
-          }
-        }
-      }
     }
-    if (h!=NULL) n_Delete(&h,r->cf);
+    n_Delete(&h,r->cf);
+    p=start;
 
-    p_Content(ph,r);
+    p_Content(p,r);
 #ifdef HAVE_RATGRING
     if (rIsRatGRing(r))
     {
       /* quick unit detection in the rational case is done in gr_nc_bba */
-      pContentRat(ph);
-      start=ph;
+      pContentRat(p);
+      start=p;
     }
 #endif
   }
 
-  assume( n_GreaterZero(pGetCoeff(ph),C) );
-  if(!n_GreaterZero(pGetCoeff(ph),C)) ph = p_Neg(ph,r);
-  
+  if(!n_GreaterZero(pGetCoeff(p),C)) p = p_Neg(p,r);
+
   return start;
 }
 
@@ -2557,9 +2639,9 @@ void p_Cleardenom_n(poly ph,const ring r,number &c)
     CPolyCoeffsEnumerator itr(ph);
 
     n_ClearDenominators(itr, d, C); // multiply with common denom. d
-    n_ClearContent(itr, h, C); // divide by the content h 
+    n_ClearContent(itr, h, C); // divide by the content h
 
-    c = n_Div(d, h, C); // d/h 
+    c = n_Div(d, h, C); // d/h
 
     n_Delete(&d, C);
     n_Delete(&h, C);
@@ -2578,8 +2660,8 @@ void p_Cleardenom_n(poly ph,const ring r,number &c)
     return;
   }
 #endif
-  
-  
+
+
   if( pNext(p) == NULL )
   {
     c=n_Invers(pGetCoeff(p), C);
@@ -2591,21 +2673,21 @@ void p_Cleardenom_n(poly ph,const ring r,number &c)
       ph = p_Neg(ph,r);
       c = n_Neg(c, C);
     }
-    
+
     return;
   }
 
   assume( pNext(p) != NULL );
-  
+
 #if CLEARENUMERATORS
   if( nCoeff_is_Q(C) || nCoeff_is_Q_a(C) )
   {
     CPolyCoeffsEnumerator itr(ph);
-    
-    n_ClearDenominators(itr, d, C); // multiply with common denom. d
-    n_ClearContent(itr, h, C); // divide by the content h 
 
-    c = n_Div(d, h, C); // d/h 
+    n_ClearDenominators(itr, d, C); // multiply with common denom. d
+    n_ClearContent(itr, h, C); // divide by the content h
+
+    c = n_Div(d, h, C); // d/h
 
     n_Delete(&d, C);
     n_Delete(&h, C);
@@ -2625,8 +2707,8 @@ void p_Cleardenom_n(poly ph,const ring r,number &c)
   }
 #endif
 
-  
-  
+
+
 
   if(1)
   {
@@ -2711,15 +2793,113 @@ void p_Cleardenom_n(poly ph,const ring r,number &c)
     }
   }
 
-  assume( n_GreaterZero(pGetCoeff(ph),C) );
   if(!n_GreaterZero(pGetCoeff(ph),C))
   {
     ph = p_Neg(ph,r);
     c = n_Neg(c, C);
   }
-  
+
 }
 
+  // normalization: for poly over Q: make poly primitive, integral
+  //                              Qa make poly integral with leading
+  //                                  coefficient minimal in N
+  //                            Q(t) make poly primitive, integral
+
+void p_ProjectiveUnique(poly ph, const ring r)
+{
+  if( ph == NULL )
+    return;
+
+  assume( r != NULL ); assume( r->cf != NULL ); const coeffs C = r->cf;
+
+  poly start=ph;
+
+  number d, h;
+  poly p;
+
+#ifdef HAVE_RINGS
+  if (rField_is_Ring(r))
+  {
+    p_Content(ph,r);
+    if(!n_GreaterZero(pGetCoeff(ph),C)) ph = p_Neg(ph,r);
+        assume( n_GreaterZero(pGetCoeff(ph),C) );
+    return;
+  }
+#endif
+
+  if (rField_is_Zp(r) && TEST_OPT_INTSTRATEGY)
+  {
+    assume( n_GreaterZero(pGetCoeff(ph),C) );
+    if(!n_GreaterZero(pGetCoeff(ph),C)) ph = p_Neg(ph,r);
+    return;
+  }
+  p = ph;
+
+  assume(p != NULL);
+
+  if(pNext(p)==NULL) // a monomial
+  {
+    p_SetCoeff(p, n_Init(1, C), r);
+    return;
+  }
+
+  assume(pNext(p)!=NULL);
+
+  if(!rField_is_Q(r) && !nCoeff_is_transExt(C))
+  {
+    h = p_GetCoeff(p, C);
+    number hInv = n_Invers(h, C);
+    pIter(p);
+    while (p!=NULL)
+    {
+      p_SetCoeff(p, n_Mult(p_GetCoeff(p, C), hInv, C), r);
+      pIter(p);
+    }
+    n_Delete(&hInv, C);
+    p = ph;
+    p_SetCoeff(p, n_Init(1, C), r);
+  }
+
+  p_Cleardenom(ph, r); //performs also a p_Content
+  
+  
+    /* normalize ph over a transcendental extension s.t.
+       lead (ph) is > 0 if extRing->cf == Q
+       or lead (ph) is monic if extRing->cf == Zp*/
+  if (nCoeff_is_transExt(C))
+  {
+    p= ph;
+    h= p_GetCoeff (p, C);
+    fraction f = (fraction) h;
+    number n=p_GetCoeff (NUM (f),C->extRing->cf);
+    if (rField_is_Q (C->extRing))
+    {
+      if (!n_GreaterZero(n,C->extRing->cf))
+      {
+        p=p_Neg (p,r);
+      }
+    }
+    else if (rField_is_Zp(C->extRing))
+    {
+      if (!n_IsOne (n, C->extRing->cf))
+      {
+        n=n_Invers (n,C->extRing->cf);
+        nMapFunc nMap;
+        nMap= n_SetMap (C->extRing->cf, C);
+        number ninv= nMap (n,C->extRing->cf, C);
+        p=p_Mult_nn (p, ninv, r);
+        n_Delete (&ninv, C);
+        n_Delete (&n, C->extRing->cf);
+      }
+    }
+    p= ph;
+  }
+
+  return;
+}
+
+#if 0   /*unused*/
 number p_GetAllDenom(poly ph, const ring r)
 {
   number d=n_Init(1,r->cf);
@@ -2739,6 +2919,7 @@ number p_GetAllDenom(poly ph, const ring r)
   }
   return d;
 }
+#endif
 
 int p_Size(poly p, const ring r)
 {
@@ -3449,11 +3630,11 @@ poly n_PermNumber(const number z, const int *par_perm, const int , const ring sr
   PrintS("\nDestination Ring: \n");
   rWrite(dst);
 
-  Print("\nOldPar: %d\n", OldPar);
+  /*Print("\nOldPar: %d\n", OldPar);
   for( int i = 1; i <= OldPar; i++ )
   {
     Print("par(%d) -> par/var (%d)\n", i, par_perm[i-1]);
-  }
+  }*/
 #endif
   if( z == NULL )
      return NULL;
@@ -3462,7 +3643,7 @@ poly n_PermNumber(const number z, const int *par_perm, const int , const ring sr
   assume( srcCf != NULL );
 
   assume( !nCoeff_is_GF(srcCf) );
-  assume( rField_is_Extension(src) );
+  assume( src->cf->extRing!=NULL );
 
   poly zz = NULL;
 
@@ -3475,38 +3656,58 @@ poly n_PermNumber(const number z, const int *par_perm, const int , const ring sr
   if( nCoeff_is_algExt(srcCf) ) // nCoeff_is_GF(srcCf)?
   {
     zz = (poly) z;
-
-    if( zz == NULL )
-       return NULL;
-
-  } else if (nCoeff_is_transExt(srcCf))
+    if( zz == NULL ) return NULL;
+  }
+  else if (nCoeff_is_transExt(srcCf))
   {
     assume( !IS0(z) );
 
     zz = NUM(z);
     p_Test (zz, srcExtRing);
 
-    if( zz == NULL )
-       return NULL;
-
-    //if( !DENIS1(z) )
-      //WarnS("Not implemented yet: Cannot permute a rational fraction and make a polynomial out of it! Ignorring the denumerator.");
-  } else
-     {
-        assume (FALSE);
-        Werror("Number permutation is not implemented for this data yet!");
-        return NULL;
-     }
+    if( zz == NULL ) return NULL;
+    if( !DENIS1(z) )
+    {
+      if (p_IsConstant(DEN(z),srcExtRing))
+      {
+        number n=pGetCoeff(DEN(z));
+        zz=p_Div_nn(zz,n,srcExtRing);
+        p_Normalize(zz,srcExtRing);
+      }
+      else
+        WarnS("Not defined: Cannot map a rational fraction and make a polynomial out of it! Ignoring the denumerator.");
+    }
+  }
+  else
+  {
+    assume (FALSE);
+    Werror("Number permutation is not implemented for this data yet!");
+    return NULL;
+  }
 
   assume( zz != NULL );
   p_Test (zz, srcExtRing);
-
 
   nMapFunc nMap = n_SetMap(srcExtRing->cf, dstCf);
 
   assume( nMap != NULL );
 
-  poly qq = p_PermPoly(zz, par_perm - 1, srcExtRing, dst, nMap, NULL, rVar(srcExtRing) );
+  poly qq;
+  if ((par_perm == NULL) && (rPar(dst) != 0 && rVar (srcExtRing) > 0))
+  {
+    int* perm;
+    perm=(int *)omAlloc0((rVar(srcExtRing)+1)*sizeof(int));
+    perm[0]= 0;
+    for(int i=si_min(rVar(srcExtRing),rPar(dst));i>0;i--)
+      perm[i]=-i;
+    qq = p_PermPoly(zz, perm, srcExtRing, dst, nMap, NULL, rVar(srcExtRing)-1);
+    omFreeSize ((ADDRESS)perm, (rVar(srcExtRing)+1)*sizeof(int));
+  }
+  else
+    qq = p_PermPoly(zz, par_perm-1, srcExtRing, dst, nMap, NULL, rVar (srcExtRing)-1);
+
+  assume (p_Test (qq, dst));
+
 //       poly p_PermPoly (poly p, int * perm, const ring oldRing, const ring dst, nMapFunc nMap, int *par_perm, int OldPar)
 
 //  assume( FALSE );  WarnS("longalg missing 2");
@@ -3534,7 +3735,7 @@ poly p_PermPoly (poly p, const int * perm, const ring oldRing, const ring dst,
 
   assume(dst != NULL);
   assume(dst->cf != NULL);
-  
+
   while (p != NULL)
   {
     // map the coefficient
@@ -3542,13 +3743,16 @@ poly p_PermPoly (poly p, const int * perm, const ring oldRing, const ring dst,
     {
       qq = p_Init(dst);
       assume( nMap != NULL );
+
       number n = nMap(p_GetCoeff(p, oldRing), oldRing->cf, dst->cf);
+
+      assume (n_Test (n,dst->cf));
 
       if ( nCoeff_is_algExt(dst->cf) )
         n_Normalize(n, dst->cf);
 
       p_GetCoeff(qq, dst) = n;// Note: n can be a ZERO!!!
-      // coef may be zero:  
+      // coef may be zero:
 //      p_Test(qq, dst);
     }
     else
@@ -3563,7 +3767,7 @@ poly p_PermPoly (poly p, const int * perm, const ring oldRing, const ring dst,
 
       if ( nCoeff_is_algExt(dst->cf) )
         p_Normalize(aq,dst);
-      
+
       if (aq == NULL)
         p_SetCoeff(qq, n_Init(0, dst->cf),dst); // Very dirty trick!!!
 
@@ -3662,7 +3866,7 @@ poly p_PermPoly (poly p, const int * perm, const ring oldRing, const ring dst,
           }
         }
       }
-      if ( mapped_to_par && nCoeff_is_algExt(dst->cf) )
+      if ( mapped_to_par && qq!= NULL && nCoeff_is_algExt(dst->cf) )
       {
         number n = p_GetCoeff(qq, dst);
         n_Normalize(n, dst->cf);
@@ -3917,7 +4121,7 @@ BOOLEAN p_EqualPolys(poly p1,poly p2, const ring r)
   {
     if (! p_LmEqual(p1, p2,r))
       return FALSE;
-    if (! n_Equal(p_GetCoeff(p1,r), p_GetCoeff(p2,r),r ))
+    if (! n_Equal(p_GetCoeff(p1,r), p_GetCoeff(p2,r),r->cf ))
       return FALSE;
     pIter(p1);
     pIter(p2);
@@ -3953,7 +4157,7 @@ BOOLEAN p_EqualPolys(poly p1,poly p2, const ring r1, const ring r2)
 {
   assume( r1 == r2 || rSamePolyRep(r1, r2) ); // will be used in rEqual!
   assume( r1->cf == r2->cf );
-  
+
   while ((p1 != NULL) && (p2 != NULL))
   {
     // returns 1 if ExpVector(p)==ExpVector(q): does not compare numbers !!
@@ -3961,10 +4165,10 @@ BOOLEAN p_EqualPolys(poly p1,poly p2, const ring r1, const ring r2)
 
     if (! p_ExpVectorEqual(p1, p2, r1, r2))
       return FALSE;
-    
+
     if (! n_Equal(p_GetCoeff(p1,r1), p_GetCoeff(p2,r2), r1->cf ))
       return FALSE;
-    
+
     pIter(p1);
     pIter(p2);
   }
@@ -4002,7 +4206,7 @@ BOOLEAN p_ComparePolys(poly p1,poly p2, const ring r)
         n_Delete(&n, r);
         return FALSE;
     }
-    if (!n_Equal(p_GetCoeff(p1, r), nn = n_Mult(p_GetCoeff(p2, r),n, r), r))
+    if (!n_Equal(p_GetCoeff(p1, r), nn = n_Mult(p_GetCoeff(p2, r),n, r->cf), r->cf))
     {
       n_Delete(&n, r);
       n_Delete(&nn, r);
@@ -4035,7 +4239,7 @@ poly p_Last(const poly p, int &l, const ring r)
     while (next!=NULL)
     {
       a = next;
-      next = pNext(a);      
+      next = pNext(a);
       l++;
     }
   }
@@ -4240,7 +4444,7 @@ unsigned long p_GetShortExpVector(poly p, const ring r)
 #undef p_Delete__T
 #define p_Delete__T p_ShallowDelete
 #undef n_Delete__T
-#define n_Delete__T(n, r) ((void)0)
+#define n_Delete__T(n, r) do {} while (0)
 
 #include <polys/templates/p_Delete__T.cc>
 

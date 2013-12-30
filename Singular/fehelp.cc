@@ -12,7 +12,9 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 #include <omalloc/omalloc.h>
@@ -21,7 +23,9 @@
 #include <kernel/febase.h>
 #include <reporter/reporter.h>
 
-#include <findexec/omFindExec.h>
+#include <resources/omFindExec.h>
+
+#include <Singular/si_signals.h>
 
 #include "ipid.h"
 #include "ipshell.h"
@@ -94,7 +98,7 @@ static int heCurrentHelpBrowserIndex= -1;
  * Definition: available help browsers
  *
  *****************************************************************/
-// order is improtant -- first possible help is choosen
+// order is important -- first possible help is chosen
 // moved to LIB/help.cnf
 static heBrowser_s *heHelpBrowsers=NULL;
 
@@ -112,6 +116,10 @@ void feHelp(char *str)
     str[MAX_HE_ENTRY_LENGTH - 3] = '\0';
 
   BOOLEAN key_is_regexp = (strchr(str, '*') != NULL);
+
+  // try proc help and library help
+  if (! key_is_regexp && heOnlineHelp(str)) return;
+
   heEntry_s hentry;
   memset(&hentry,0,sizeof(hentry));
   char* idxfile = feResource('x' /*"IdxFile"*/);
@@ -122,9 +130,6 @@ void feHelp(char *str)
     heBrowserHelp(&hentry);
     return;
   }
-
-  // try proc help and library help
-  if (! key_is_regexp && heOnlineHelp(str)) return;
 
   // Try to match approximately with key in index file
   if (idxfile != NULL)
@@ -143,7 +148,7 @@ void feHelp(char *str)
     }
 #endif
 
-    char* matches = StringSetS("");
+    StringSetS("");
     int found = heReKey2Entry(idxfile, str, &hentry);
 
     // Try to match with str*
@@ -184,8 +189,10 @@ void feHelp(char *str)
     else
       Warn("No help for topic '%s'", str);
     Warn("Try one of");
+    char *matches=StringEndS();
     PrintS(matches);
-    PrintS("\n");
+    omFree(matches);
+    PrintLn();
     return;
   }
 
@@ -507,7 +514,7 @@ static BOOLEAN heKey2Entry(char* filename, char* key, heEntry hentry)
         // get chksum
         hentry->url[i] = '\0';
 
-        if (fscanf(fd, "%ld\n", &(hentry->chksum)) != 1)
+        if (si_fscanf(fd, "%ld\n", &(hentry->chksum)) != 1)
         {
           hentry->chksum = -1;
         }
@@ -635,7 +642,7 @@ static int heReKey2Entry (char* filename, char* key, heEntry hentry)
   fd = fopen(filename, "r");
   if (fd == NULL) return 0;
   memset(index_key,0,MAX_HE_ENTRY_LENGTH);
-  while (fscanf(fd, "%[^\t]\t%*[^\n]\n", index_key) == 1)
+  while (si_fscanf(fd, "%[^\t]\t%*[^\n]\n", index_key) == 1)
   {
     if ((index_key[MAX_HE_ENTRY_LENGTH-1]!='\0'))
     {
@@ -680,9 +687,28 @@ static void hePrintHelpStr(const idhdl hh,const char *id,const char *pa)
 // otherwise, return FALSE
 static BOOLEAN heOnlineHelp(char* s)
 {
-  idhdl h=IDROOT->get(s,myynest);
   char *ss;
+  idhdl h;
 
+  if ((ss=strstr(s,"::"))!=NULL)
+  {
+    *ss='\0';
+    ss+=2;
+    h=ggetid(s);
+    if (h!=NULL)
+    {
+      Print("help for %s from package %s\n",ss,s);
+      char s_help[200];
+      strcpy(s_help,ss);
+      strcat(s_help,"_help");
+      idhdl hh=IDPACKAGE(h)->idroot->get(s_help,0);
+      hePrintHelpStr(hh,s_help,s);
+      return TRUE;
+    }
+    else Print("package %s not found\n",s);
+    return TRUE; /* do not search the manual */
+  }
+  h=IDROOT->get(s,myynest);
   // try help for a procedure
   if (h!=NULL)
   {
@@ -700,35 +726,12 @@ static BOOLEAN heOnlineHelp(char* s)
         }
         return TRUE;
       }
-      else
-      {
-        char s_help[200];
-        strcpy(s_help,s);
-        strcat(s_help,"_help");
-        idhdl hh=IDROOT->get(s_help,0);
-        hePrintHelpStr(hh,s_help,"Top");
-      }
     }
     else if (IDTYP(h)==PACKAGE_CMD)
     {
       idhdl hh=IDPACKAGE(h)->idroot->get("info",0);
       hePrintHelpStr(hh,"info",s);
-    }
-    else if ((ss=strstr(s,"::"))!=NULL)
-    {
-      *ss='\0';
-      ss+=2;
-      h=ggetid(s);
-      if (h!=NULL)
-      {
-        Print("help for %s from package %s\n",ss,s);
-        char s_help[200];
-        strcpy(s_help,ss);
-        strcat(s_help,"_help");
-        idhdl hh=IDPACKAGE(h)->idroot->get(s_help,0);
-        hePrintHelpStr(hh,s_help,s);
-      }
-      else Print("package %s not found\n",s);
+      return TRUE;
     }
     return FALSE;
   }
@@ -845,7 +848,7 @@ static void heBrowserHelp(heEntry hentry)
     //  Warn("Using URL '%s'.", feResource('u', 0));
     //}
     Warn("Use 'system(\"--browser\", <browser>);' to change browser,");
-    char* browsers = StringSetS("where <browser> can be: ");
+    StringSetS("where <browser> can be: ");
     int i = 0;
     i = 0;
     while (heHelpBrowsers[i].browser != NULL)
@@ -854,12 +857,14 @@ static void heBrowserHelp(heEntry hentry)
         StringAppend("\"%s\", ", heHelpBrowsers[i].browser);
       i++;
     }
+    char *browsers=StringEndS();
     if (browsers[strlen(browsers)-2] == ',')
     {
       browsers[strlen(browsers)-2] = '.';
       browsers[strlen(browsers)-1] = '\0';
     }
     WarnS(browsers);
+    omFree(browsers);
   }
 
   heCurrentHelpBrowser->help_proc(hentry, heCurrentHelpBrowserIndex);
@@ -883,14 +888,14 @@ static BOOLEAN heGenInit(int warn, int br)
       case 'h': /* html dir */
                if (feResource(*p, warn) == NULL)
                {
-                 if (warn) Warn("ressource `%c` not found",*p);
+                 if (warn) Warn("resource `%c` not found",*p);
                  return FALSE;
                }
                break;
       case 'D': /* DISPLAY */
                if (getenv("DISPLAY") == NULL)
                {
-                 if (warn) WarnS("ressource `D` not found");
+                 if (warn) WarnS("resource `D` not found");
                  return FALSE;
                }
                break;
@@ -975,7 +980,6 @@ static void heWinHelp(heEntry hentry, int br)
 static void heGenHelp(heEntry hentry, int br)
 {
   char sys[MAX_SYSCMD_LEN];
-  char url[MAXPATHLEN];
   const char *p=heHelpBrowsers[br].action;
   if (p==NULL) {PrintS("no action ?\n"); return;}
   memset(sys,0,MAX_SYSCMD_LEN);
@@ -1047,6 +1051,16 @@ static void heGenHelp(heEntry hentry, int br)
                    i=strlen(sys);
                    break;
                  }
+	case 'v': /* version number*/
+                 {
+                   char temp[256];
+                   sprintf(temp,"%d-%d-%d",SINGULAR_VERSION/1000,
+		                 (SINGULAR_VERSION % 1000)/100,
+		                 (SINGULAR_VERSION % 100));
+                   strcat(sys,temp);
+                   i=strlen(sys);
+                   break;
+                 }
         default: break;
       }
       p++;
@@ -1058,7 +1072,7 @@ static void heGenHelp(heEntry hentry, int br)
     }
   }
   Print("running `%s`\n",sys);
-  int dummy=system(sys);
+  (void) system(sys);
 }
 
 #ifdef ix86_Win
@@ -1093,20 +1107,20 @@ static void heWinHelp(heEntry hentry)
 }
 #endif
 
-static BOOLEAN heDummyInit(int warn, int br)
+static BOOLEAN heDummyInit(int /*warn*/, int /*br*/)
 {
   return TRUE;
 }
-static void heDummyHelp(heEntry hentry, int br)
+static void heDummyHelp(heEntry /*hentry*/, int /*br*/)
 {
   Werror("No functioning help browser available.");
 }
 
-static BOOLEAN heEmacsInit(int warn, int br)
+static BOOLEAN heEmacsInit(int /*warn*/, int /*br*/)
 {
   return TRUE;
 }
-static void heEmacsHelp(heEntry hentry, int br)
+static void heEmacsHelp(heEntry hentry, int /*br*/)
 {
   WarnS("Your help command could not be executed. Use");
   Warn("C-h C-s %s",
@@ -1115,7 +1129,7 @@ static void heEmacsHelp(heEntry hentry, int br)
   Warn("information on Singular running under Emacs, type C-h m.");
 }
 static int singular_manual(char *str);
-static void heBuiltinHelp(heEntry hentry, int br)
+static void heBuiltinHelp(heEntry hentry, int /*br*/)
 {
   char* node = omStrDup(hentry != NULL && *(hentry->node) != '\0' ?
                        hentry->node : "Top");
@@ -1214,8 +1228,8 @@ static int singular_manual(char *str)
 
   while(!feof(index))
   {
-    char* dummy=fgets(buffer, BUF_LEN, index); /* */
-    (void)sscanf(buffer, "Node:%[^\177]\177%ld\n", Index, &offset);
+    // char* dummy=fgets(buffer, BUF_LEN, index); /* */
+    (void)si_sscanf(buffer, "Node:%[^\177]\177%ld\n", Index, &offset);
     for(p=Index; *p; p++) *p = tolow(*p);/* */
     (void)strcat(Index, " ");
     if( strstr(Index, String)!=NULL)

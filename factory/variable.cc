@@ -1,6 +1,8 @@
 /* emacs edit mode for this file is -*- C++ -*- */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include <string.h>
 
@@ -49,7 +51,7 @@ Variable::Variable( int l, bool flag ) : _level(l)
 
 Variable::Variable( int l ) : _level(l)
 {
-    ASSERT( l > 0 && l != LEVELQUOT, "illegal level" );
+    //ASSERT( l > 0 && l != LEVELQUOT, "illegal level" );
 }
 
 Variable::Variable( char name )

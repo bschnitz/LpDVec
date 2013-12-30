@@ -218,8 +218,8 @@ void scan_info(int *l)
     else
     {
       p=buf;
-      while(*p==' ') p++;
-      if (*p=='@') { p++; texinfo+=(isalpha(*p)); }
+      if (strchr(buf,'@')!=NULL)
+      { texinfo++; printf("%s",buf); }
     }
     get_next(); (*l)++;
   }
@@ -252,7 +252,7 @@ void scan_info(int *l)
     }
     if (texinfo>0)
     {
-      printf("warning: %d texinfo commands %d header lines: should be used very rarely!\n",texinfo,header);
+      printf("warning: %d texinfo commands in %d header lines: should be used very rarely!\n",texinfo,header);
     }
 }
 
@@ -293,8 +293,10 @@ int main(int argc, char** argv)
         have_version++;
         pp=p+8;
         while((*pp)==' ') pp++;
-        if (((*pp)!='"') || (strstr(pp,"$Id")==NULL))
-          printf("error: version string should start with $""Id");
+	/* syntax of version string: "version <filename> <version> <date> "
+        if (*pp)!='"')
+          printf("error: version string should ....");
+	*/
       }
     }
     if ((p=strstr(buf,"category="))!=NULL)
@@ -413,9 +415,9 @@ int main(int argc, char** argv)
   }
   /* part 3: summary*/
   printf("\nproc part parsed: %d lines of %s\n",footer,argv[1]);
-  if (have_version!=1) printf("version missing/dupplicate (%d)\n",have_version);
-  if (have_category!=1) printf("category missing/dupplicate (%d)\n",have_category);
-  if (have_info!=1) printf("info missing/dupplicate (%d)\n",have_info);
+  if (have_version!=1) printf("version missing/duplicate (%d)\n",have_version);
+  if (have_category!=1) printf("category missing/duplicate (%d)\n",have_category);
+  if (have_info!=1) printf("info missing/duplicate (%d)\n",have_info);
 
   printf("\nGENERAL SUMMARY:\n");
   if(tabs!=0) printf("warning: lib should not contain tabs, >=%d found\n",tabs);

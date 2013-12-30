@@ -14,9 +14,26 @@
 #define FAC_FACTORIZE_H
 
 // #include "config.h"
+#include "timing.h"
 
 #include "facBivar.h"
 #include "facFqBivarUtil.h"
+
+TIMING_DEFINE_PRINT (fac_squarefree)
+TIMING_DEFINE_PRINT (fac_factor_squarefree)
+
+/// Factorization of A wrt. to different second vars
+void
+factorizationWRTDifferentSecondVars (
+                          const CanonicalForm& A, ///<[in] poly
+                          CFList*& Aeval,         ///<[in,out] A evaluated wrt.
+                                                  ///< different second vars
+                                                  ///< returns bivariate factors
+                          int& minFactorsLength,  ///<[in,out] minimal length of
+                                                  ///< bivariate factors
+                          bool& irred,            ///<[in,out] Is A irreducible?
+                          const Variable& w       ///<[in] alg. variable
+                                    );
 
 /// Factorization over Q (a)
 ///
@@ -119,10 +136,18 @@ ratFactorize (const CanonicalForm& G,          ///<[in] a multivariate poly
     F *= bCommonDen (F);
 
   CFFList result;
+  TIMING_START (fac_squarefree);
   CFFList sqrfFactors= sqrFree (F);
+  TIMING_END_AND_PRINT (fac_squarefree,
+                        "time for squarefree factorization over Q: ");
+
+  CFList tmp;
   for (CFFListIterator i= sqrfFactors; i.hasItem(); i++)
   {
-    CFList tmp= ratSqrfFactorize (i.getItem().factor(), v);
+    TIMING_START (fac_factor_squarefree);
+    tmp= ratSqrfFactorize (i.getItem().factor(), v);
+    TIMING_END_AND_PRINT (fac_factor_squarefree,
+                          "time to factorize sqrfree factor over Q: ");
     for (CFListIterator j= tmp; j.hasItem(); j++)
     {
       if (j.getItem().inCoeffDomain()) continue;

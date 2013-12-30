@@ -24,7 +24,7 @@ class CCacheHash
   public:
     CCacheHash(ring r): m_basering(r), m_NVars(r->N){};
 
-    const ring GetBasering() const { return m_basering; };
+    ring GetBasering() const { return m_basering; };
     inline int NVars() const { return m_NVars; }
     
     virtual ~CCacheHash(){};
@@ -86,7 +86,7 @@ class CCacheHash
       return false; // the pair was not stored!
     };
     
-    virtual void History(const EHistoryType , const CExponent a, const CExponent b, const poly p = NULL)
+    virtual void History(const EHistoryType , const CExponent /*a*/, const CExponent /*b*/, const poly = NULL)
     {
       PrintS("CCacheHash::History(a, b, [p])!\n");
     }

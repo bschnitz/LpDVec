@@ -1,7 +1,6 @@
 /****************************************
 *  Computer Algebra System SINGULAR     *
 ****************************************/
-
 /*
 * ABSTRACT: generate iparith.inc etc.
 */
@@ -13,7 +12,9 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include "tok.h"
 #include "grammar.h"
@@ -21,15 +22,22 @@
 // to produce convert_table.texi for doc:
 //#define CONVERT_TABLE 1
 
-  #define ALLOW_PLURAL     1
-  #define NO_PLURAL        0
-  #define COMM_PLURAL      2
-  #define  PLURAL_MASK     3
+// bits 0,1 for PLURAL
+#define NO_PLURAL        0
+#define ALLOW_PLURAL     1
+#define COMM_PLURAL      2
+#define  PLURAL_MASK     3
 
+// bit 2 for RING-CF
 #define ALLOW_RING       4
 #define NO_RING          0
+
+// bit 3 for zerodivisors
 #define NO_ZERODIVISOR   8
 #define ALLOW_ZERODIVISOR  0
+
+// bit 4 for warning, if used at toplevel
+#define WARN_RING        16
 
 /*=============== types =====================*/
 struct _scmdnames
@@ -100,13 +108,14 @@ struct sConvertTypes
 };
 
 
-#define jjWRONG  1
+#define jjWRONG   1
 #define jjWRONG2  1
 #define jjWRONG3  1
 #define XS(A) A
 
 
-#define D(A)    2
+#define D(A)     2
+#define NULL_VAL 0
 #define IPARITH
 #define GENTABLE
 #define IPCONV

@@ -17,11 +17,12 @@
  * o FindUnivariatePolys added
  */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 
-#ifdef HAVE_FACTORY
 // assumes, that NOSTREAMIO is set in factoryconf.h, which is included
 // by templates/list.h.
 
@@ -608,7 +609,7 @@ fglmSdata::getBorderDiv( const poly m, int & var ) const
 }
 
 void
-internalCalculateFunctionals( const ideal & theIdeal, idealFunctionals & l,
+internalCalculateFunctionals( const ideal /*& theIdeal*/, idealFunctionals & l,
                               fglmSdata & data )
 {
 
@@ -1242,8 +1243,13 @@ FindUnivariateWrapper( ideal source, ideal & destIdeal )
         return FALSE;
 }
 
+template class List<fglmSelem>;
+template class ListItem<fglmSelem>;
+template class ListIterator<fglmSelem>;
+template class List<fglmDelem>;
+template class ListItem<fglmDelem>;
+template class ListIterator<fglmDelem>;
 
-#endif
 
 // ----------------------------------------------------------------------------
 // Local Variables: ***

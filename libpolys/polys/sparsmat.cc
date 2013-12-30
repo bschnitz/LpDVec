@@ -6,7 +6,9 @@
 * ABSTRACT: operations with sparse matrices (bareiss, ...)
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
 #include <omalloc/omalloc.h>
@@ -308,7 +310,7 @@ BOOLEAN sm_CheckDet(ideal I, int d, BOOLEAN sw, const ring r)
   int s,t,i;
   poly p;
 
-  if ((d>100) || (rIsExtension(r)))
+  if (d>100)
     return sw;
   if (!rField_is_Q(r))
     return sw;
@@ -1665,14 +1667,13 @@ void sm_PolyDiv(poly a, poly b, const ring R)
 //disable that, as it fails with coef buckets
 //#define X_MAS
 #ifdef X_MAS
-
-/*
-*  returns the part of (a*b)/exp(lead(c)) with nonegative exponents
-*/
+// Note: the following in not addapted to SW :(
+/* 
+///  returns the part of (a*b)/exp(lead(c)) with nonegative exponents
 poly smMultDiv(poly a, poly b, const poly c)
 {
   poly pa, e, res, r;
-  BOOLEAN lead;\
+  BOOLEAN lead;
   int la, lb, lr;
 
   if ((c == NULL) || pLmIsConstantComp(c))
@@ -1802,7 +1803,7 @@ poly smMultDiv(poly a, poly b, const poly c)
   pLmFree(e);
   return res;
 }
-
+*/
 #else
 
 /*

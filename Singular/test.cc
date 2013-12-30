@@ -1,8 +1,6 @@
 #include <misc/auxiliary.h>
 
-#ifdef HAVE_FACTORY
 #include <factory/factory.h> // :(
-#endif
 
 #include <omalloc/omalloc.h>
 
@@ -13,8 +11,8 @@
 
 #include <reporter/reporter.h>
 
-#include <findexec/feFopen.h>
-#include <findexec/feResource.h>
+#include <resources/feFopen.h>
+#include <resources/feResource.h>
 
 #include <coeffs/coeffs.h>
 
@@ -49,17 +47,17 @@
 #include <polys/clapsing.h>
 
 
-#ifdef HAVE_FACTORY
 int initializeGMP(){ return 1; } // NEEDED FOR MAIN APP. LINKING!!!
 int mmInit(void) {return 1; } // ? due to SINGULAR!!!...???
-#endif
 
 
 #include <coeffs/numbers.h>
 #include <kernel/polys.h>
 
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 
 #include <kernel/structs.h>
@@ -98,7 +96,6 @@ int mmInit(void) {return 1; } // ? due to SINGULAR!!!...???
 #include <kernel/ratgring.h>
 #include <kernel/shiftgb.h>
 #include "mmalloc.h"
-#include <kernel/gfan.h>
 
 #include <kernel/kutil.h>
 
@@ -121,8 +118,6 @@ int mmInit(void) {return 1; } // ? due to SINGULAR!!!...???
 #include <kernel/f5gb.h>
 #include <kernel/f5lists.h>
 ////////#include <kernel/F5cLists.h>
-
-#include <kernel/gfan.h>
 
 
 #include <kernel/GMPrat.h>
@@ -187,7 +182,6 @@ int mmInit(void) {return 1; } // ? due to SINGULAR!!!...???
 
 // headers in Singular/
 #include "attrib.h"
-#include "bigintm.h"
 #include "blackbox.h"
 #include "Cache.h"
 #include "CacheImplementation.h"
@@ -219,14 +213,14 @@ int mmInit(void) {return 1; } // ? due to SINGULAR!!!...???
 #include "links/pipeLink.h"
 #include "run.h"
 #include "sdb.h"
-#include "silink.h"
+#include "links/silink.h"
 #include "links/sing_dbm.h"
 #include "sing_win.h"
-#include "slInit.h"
+#include "links/slInit.h"
 #include "links/ssiLink.h"
 #include "stype.h"
 #include "subexpr.h"
-#include "table.h"
+//#include "table.h" // dummy
 #include "tok.h"
 #include "utils.h"
 #include "walk.h"
@@ -237,9 +231,38 @@ void siInit(char *);
 
 int main( int, char *argv[] )
 {
-  // init path names etc.
+  assume( sizeof(long) == SIZEOF_LONG );
+
+  if( sizeof(long) != SIZEOF_LONG )
+  {
+     WerrorS("Bad config.h: wrong size of long!");
+
+     return(1);
+  }
+
+   // init path names etc.
 //  feInitResources(argv[0]); //???
   siInit(argv[0]); // ?
+
+  if( char *s = versionString() )
+  {
+    PrintS(s);
+    omFree(s);
+  }
+
+
+
+  StringSetS("ressources in use (as reported by feStringAppendResources(0):\n");
+  feStringAppendResources(0);
+  StringAppendS("\n");
+  if( char * s = StringEndS() )
+  {
+    PrintS(s);
+    omFree(s);
+  }
+
+
+
 
   // Libpolys tests:
 
@@ -251,13 +274,8 @@ int main( int, char *argv[] )
   n[2]=omStrDup("z2");
 
 
+
 /*
-  StringSetS("ressources in use (as reported by feStringAppendResources(0):\n");
-  feStringAppendResources(0);
-  PrintS(StringAppendS("\n"));
-
-
-
   ring R=rDefault(32003,3,n);
   // make R the default ring:
   rChangeCurrRing(R);
@@ -336,9 +354,17 @@ int main( int, char *argv[] )
     printf("datetime not found\n");
   else
   {
-    leftv res=iiMake_proc(datetime,NULL,NULL);
-    if (res==NULL) { printf("datetime return an error\n"); errorreported = 0; }
-    else           printf("datetime returned type %d, >>%s<<\n",res->Typ(),(char *)res->Data());
+    const BOOLEAN res=iiMake_proc(datetime,NULL,NULL);
+    if (res)
+    {
+      printf("iiMake_proc: datetime return an error\n");
+      errorreported = 0;
+    }
+    else
+    {
+      printf("iiMake_proc: datetime returned type %d, >>%s<<\n", iiRETURNEXPR.Typ(), (char *)iiRETURNEXPR.Data());
+      iiRETURNEXPR.CleanUp(); // calls Init afterwards
+    }
   }
 
   // changing a ring for the interpreter

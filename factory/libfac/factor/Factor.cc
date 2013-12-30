@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////
-static const char * errmsg = "\nYou found a bug!\nPlease inform singular@mathematik.uni-kl.de\nPlease include above information and your input (the ideal/polynomial and characteristic) in your bug-report.\nThank you.";
+/*static const char * errmsg = "\nYou found a bug!\nPlease inform singular@mathematik.uni-kl.de\nPlease include above information and your input (the ideal/polynomial and characteristic) in your bug-report.\nThank you.";*/
 ///////////////////////////////////////////////////////////////////////////////
 // FACTORY - Includes
 #include <factory.h>
@@ -619,11 +619,15 @@ Factorized( const CanonicalForm & F, const CanonicalForm & alpha, int Mainvar)
     else
     {
       if (Extension.level()<0)
-      DEBOUTLN(CERR, "Univ. Factorization over extension of degree ",
-               degree(getMipo(Extension,'x')) );
+      {
+        DEBOUTLN(CERR, "Univ. Factorization over extension of degree ",
+                 degree(getMipo(Extension,'x')) );
+      }
       else
-      DEBOUTLN(CERR, "Univ. Factorization over extension of level ??",
-                Extension.level());
+      {
+        DEBOUTLN(CERR, "Univ. Factorization over extension of level ??",
+                 Extension.level());
+      }
       TIMING_START(evaluate_time);
       Outputlist = factorize2(F,Extension,alpha);
       TIMING_END(evaluate_time);
@@ -840,7 +844,7 @@ CFFList Factorize(const CanonicalForm & F, int is_SqrFree )
   TIMING_START(factorize_time);
   // search an "optimal" main variavble
   int mv=F.level();
-  if ((mv != LEVELBASE) /* && (! F.isUnivariate()) */)
+  if (/*(*/ mv != LEVELBASE /*)*/) /* && (! F.isUnivariate()) */ 
   {
      mv=find_mvar(F);
      if (mv!=F.level())
@@ -963,7 +967,7 @@ CFFList Factorize(const CanonicalForm & F, int is_SqrFree )
 //           * choosing an algebraic extension (n.y.u.)      //
 //           * ensuring poly is sqrfree (n.y.i.)             //
 ///////////////////////////////////////////////////////////////
-static bool fdivides2(const CanonicalForm &F, const CanonicalForm &G, const CanonicalForm &minpoly)
+/*static bool fdivides2(const CanonicalForm &F, const CanonicalForm &G, const CanonicalForm &minpoly)
 {
   if (!minpoly.isZero())
   {
@@ -984,7 +988,7 @@ static bool fdivides2(const CanonicalForm &F, const CanonicalForm &G, const Cano
   }
   else
    return fdivides(F,G);
-}
+}*/
 
 CFFList
 Factorize(const CanonicalForm & F, const CanonicalForm & minpoly, int is_SqrFree )

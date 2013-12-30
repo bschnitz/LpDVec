@@ -16,10 +16,6 @@
 
 // #include "config.h"
 
-#ifdef HAVE_NTL
-#include "NTLconvert.h"
-#endif
-
 /// compute a polygon
 ///
 /// @return an integer n such that the first n entries of @a points are the
@@ -73,14 +69,43 @@ bool
 irreducibilityTest (const CanonicalForm& F ///<[in] a bivariate polynomial
                    );
 
-#ifdef HAVE_NTL
+/// absolute irreducibility test as described in "Modular Las Vegas Algorithms
+/// for Polynomial Absolute Factorization" by C. Bertone, G. Cheze, A. Galligo
+///
+/// @return true if F satisfies condition (C) from the above paper and thus
+/// is absolutely irreducible, false otherwise
+bool
+absIrredTest (const CanonicalForm& F ///< [in] a bivariate polynomial
+                                     ///< irreducible over ground field
+             );
+
+/// modular absolute irreducibility test as described in "Modular Las Vegas
+/// Algorithms for Polynomial Absolute Factorization" by C. Bertone, G. Cheze,
+/// A. Galligo
+///
+/// @return true if F is absolutely irreducible, false otherwise
+bool
+modularIrredTest (const CanonicalForm& F ///< [in] a bivariate polynomial
+                                         ///< irreducible over Z
+                 );
+
+/// modular absolute irreducibility test with shift as described in "Modular Las
+/// Vegas Algorithms for Polynomial Absolute Factorization" by C. Bertone,
+/// G. Cheze, A. Galligo
+///
+/// @return true if F is absolutely irreducible, false otherwise
+bool
+modularIrredTestWithShift (const CanonicalForm& F ///< [in] a bivariate polynomial
+                                                  ///< irreducible over Z
+                          );
+
 /// Algorithm 5 as described in Convex-Dense Bivariate Polynomial Factorization
 /// by Berthomieu, Lecerf
 void convexDense (int** points,  ///< [in, out] a set of points in Z^2, returns
                                  ///< M (points)+A
                   int sizePoints,///< [in] size of points
-                  mat_ZZ& M,     ///< [in,out] returns an invertible matrix
-                  vec_ZZ& A      ///< [in,out] returns translation
+                  mpz_t*& M,     ///< [in,out] returns an invertible 2x2 matrix
+                  mpz_t*& A      ///< [in,out] returns translation
                  );
 
 /// compress a bivariate poly
@@ -90,9 +115,9 @@ void convexDense (int** points,  ///< [in, out] a set of points in Z^2, returns
 CanonicalForm
 compress (const CanonicalForm& F, ///< [in] compressed, i.e. F.level()==2,
                                   ///< bivariate poly
-          mat_ZZ& inverseM,       ///< [in,out] returns the inverse of M,
+          mpz_t*& inverseM,       ///< [in,out] returns the inverse of M,
                                   ///< if computeMA==true, M otherwise
-          vec_ZZ& A,              ///< [in,out] returns translation
+          mpz_t*& A,              ///< [in,out] returns translation
           bool computeMA= true    ///< [in] whether to compute M and A
          );
 
@@ -103,10 +128,9 @@ compress (const CanonicalForm& F, ///< [in] compressed, i.e. F.level()==2,
 CanonicalForm
 decompress (const CanonicalForm& F,///< [in] compressed, i.e. F.level()<= 2,
                                    ///< uni- or bivariate poly
-            const mat_ZZ& M,       ///< [in] matrix M obtained from compress
-            const vec_ZZ& A        ///< [in] vector A obtained from compress
+            const mpz_t* M,       ///< [in] matrix M obtained from compress
+            const mpz_t* A        ///< [in] vector A obtained from compress
            );
-#endif
 
 #endif
 

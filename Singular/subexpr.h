@@ -61,13 +61,13 @@ class sleftv
     package     req_packhdl;
     inline void Init() { memset(this,0,sizeof(*this)); }
     void CleanUp(ring r=currRing);
-   
+
     /// Called by type_cmd (e.g. "r;") or as default in jPRINT
     void Print(leftv store=NULL,int spaces=0);
-   
+
     /// Called for conversion to string (used by string(..), write(..),..)
     char * String(void *d=NULL, BOOLEAN typed = FALSE, int dim = 1);
-   
+
     void Copy(leftv e);
     attr CopyA();
     void * CopyD(int t);
@@ -119,8 +119,8 @@ class libstack
   char      *libname;
   BOOLEAN   to_be_done;
   int       cnt;
-  void      push(char *p, char * libname);
-  libstackv pop(char *p);
+  void      push(const char *p, char * libname);
+  libstackv pop(const char *p);
   inline char *get() { return(libname); }
 };
 #endif /* HAVE_LIBPARSER */

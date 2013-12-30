@@ -11,13 +11,19 @@
 /*****************************************************************************/
 
 // include header files
-#include <misc/auxiliary.h>
-#include "config.h"
-#include <kernel/mod2.h>
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 
-#ifdef HAVE_FACTORY
+#include <misc/auxiliary.h>
+#include <kernel/mod2.h>
+#include <Singular/si_signals.h>
+
 #define SI_DONT_HAVE_GLOBAL_VARS
 #include <factory/factory.h>
+
+#ifdef HAVE_SIMPLEIPC
+#include <Singular/links/simpleipc.h>
 #endif
 
 #include <coeffs/si_gmp.h>
@@ -29,57 +35,13 @@
 #include "misc_ip.h"
 #include "ipid.h"
 #include "feOpt.h"
-#include "silink.h"
+#include "links/silink.h"
+#include "mod_lib.h"
 
 // the following 2 inline functions are just convenience shortcuts for Frank's code:
 static inline void number2mpz(number n, mpz_t m){ n_MPZ(m, n, coeffs_BIGINT); }
 static inline number mpz2number(mpz_t m){ return n_InitMPZ(m, coeffs_BIGINT); }
 
-
-void divTimes(mpz_t n, mpz_t d, int* times)
-{
-  *times = 0;
-  mpz_t r; mpz_init(r);
-  mpz_t q; mpz_init(q);
-  mpz_fdiv_qr(q, r, n, d);
-  while (mpz_cmp_ui(r, 0) == 0)
-  {
-    (*times)++;
-    mpz_set(n, q);
-    mpz_fdiv_qr(q, r, n, d);
-  }
-  mpz_clear(r);
-  mpz_clear(q);
-}
-
-void divTimes_ui(mpz_t n, unsigned long d, int* times)
-{
-  *times = 0;
-  mpz_t r; mpz_init(r);
-  mpz_t q; mpz_init(q);
-  mpz_fdiv_qr_ui(q, r, n, d);
-  while (mpz_cmp_ui(r, 0) == 0)
-  {
-    (*times)++;
-    mpz_set(n, q);
-    mpz_fdiv_qr_ui(q, r, n, d);
-  }
-  mpz_clear(r);
-  mpz_clear(q);
-}
-
-static inline void divTimes_ui_ui(unsigned long *n, unsigned long d, int* times)
-{
-  *times = 0;
-  unsigned long q=(*n) / d;
-  unsigned long r=(*n) % d;
-  while (r==0)
-  {
-    (*times)++;
-    (*n)=q;
-    q=(*n)/d; r=(*n)%d;
-  }
-}
 
 void setListEntry(lists L, int index, mpz_t n)
 { /* assumes n > 0 */
@@ -90,7 +52,7 @@ void setListEntry(lists L, int index, mpz_t n)
     if ((((ui<<3)>>3)==ui)
     && (mpz_cmp_si(n,(long)ui)==0))
     {
-      L->m[index].rtyp = INT_CMD; L->m[index].data = (void*)ui;
+      L->m[index].rtyp = INT_CMD; L->m[index].data = (void*)(long)ui;
       return;
     }
   }
@@ -104,7 +66,7 @@ void setListEntry_ui(lists L, int index, unsigned long ui)
   int i=(int)ui;
   if ((((unsigned long)i)==ui) && (((i<<3)>>3)==i))
   {
-    L->m[index].rtyp = INT_CMD; L->m[index].data = (void*)i;
+    L->m[index].rtyp = INT_CMD; L->m[index].data = (void*)(long)i;
   }
   else
   {
@@ -113,78 +75,265 @@ void setListEntry_ui(lists L, int index, unsigned long ui)
   }
 }
 
-/* true iff p is prime */
-/*
-bool isPrime(mpz_t p)
-{
-  if (mpz_cmp_ui(p, 2) == 0) return true;
-  if (mpz_cmp_ui(p, 3) == 0) return true;
-  if (mpz_cmp_ui(p, 5) < 0)  return false;
+/* Factoring with Pollard's rho method. stolen from GMP/demos */
+static unsigned add[] = {4, 2, 4, 2, 4, 6, 2, 6};
 
-  mpz_t d; mpz_init_set_ui(d, 5); int add = 2;
-  mpz_t sr; mpz_init(sr); mpz_sqrt(sr, p);
-  mpz_t r; mpz_init(r);
-  while (mpz_cmp(d, sr) <= 0)
+static int factor_using_division (mpz_t t, unsigned int limit,lists primes, int *multiplicities,int &index, unsigned long bound)
+{
+  mpz_t q, r;
+  unsigned long int f;
+  int ai;
+  unsigned *addv = add;
+  unsigned int failures;
+  int bound_not_reached=1;
+
+  mpz_init (q);
+  mpz_init (r);
+
+  f = mpz_scan1 (t, 0);
+  mpz_div_2exp (t, t, f);
+  if (f>0)
   {
-    mpz_cdiv_r(r, p, d);
-    if (mpz_cmp_ui(r, 0) == 0)
+    setListEntry_ui(primes, index, 2);
+    multiplicities[index++] = f;
+  }
+
+  f=0;
+  loop
+  {
+    mpz_tdiv_qr_ui (q, r, t, 3);
+    if (mpz_cmp_ui (r, 0) != 0)
+        break;
+    mpz_set (t, q);
+    f++;
+  }
+  if (f>0)
+  {
+    setListEntry_ui(primes, index, 3);
+    multiplicities[index++] = f;
+  }
+  f=0;
+  loop
+  {
+    mpz_tdiv_qr_ui (q, r, t, 5);
+    if (mpz_cmp_ui (r, 0) != 0)
+        break;
+    mpz_set (t, q);
+    f++;
+  }
+  if (f>0)
+  {
+    setListEntry_ui(primes, index, 5);
+    multiplicities[index++] = f;
+  }
+
+  failures = 0;
+  f = 7;
+  ai = 0;
+  unsigned long last_f=0;
+  while (mpz_cmp_ui (t, 1) != 0)
+  {
+    mpz_tdiv_qr_ui (q, r, t, f);
+    if (mpz_cmp_ui (r, 0) != 0)
     {
-      mpz_clear(d); mpz_clear(sr); mpz_clear(r);
-      return false;
+      f += addv[ai];
+      if (mpz_cmp_ui (t, f) < 0)
+        break;
+      ai = (ai + 1) & 7;
+      failures++;
+      if (failures > limit)
+        break;
+      if ((bound!=0) && (f>bound))
+      {
+        bound_not_reached=0;
+        break;
+      }
     }
-    mpz_add_ui(d, d, add);
-    add += 2; if (add == 6) add = 2;
+    else
+    {
+      mpz_swap (t, q);
+      if (f!=last_f)
+      {
+        setListEntry_ui(primes, index, f);
+        multiplicities[index]++;
+        index++;
+      }
+      else
+      {
+        multiplicities[index-1]++;
+      }
+      last_f=f;
+      failures = 0;
+    }
   }
-  mpz_clear(d); mpz_clear(sr); mpz_clear(r);
-  return true;
+
+  mpz_clear (q);
+  mpz_clear (r);
+  //printf("bound=%d,f=%d,failures=%d, reached=%d\n",bound,f,failures,bound_not_reached);
+  return bound_not_reached;
 }
-*/
 
-/* finds the next prime q, bound >= q >= p;
-   in case of success, puts q into p;
-   otherwise sets q = bound + 1;
-   e.g. p = 24; nextPrime(p, 30) produces p = 29 (success),
-        p = 24; nextPrime(p, 29) produces p = 29 (success),
-        p = 24; nextPrime(p, 28) produces p = 29 (no success),
-        p = 24; nextPrime(p, 27) produces p = 28 (no success) */
-/*
-void nextPrime(mpz_t p, mpz_t bound)
+static void factor_using_pollard_rho (mpz_t n, unsigned long a, lists primes, int * multiplicities,int &index)
 {
-  int add;
-  mpz_t r; mpz_init(r); mpz_cdiv_r_ui(r, p, 6); // r = p mod 6, 0 <= r <= 5
-  if (mpz_cmp_ui(r, 0) == 0) { mpz_add_ui(p, p, 1); add = 4; }
-  if (mpz_cmp_ui(r, 1) == 0) {                      add = 4; }
-  if (mpz_cmp_ui(r, 2) == 0) { mpz_add_ui(p, p, 3); add = 2; }
-  if (mpz_cmp_ui(r, 3) == 0) { mpz_add_ui(p, p, 2); add = 2; }
-  if (mpz_cmp_ui(r, 4) == 0) { mpz_add_ui(p, p, 1); add = 2; }
-  if (mpz_cmp_ui(r, 5) == 0) {                      add = 2; }
+  mpz_t x, x1, y, P;
+  mpz_t t1, t2;
+  mpz_t last_f;
+  unsigned long long k, l, i;
 
-  while (mpz_cmp(p, bound) <= 0)
+  mpz_init (t1);
+  mpz_init (t2);
+  mpz_init_set_si (last_f, 0);
+  mpz_init_set_si (y, 2);
+  mpz_init_set_si (x, 2);
+  mpz_init_set_si (x1, 2);
+  mpz_init_set_ui (P, 1);
+  k = 1;
+  l = 1;
+
+  while (mpz_cmp_ui (n, 1) != 0)
   {
-    if (isPrime(p)) { mpz_clear(r); return; }
-    mpz_add_ui(p, p, add);
-    add += 2; if (add == 6) add = 2;
+    loop
+    {
+      do
+      {
+        mpz_mul (t1, x, x);
+        mpz_mod (x, t1, n);
+        mpz_add_ui (x, x, a);
+        mpz_sub (t1, x1, x);
+        mpz_mul (t2, P, t1);
+        mpz_mod (P, t2, n);
+
+        if (k % 32 == 1)
+        {
+          mpz_gcd (t1, P, n);
+          if (mpz_cmp_ui (t1, 1) != 0)
+            goto factor_found;
+          mpz_set (y, x);
+        }
+      }
+      while (--k != 0);
+
+      mpz_gcd (t1, P, n);
+      if (mpz_cmp_ui (t1, 1) != 0)
+        goto factor_found;
+
+      mpz_set (x1, x);
+      k = l;
+      l = 2 * l;
+      for (i = 0; i < k; i++)
+      {
+        mpz_mul (t1, x, x);
+        mpz_mod (x, t1, n);
+        mpz_add_ui (x, x, a);
+      }
+      mpz_set (y, x);
+    }
+
+  factor_found:
+    do
+    {
+      mpz_mul (t1, y, y);
+      mpz_mod (y, t1, n);
+      mpz_add_ui (y, y, a);
+      mpz_sub (t1, x1, y);
+      mpz_gcd (t1, t1, n);
+    }
+    while (mpz_cmp_ui (t1, 1) == 0);
+
+    mpz_divexact (n, n, t1);        /* divide by t1, before t1 is overwritten */
+
+    if (!mpz_probab_prime_p (t1, 10))
+    {
+      do
+      {
+        mp_limb_t a_limb;
+        mpn_random (&a_limb, (mp_size_t) 1);
+        a = a_limb;
+      }
+      while (a == 0);
+
+      factor_using_pollard_rho (t1, a, primes,multiplicities,index);
+    }
+    else
+    {
+      if (mpz_cmp(t1,last_f)==0)
+      {
+        multiplicities[index-1]++;
+      }
+      else
+      {
+        mpz_set(last_f,t1);
+        setListEntry(primes, index, t1);
+        multiplicities[index++] = 1;
+      }
+    }
+    mpz_mod (x, x, n);
+    mpz_mod (x1, x1, n);
+    mpz_mod (y, y, n);
+    if (mpz_probab_prime_p (n, 10))
+    {
+      if (mpz_cmp(n,last_f)==0)
+      {
+        multiplicities[index-1]++;
+      }
+      else
+      {
+        mpz_set(last_f,n);
+        setListEntry(primes, index, n);
+        multiplicities[index++] = 1;
+      }
+      mpz_set_ui(n,1);
+      break;
+    }
   }
-  mpz_set(p, bound);
-  mpz_add_ui(p, p, 1);
-  mpz_clear(r);
-  return;
+
+  mpz_clear (P);
+  mpz_clear (t2);
+  mpz_clear (t1);
+  mpz_clear (x1);
+  mpz_clear (x);
+  mpz_clear (y);
+  mpz_clear (last_f);
 }
-*/
 
-
-
-/* n and pBound are assumed to be bigint numbers */
-lists primeFactorisation(const number n, const number pBound)
+static void factor_gmp (mpz_t t,lists primes,int *multiplicities,int &index,unsigned long bound)
 {
+  unsigned int division_limit;
+
+  if (mpz_sgn (t) == 0)
+    return;
+
+  /* Set the trial division limit according the size of t.  */
+  division_limit = mpz_sizeinbase (t, 2);
+  if (division_limit > 1000)
+    division_limit = 1000 * 1000;
+  else
+    division_limit = division_limit * division_limit;
+
+  if (factor_using_division (t, division_limit,primes,multiplicities,index,bound))
+  {
+    if (mpz_cmp_ui (t, 1) != 0)
+    {
+      if (mpz_probab_prime_p (t, 10))
+      {
+        setListEntry(primes, index, t);
+        multiplicities[index++] = 1;
+        mpz_set_ui(t,1);
+      }
+      else
+        factor_using_pollard_rho (t, 1L, primes,multiplicities,index);
+    }
+  }
+}
+/* n and pBound are assumed to be bigint numbers */
+lists primeFactorisation(const number n, const int pBound)
+{
+  int i;
+  int index=0;
   mpz_t nn; number2mpz(n, nn);
-  mpz_t pb; number2mpz(pBound, pb);
-  mpz_t b; number2mpz(pBound, b);
-  mpz_t p; mpz_init(p); int tt;
-  mpz_t sr; mpz_init(sr); int index = 0; int add;
   lists primes = (lists)omAllocBin(slists_bin); primes->Init(1000);
-  int* multiplicities = new int[1000];
-  int positive=1; int probTest = 0;
+  int* multiplicities = (int*)omAlloc0(1000*sizeof(int));
+  int positive=1;
 
   if (!n_IsZero(n, coeffs_BIGINT))
   {
@@ -193,139 +342,37 @@ lists primeFactorisation(const number n, const number pBound)
       positive=-1;
       mpz_neg(nn,nn);
     }
-    divTimes_ui(nn, 2, &tt);
-    if (tt > 0)
-    {
-      setListEntry_ui(primes, index, 2);
-      multiplicities[index++] = tt;
-    }
-
-    divTimes_ui(nn, 3, &tt);
-    if (tt > 0)
-    {
-      setListEntry_ui(primes, index, 3);
-      multiplicities[index++] = tt;
-    }
-
-    unsigned long p_ui=5; add = 2;
-    BOOLEAN b_is_0=(mpz_cmp_ui(b, 0) == 0);
-    BOOLEAN sr_sets_pb=FALSE;
-    mpz_sqrt(sr, nn);
-    // there are 3 possible limits, we take the minimum:
-    // - argument pBound (if >0)
-    // - sr = sqrt(nn)
-    // - 1<<31
-    unsigned long  limit=~(0L);
-    if (b_is_0 || (mpz_cmp(pb, sr) > 0))
-    {
-      mpz_set(pb, sr);
-      sr_sets_pb=TRUE;
-    }
-    if (mpz_cmp_ui(pb, limit)<0)
-    {
-     limit=mpz_get_ui(pb);
-    }
-    else
-    {
-      mpz_set_ui(pb,limit);
-    }
-    while (p_ui <=limit)
-    {
-      divTimes_ui(nn, p_ui, &tt);
-      if (tt > 0)
-      {
-        setListEntry_ui(primes, index, p_ui);
-        multiplicities[index++] = tt;
-        //mpz_sqrt(sr, nn);
-        //if ((mpz_cmp_ui(b, 0) == 0) || (mpz_cmp(pb, sr) > 0)) mpz_set(pb, sr);
-        if (mpz_size1(nn)<=2)
-        {
-          mpz_sqrt(sr, nn);
-          if (sr_sets_pb || (mpz_cmp(pb, sr) > 0)) mpz_set(pb, sr);
-          unsigned long l=mpz_get_ui(sr);
-          if (l<limit) { limit=l; }
-          if (mpz_size1(nn)<=1)
-          {
-            unsigned long nn_ui=mpz_get_ui(nn);
-            while (p_ui <=limit)
-            {
-              divTimes_ui_ui(&nn_ui, p_ui, &tt);
-              if (tt > 0)
-              {
-                setListEntry_ui(primes, index, p_ui);
-                multiplicities[index++] = tt;
-                if (nn_ui==1) break;
-                if (nn_ui<(limit/6)) { limit=nn_ui/6;}
-              }
-              p_ui +=add;
-              //add += 2; if (add == 6) add = 2;
-              add =2+2*(add==2);
-            }
-            mpz_set_ui(nn,nn_ui);
-            break;
-          }
-        }
-      }
-      p_ui +=add;
-      //add += 2; if (add == 6) add = 2;
-      add =2+2*(add==2);
-    }
-    mpz_set_ui(p, p_ui);
-    mpz_sqrt(sr, nn);
-    if (b_is_0 || sr_sets_pb || (mpz_cmp(pb, sr) > 0)) mpz_set(pb, sr);
-    while (mpz_cmp(pb, p) >= 0)
-    {
-      divTimes(nn, p, &tt);
-      if (tt > 0)
-      {
-        setListEntry(primes, index, p);
-        multiplicities[index++] = tt;
-        if (mpz_cmp_ui(nn,1)==0) break;
-        mpz_sqrt(sr, nn);
-        if (b_is_0 || sr_sets_pb || (mpz_cmp(pb, sr) > 0)) mpz_set(pb, sr);
-      }
-      mpz_add_ui(p, p, add);
-      //add += 2; if (add == 6) add = 2;
-      add =2+2*(add==2);
-    }
-    if ((mpz_cmp_ui(nn, 1) > 0) &&
-        (b_is_0 || (mpz_cmp(nn, b) <= 0)))
-    {
-      setListEntry(primes, index, nn);
-      multiplicities[index++] = 1;
-      mpz_set_ui(nn, 1);
-    }
-    if ((mpz_cmp_ui(nn, 1) > 0) && (mpz_probab_prime_p(nn, 25) != 0))
-      probTest = 1;
+    factor_gmp(nn,primes,multiplicities,index,pBound);
   }
 
   lists primesL = (lists)omAllocBin(slists_bin);
   primesL->Init(index);
-  for (int i = 0; i < index; i++)
+  for (i = 0; i < index; i++)
   {
     primesL->m[i].rtyp = primes->m[i].rtyp;
     primesL->m[i].data = primes->m[i].data;
+    primes->m[i].rtyp=0;
+    primes->m[i].data=NULL;
   }
-  omFreeSize((ADDRESS)primes->m, (primes->nr + 1) * sizeof(sleftv));
-  omFreeBin((ADDRESS)primes, slists_bin);
+  primes->Clean(NULL);
 
   lists multiplicitiesL = (lists)omAllocBin(slists_bin);
   multiplicitiesL->Init(index);
-  for (int i = 0; i < index; i++)
+  for (i = 0; i < index; i++)
   {
     multiplicitiesL->m[i].rtyp = INT_CMD;
-    multiplicitiesL->m[i].data = (void*)multiplicities[i];
+    multiplicitiesL->m[i].data = (void*)(long)multiplicities[i];
   }
-  delete[] multiplicities;
+  omFree(multiplicities);
 
   lists L=(lists)omAllocBin(slists_bin);
-  L->Init(4);
+  L->Init(3);
   if (positive==-1) mpz_neg(nn,nn);
   L->m[0].rtyp = LIST_CMD; L->m[0].data = (void*)primesL;
   L->m[1].rtyp = LIST_CMD; L->m[1].data = (void*)multiplicitiesL;
   setListEntry(L, 2, nn);
-  L->m[3].rtyp =  INT_CMD; L->m[3].data = (void*)probTest;
-  mpz_clear(nn); mpz_clear(pb); mpz_clear(b); mpz_clear(p); mpz_clear(sr);
+
+  mpz_clear(nn);
 
   return L;
 }
@@ -348,8 +395,6 @@ lists primeFactorisation(const number n, const number pBound)
 #include "cntrlc.h"
 #include "ipid.h"
 #include "ipshell.h"
-
-#include "version.h"
 
 #include "fehelp.h"
 
@@ -561,8 +606,8 @@ BOOLEAN setOption(leftv res, leftv v)
     if(strcmp(n,"get")==0)
     {
       intvec *w=new intvec(2);
-      (*w)[0]=test;
-      (*w)[1]=verbose;
+      (*w)[0]=si_opt_1;
+      (*w)[1]=si_opt_2;
       res->rtyp=INTVEC_CMD;
       res->data=(void *)w;
       goto okay;
@@ -574,8 +619,8 @@ BOOLEAN setOption(leftv res, leftv v)
       {
         v=v->next;
         intvec *w=(intvec*)v->Data();
-        test=(*w)[0];
-        verbose=(*w)[1];
+        si_opt_1=(*w)[0];
+        si_opt_2=(*w)[1];
 #if 0
         if (TEST_OPT_INTSTRATEGY && (currRing!=NULL)
         && rField_has_simple_inverse()
@@ -583,7 +628,7 @@ BOOLEAN setOption(leftv res, leftv v)
         && !rField_is_Ring(currRing)
 #endif
         ) {
-          test &=~Sy_bit(OPT_INTSTRATEGY);
+          si_opt_1 &=~Sy_bit(OPT_INTSTRATEGY);
         }
 #endif
         goto okay;
@@ -591,8 +636,8 @@ BOOLEAN setOption(leftv res, leftv v)
     }
     if(strcmp(n,"none")==0)
     {
-      test=0;
-      verbose=0;
+      si_opt_1=0;
+      si_opt_2=0;
       goto okay;
     }
     for (i=0; (i==0) || (optionStruct[i-1].setval!=0); i++)
@@ -601,10 +646,10 @@ BOOLEAN setOption(leftv res, leftv v)
       {
         if (optionStruct[i].setval & validOpts)
         {
-          test |= optionStruct[i].setval;
+          si_opt_1 |= optionStruct[i].setval;
           // optOldStd disables redthrough
           if (optionStruct[i].setval == Sy_bit(OPT_OLDSTD))
-            test &= ~Sy_bit(OPT_REDTHROUGH);
+            si_opt_1 &= ~Sy_bit(OPT_REDTHROUGH);
         }
         else
           Warn("cannot set option");
@@ -625,7 +670,7 @@ BOOLEAN setOption(leftv res, leftv v)
       {
         if (optionStruct[i].setval & validOpts)
         {
-          test &= optionStruct[i].resetval;
+          si_opt_1 &= optionStruct[i].resetval;
         }
         else
           Warn("cannot clear option");
@@ -636,7 +681,7 @@ BOOLEAN setOption(leftv res, leftv v)
     {
       if (strcmp(n,verboseStruct[i].name)==0)
       {
-        verbose |= verboseStruct[i].setval;
+        si_opt_2 |= verboseStruct[i].setval;
         #ifdef YYDEBUG
         #if YYDEBUG
         /*debugging the bison grammar --> grammar.cc*/
@@ -650,7 +695,7 @@ BOOLEAN setOption(leftv res, leftv v)
       else if ((strncmp(n,"no",2)==0)
       && (strcmp(n+2,verboseStruct[i].name)==0))
       {
-        verbose &= verboseStruct[i].resetval;
+        si_opt_2 &= verboseStruct[i].resetval;
         #ifdef YYDEBUG
         #if YYDEBUG
         /*debugging the bison grammar --> grammar.cc*/
@@ -665,7 +710,7 @@ BOOLEAN setOption(leftv res, leftv v)
     Werror("unknown option `%s`",n);
   okay:
     if (currRing != NULL)
-      currRing->options = test & TEST_RINGDEP_OPTS;
+      currRing->options = si_opt_1 & TEST_RINGDEP_OPTS;
     omFree((ADDRESS)n);
     v=v->next;
   } while (v!=NULL);
@@ -686,14 +731,14 @@ char * showOption()
   BITSET tmp;
 
   StringSetS("//options:");
-  if ((test!=0)||(verbose!=0))
+  if ((si_opt_1!=0)||(si_opt_2!=0))
   {
-    tmp=test;
+    tmp=si_opt_1;
     if(tmp)
     {
       for (i=0; optionStruct[i].setval!=0; i++)
       {
-        if (optionStruct[i].setval & test)
+        if (optionStruct[i].setval & tmp)
         {
           StringAppend(" %s",optionStruct[i].name);
           tmp &=optionStruct[i].resetval;
@@ -704,7 +749,7 @@ char * showOption()
         if (tmp & Sy_bit(i)) StringAppend(" %d",i);
       }
     }
-    tmp=verbose;
+    tmp=si_opt_2;
     if (tmp)
     {
       for (i=0; verboseStruct[i].setval!=0; i++)
@@ -720,44 +765,47 @@ char * showOption()
         if (tmp & Sy_bit(i)) StringAppend(" %d",i+32);
       }
     }
-    return omStrDup(StringAppendS(""));
+    return StringEndS();
   }
-  else
-    return omStrDup(StringAppendS(" none"));
+  StringAppendS(" none");
+  return StringEndS();
 }
 
-char * versionString()
+/* version strings */
+#ifdef HAVE_FLINT
+extern "C"
 {
-  char* str = StringSetS("");
-  StringAppend("Singular for %s version %s (%d-%s)  %s\nwith\n",
-               S_UNAME, S_VERSION1, SINGULAR_VERSION,
-               feVersionId,singular_date);
-  StringAppendS("\t");
-#ifdef HAVE_FACTORY
-  StringAppend("factory(%s)", factoryVersion);
-#ifdef HAVE_LIBFAC
-  // libfac:
-//  extern const char * libfac_version;
-//  extern const char * libfac_date;
-  StringAppend("+libfac");
-#endif // #ifdef HAVE_LIBFAC
-  StringAppend(",");
+#ifndef __GMP_BITS_PER_MP_LIMB
+#define __GMP_BITS_PER_MP_LIMB GMP_LIMB_BITS
+#endif
+#include <flint/flint.h>
+}
 #endif
 
-#if defined (__GNU_MP_VERSION) && defined (__GNU_MP_VERSION_MINOR)
-              StringAppend("GMP(%d.%d),",__GNU_MP_VERSION,__GNU_MP_VERSION_MINOR);
-#else
-              StringAppendS("GMP(1.3),");
+char * versionString(/*const bool bShowDetails = false*/ )
+{
+  StringSetS("");
+  StringAppend("Singular for %s version %s (%s, %d bit) %s #%s",
+               S_UNAME, S_VERSION1, // SINGULAR_VERSION,
+               PACKAGE_VERSION, SIZEOF_VOIDP*8, singular_date, GIT_VERSION);
+  StringAppendS("\nwith\n\t");
+
+#if defined(mpir_version)
+              StringAppend("MPIR(%s)~GMP(%s),", mpir_version, gmp_version);
+#elif defined(gmp_version)
+	      // #if defined (__GNU_MP_VERSION) && defined (__GNU_MP_VERSION_MINOR)
+	      //              StringAppend("GMP(%d.%d),",__GNU_MP_VERSION,__GNU_MP_VERSION_MINOR);
+              StringAppend("GMP(%s),", gmp_version);
 #endif
 #ifdef HAVE_NTL
 #include <NTL/version.h>
               StringAppend("NTL(%s),",NTL_VERSION);
 #endif
-#if SIZEOF_VOIDP == 8
-              StringAppendS("64bit,");
-#else
-              StringAppendS("32bit,");
+
+#ifdef HAVE_FLINT
+              StringAppend("FLINT(%s),",version);
 #endif
+
 #if defined(HAVE_DYN_RL)
               if (fe_fgets_stdin==fe_fgets_dummy)
                 StringAppendS("no input,");
@@ -794,9 +842,6 @@ char * versionString()
               StringAppendS("dynamic modules,");
 #endif
               if (p_procs_dynamic) StringAppendS("dynamic p_Procs,");
-#ifdef TEST
-              StringAppendS("TESTs,");
-#endif
 #if YYDEBUG
               StringAppendS("YYDEBUG=1,");
 #endif
@@ -834,15 +879,26 @@ char * versionString()
               StringAppendS("ratGB,");
 #endif
               StringAppend("random=%d\n",siRandomStart);
-              StringAppend("\tCC=%s,\n\tCXX=%s"
+
+#define SI_SHOW_BUILTIN_MODULE(name) StringAppend(" %s", #name);
+              StringAppendS("built-in modules: {");
+              SI_FOREACH_BUILTIN(SI_SHOW_BUILTIN_MODULE)
+              StringAppendS("}\n");
+#undef SI_SHOW_BUILTIN_MODULE
+
+              StringAppend("AC_CONFIGURE_ARGS = %s,\n"
+                           "CC = %s,FLAGS : %s,\n"
+                           "CXX = %s,FLAGS : %s,\n"
+                           "DEFS : %s,CPPFLAGS : %s,\n"
+                           "LDFLAGS : %s,LIBS : %s "
 #ifdef __GNUC__
-              "(" __VERSION__ ")"
+              "(ver: " __VERSION__ ")"
 #endif
-              "\n",CC,CXX);
+              "\n",AC_CONFIGURE_ARGS, CC,CFLAGS, CXX,CXXFLAGS,  DEFS,CPPFLAGS,  LDFLAGS,LIBS);
               feStringAppendResources(0);
               feStringAppendBrowsers(0);
               StringAppendS("\n");
-              return str;
+              return StringEndS();
 }
 
 #ifdef PDEBUG
@@ -986,60 +1042,102 @@ void checkall()
 extern "C"
 int singular_fstat(int fd, struct stat *buf)
 {
-  return fstat(fd,buf);
+  return si_fstat(fd,buf);
 }
 
 /*2
 * the global exit routine of Singular
 */
 extern "C" {
+/* Note: We cannot use a mutex here because mutexes are not async-safe, but
+ * m2_end is called by sig_term_hdl(). Anyway, the race condition in the first
+ * few lines of m2_end() should not matter.
+ */
+volatile BOOLEAN m2_end_called = FALSE;
 
 void m2_end(int i)
 {
-  fe_reset_input_mode();
-  #ifdef PAGE_TEST
-  mmEndStat();
-  #endif
-  fe_reset_input_mode();
-  idhdl h = IDROOT;
-  while(h != NULL)
+  if (!m2_end_called)
   {
-    if(IDTYP(h) == LINK_CMD)
+    m2_end_called = TRUE;
+#ifdef HAVE_SIMPLEIPC
+    for (int j = SIPC_MAX_SEMAPHORES; j >= 0; j--)
     {
-      idhdl hh=h->next;
-      killhdl(h, currPack);
-      h = hh;
-    }
-    else
-    {
-      h = h->next;
-    }
-  }
-  if(!singular_in_batchmode)
-  {
-    if (i<=0)
-    {
-      if (TEST_V_QUIET)
+      if (semaphore[j] != NULL)
       {
-        if (i==0)
-          printf("Auf Wiedersehen.\n");
-        else
-          printf("\n$Bye.\n");
+        while (sem_acquired[j] > 0)
+        {
+          sem_post(semaphore[j]);
+          sem_acquired[j]--;
+        }
       }
-      //#ifdef sun
-      //  #ifndef __svr4__
-      //    _cleanup();
-      //    _exit(0);
-      //  #endif
-      //#endif
-      i=0;
     }
-    else
+#endif   // HAVE_SIMPLEIPC
+    fe_reset_input_mode();
+#ifdef PAGE_TEST
+    mmEndStat();
+#endif
+    fe_reset_input_mode();
+    if (ssiToBeClosed_inactive)
     {
-        printf("\nhalt %d\n",i);
+      link_list hh=ssiToBeClosed;
+      while(hh!=NULL)
+      {
+        //Print("close %s\n",hh->l->name);
+        slPrepClose(hh->l);
+        hh=(link_list)hh->next;
+      }
+      ssiToBeClosed_inactive=FALSE;
+
+      idhdl h = currPack->idroot;
+      while(h != NULL)
+      {
+        if(IDTYP(h) == LINK_CMD)
+        {
+          idhdl hh=h->next;
+          //Print("kill %s\n",IDID(h));
+          killhdl(h, currPack);
+          h = hh;
+        }
+        else
+        {
+          h = h->next;
+        }
+      }
+      hh=ssiToBeClosed;
+      while(hh!=NULL)
+      {
+        //Print("close %s\n",hh->l->name);
+        slClose(hh->l);
+        hh=ssiToBeClosed;
+      }
     }
+    if (!singular_in_batchmode)
+    {
+      if (i<=0)
+      {
+        if (TEST_V_QUIET)
+        {
+          if (i==0)
+            printf("Auf Wiedersehen.\n");
+          else
+            printf("\n$Bye.\n");
+        }
+        //#ifdef sun
+        //  #ifndef __svr4__
+        //    _cleanup();
+        //    _exit(0);
+        //  #endif
+        //#endif
+        i=0;
+      }
+      else
+      {
+        printf("\nhalt %d\n",i);
+      }
+    }
+    exit(i);
   }
-  exit(i);
 }
 }
 
@@ -1062,7 +1160,6 @@ extern "C"
 */
 void siInit(char *name)
 {
-#ifdef HAVE_FACTORY
 // factory default settings: -----------------------------------------------
   On(SW_USE_NTL);
   On(SW_USE_NTL_GCD_0); // On -> seg11 in Old/algnorm, Old/factor...
@@ -1074,19 +1171,19 @@ void siInit(char *name)
   On(SW_USE_QGCD);
   Off(SW_USE_NTL_SORT); // may be changed by an command line option
   factoryError=WerrorS;
-#endif
 
 // memory initialization: -----------------------------------------------
     om_Opts.OutOfMemoryFunc = omSingOutOfMemoryFunc;
 #ifndef OM_NDEBUG
 #ifndef __OPTIMIZE__
     om_Opts.ErrorHook = dErrorBreak;
+#else
+    om_Opts.Keep = 0; /* !OM_NDEBUG, __OPTIMIZE__*/
 #endif
+#else
+    om_Opts.Keep = 0; /* OM_NDEBUG */
 #endif
     omInitInfo();
-#ifdef OM_SING_KEEP
-    om_Opts.Keep = OM_SING_KEEP;
-#endif
 
 // interpreter tables etc.: -----------------------------------------------
 #ifdef INIT_BUG
@@ -1117,6 +1214,8 @@ void siInit(char *name)
 
     type = nRegister(n_transExt, ntInitChar);
     assume(type == n_transExt);
+
+    (void)type;
   }
 #endif
 
@@ -1125,9 +1224,7 @@ void siInit(char *name)
   if (t==0) t=1;
   initRTimer();
   siSeed=t;
-#ifdef HAVE_FACTORY
   factoryseed(t);
-#endif
   siRandomStart=t;
   feOptSpec[FE_OPT_RANDOM].value = (void*) ((long)siRandomStart);
 
@@ -1139,26 +1236,34 @@ void siInit(char *name)
 // singular links: --------------------------------------------------
   slStandardInit();
   myynest=0;
+// semapohore 0 -----------------------------------------------------
+  int cpus=2;
+  int cpu_n;
+  #ifdef _SC_NPROCESSORS_ONLN
+  if ((cpu_n=sysconf(_SC_NPROCESSORS_ONLN))>cpus) cpus=cpu_n;
+  #elif defined(_SC_NPROCESSORS_CONF)
+  if ((cpu_n=sysconf(_SC_NPROCESSORS_CONF))>cpus) cpus=cpu_n;
+  #endif
+  feSetOptValue(FE_OPT_CPUS, cpus);
 
 // loading standard.lib -----------------------------------------------
   if (! feOptValue(FE_OPT_NO_STDLIB))
   {
-    int vv=verbose;
-    verbose &= ~Sy_bit(V_LOAD_LIB);
+    BITSET save1,save2;
+    SI_SAVE_OPT(save1,save2);
+    si_opt_2 &= ~Sy_bit(V_LOAD_LIB);
     iiLibCmd(omStrDup("standard.lib"), TRUE,TRUE,TRUE);
-    verbose=vv;
+    SI_RESTORE_OPT(save1,save2);
   }
   errorreported = 0;
 }
 
 /*
 #ifdef LIBSINGULAR
-#ifdef HAVE_FACTORY
 // the init routines of factory need mmInit
 int mmInit( void )
 {
   return 1;
 }
-#endif
 #endif
 */

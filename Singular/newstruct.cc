@@ -1,6 +1,8 @@
 #include <ctype.h>
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <Singular/ipid.h>
 #include <Singular/blackbox.h>
@@ -56,7 +58,7 @@ char * newstruct_String(blackbox *b, void *d)
 
     if (p!=NULL)
     {
-      leftv sl;
+      BOOLEAN sl;
       sleftv tmp;
       memset(&tmp,0,sizeof(tmp));
       tmp.rtyp=ad->id;
@@ -69,14 +71,15 @@ char * newstruct_String(blackbox *b, void *d)
       hh.data.pinf=p->p;
       sl=iiMake_proc(&hh,NULL,&tmp);
 
-      if (sl->Typ() == STRING_CMD)
+      if ((!sl)&& (iiRETURNEXPR.Typ() == STRING_CMD))
       {
-        char *res = omStrDup((char*)sl->Data());
-        sl->CleanUp();
+        char *res = omStrDup((char*)iiRETURNEXPR.CopyD());
+        iiRETURNEXPR.CleanUp();
+        iiRETURNEXPR.Init();
         return res;
       }
-      else
-        sl->CleanUp();      
+      iiRETURNEXPR.CleanUp();
+      iiRETURNEXPR.Init();
     }
 
     lists l=(lists)d;
@@ -85,7 +88,7 @@ char * newstruct_String(blackbox *b, void *d)
     loop
     {
       StringAppendS(a->name);
-      char *tmp=omStrDup(StringAppendS("="));
+      StringAppendS("=");
       if ((!RingDependend(a->typ))
       || ((l->m[a->pos-1].data==(void *)currRing)
          && (currRing!=NULL)))
@@ -96,25 +99,24 @@ char * newstruct_String(blackbox *b, void *d)
         }
         else
         {
-          StringSetS("");
           char *tmp2=omStrDup(l->m[a->pos].String());
-          StringSetS(tmp);
           if ((strlen(tmp2)>80)||(strchr(tmp2,'\n')!=NULL))
           {
-            StringAppend("<%s>",Tok2Cmdname(l->m[a->pos].rtyp));
+            StringAppendS("<");
+            StringAppendS(Tok2Cmdname(l->m[a->pos].rtyp));
+            StringAppendS(">");
           }
           else StringAppendS(tmp2);
           omFree(tmp2);
         }
       }
       else StringAppendS("??");
-      omFree(tmp);
       if (a->next==NULL) break;
       StringAppendS("\n");
       if(errorreported) break;
       a=a->next;
     }
-    return omStrDup(StringAppendS(""));
+    return StringEndS();
   }
 }
 lists lCopy_newstruct(lists L)
@@ -125,7 +127,8 @@ lists lCopy_newstruct(lists L)
   N->Init(n+1);
   for(;n>=0;n--)
   {
-    if (RingDependend(L->m[n].rtyp))
+    if (RingDependend(L->m[n].rtyp)
+    ||((L->m[n].rtyp==LIST_CMD)&&lRingDependend((lists)L->m[n].data)))
     {
       assume((L->m[n-1].rtyp==RING_CMD) || (L->m[n-1].data==NULL));
       if(L->m[n-1].data!=NULL)
@@ -170,11 +173,12 @@ BOOLEAN newstruct_equal(int op, leftv l, leftv r)
   assume(ll->data != NULL);
   newstruct_desc nt=(newstruct_desc)ll->data;
   newstruct_proc p=nt->procs;
-  
+
   while( (p!=NULL) && ((p->t!='=')||(p->args!=1)) ) p=p->next;
 
   if (p!=NULL)
   {
+    BOOLEAN sl;
     idrec hh;
     memset(&hh,0,sizeof(hh));
     hh.id=Tok2Cmdname(p->t);
@@ -183,14 +187,40 @@ BOOLEAN newstruct_equal(int op, leftv l, leftv r)
     sleftv tmp;
     memset(&tmp,0,sizeof(sleftv));
     tmp.Copy(r);
-    leftv sl = iiMake_proc(&hh, NULL, &tmp);
-    if (sl != NULL)
+    sl = iiMake_proc(&hh, NULL, &tmp);
+    if (!sl)
     {
-      if (sl->Typ() == op) { l->Copy(sl); return FALSE;}
-      else sl->CleanUp();
+      if (iiRETURNEXPR.Typ() == op)
+      {
+        l->Copy(&iiRETURNEXPR);
+        iiRETURNEXPR.Init();
+        return FALSE;
+      }
+      iiRETURNEXPR.CleanUp();
+      iiRETURNEXPR.Init();
     }
   }
   return TRUE;
+}
+
+void lClean_newstruct(lists l)
+{
+  if (l->nr>=0)
+  {
+    int i;
+    ring r=NULL;
+    for(i=l->nr;i>=0;i--)
+    {
+      if ((i>0) && (l->m[i-1].rtyp==RING_CMD))
+        r=(ring)(l->m[i-1].data);
+      else
+        r=NULL;
+      l->m[i].CleanUp(r);
+    }
+    omFreeSize((ADDRESS)l->m, (l->nr+1)*sizeof(sleftv));
+    l->nr=-1;
+  }
+  omFreeBin((ADDRESS)l,slists_bin);
 }
 
 BOOLEAN newstruct_Assign(leftv l, leftv r)
@@ -234,7 +264,7 @@ BOOLEAN newstruct_Assign(leftv l, leftv r)
       if (l->Data()!=NULL)
       {
         lists n1=(lists)l->Data();
-        n1->Clean(); n1=NULL;
+        lClean_newstruct(n1);
       }
       lists n2=(lists)r->Data();
       n2=lCopy_newstruct(n2);
@@ -249,8 +279,7 @@ BOOLEAN newstruct_Assign(leftv l, leftv r)
       return FALSE;
     }
   }
-
-  else if(l->Typ() > MAX_TOK)
+  else
   {
     assume(l->Typ() > MAX_TOK);
     sleftv tmp;
@@ -272,7 +301,7 @@ BOOLEAN newstruct_Op1(int op, leftv res, leftv arg)
 
   if (p!=NULL)
   {
-    leftv sl;
+    BOOLEAN sl;
     sleftv tmp;
     memset(&tmp,0,sizeof(sleftv));
     tmp.Copy(arg);
@@ -282,10 +311,11 @@ BOOLEAN newstruct_Op1(int op, leftv res, leftv arg)
     hh.typ=PROC_CMD;
     hh.data.pinf=p->p;
     sl=iiMake_proc(&hh,NULL,&tmp);
-    if (sl==NULL) return TRUE;
+    if (sl) return TRUE;
     else
     {
-      res->Copy(sl);
+      res->Copy(&iiRETURNEXPR);
+      iiRETURNEXPR.Init();
       return FALSE;
     }
   }
@@ -323,7 +353,7 @@ BOOLEAN newstruct_Op2(int op, leftv res, leftv a1, leftv a2)
           }
           if (nm==NULL)
           {
-            Werror("member %s nor found", a2->name);
+            Werror("member %s not found", a2->name);
             return TRUE;
           }
           if (search_ring)
@@ -337,7 +367,8 @@ BOOLEAN newstruct_Op2(int op, leftv res, leftv a1, leftv a2)
             else Werror("ring of this member is not set and no basering found");
             return r==NULL;
           }
-          else if (RingDependend(nm->typ))
+          else if (RingDependend(nm->typ)
+          || (al->m[nm->pos].RingDependend()))
           {
             if (al->m[nm->pos].data==NULL)
             {
@@ -367,6 +398,14 @@ BOOLEAN newstruct_Op2(int op, leftv res, leftv a1, leftv a2)
               al->m[nm->pos-1].data=(void *)currRing;
               al->m[nm->pos-1].rtyp=RING_CMD;
               currRing->ref++;
+            }
+          }
+          else if ((nm->typ==DEF_CMD)||(nm->typ==LIST_CMD))
+          {
+            if (al->m[nm->pos-1].data==NULL)
+            {
+              al->m[nm->pos-1].data=(void*)currRing;
+              if (currRing!=NULL) currRing->ref++;
             }
           }
           Subexpr r=(Subexpr)omAlloc0Bin(sSubexpr_bin);
@@ -400,7 +439,7 @@ BOOLEAN newstruct_Op2(int op, leftv res, leftv a1, leftv a2)
   while((p!=NULL) && ( (p->t!=op) || (p->args!=2) )) p=p->next;
   if (p!=NULL)
   {
-    leftv sl;
+    BOOLEAN sl;
     sleftv tmp;
     memset(&tmp,0,sizeof(sleftv));
     tmp.Copy(a1);
@@ -412,10 +451,11 @@ BOOLEAN newstruct_Op2(int op, leftv res, leftv a1, leftv a2)
     hh.typ=PROC_CMD;
     hh.data.pinf=p->p;
     sl=iiMake_proc(&hh,NULL,&tmp);
-    if (sl==NULL) return TRUE;
+    if (sl) return TRUE;
     else
     {
-      res->Copy(sl);
+      res->Copy(&iiRETURNEXPR);
+      iiRETURNEXPR.Init();
       return FALSE;
     }
   }
@@ -445,7 +485,7 @@ BOOLEAN newstruct_OpM(int op, leftv res, leftv args)
 
   if (p!=NULL)
   {
-    leftv sl;
+    BOOLEAN sl;
     sleftv tmp;
     memset(&tmp,0,sizeof(sleftv));
     tmp.Copy(args);
@@ -455,37 +495,18 @@ BOOLEAN newstruct_OpM(int op, leftv res, leftv args)
     hh.typ=PROC_CMD;
     hh.data.pinf=p->p;
     sl=iiMake_proc(&hh,NULL,&tmp);
-    if (sl==NULL) return TRUE;
+    if (sl) return TRUE;
     else
     {
-      res->Copy(sl);
+      res->Copy(&iiRETURNEXPR);
+      iiRETURNEXPR.Init();
       return FALSE;
     }
   }
   return blackbox_default_OpM(op,res,args);
 }
 
-void lClean_newstruct(lists l)
-{
-  if (l->nr>=0)
-  {
-    int i;
-    ring r=NULL;
-    for(i=l->nr;i>=0;i--)
-    {
-      if ((i>0) && (l->m[i-1].rtyp==RING_CMD))
-        r=(ring)(l->m[i-1].data);
-      else
-        r=NULL;
-      l->m[i].CleanUp(r);
-    }
-    omFreeSize((ADDRESS)l->m, (l->nr+1)*sizeof(sleftv));
-    l->nr=-1;
-  }
-  omFreeBin((ADDRESS)l,slists_bin);
-}
-
-void newstruct_destroy(blackbox *b, void *d)
+void newstruct_destroy(blackbox */*b*/, void *d)
 {
   if (d!=NULL)
   {
@@ -503,13 +524,15 @@ void *newstruct_Init(blackbox *b)
   while (nm!=NULL)
   {
     l->m[nm->pos].rtyp=nm->typ;
+    if (RingDependend(nm->typ) ||(nm->typ==DEF_CMD)||(nm->typ==LIST_CMD))
+      l->m[nm->pos-1].rtyp=RING_CMD;
     l->m[nm->pos].data=idrecDataInit(nm->typ);
     nm=nm->next;
   }
   return l;
 }
 
-BOOLEAN newstruct_CheckAssign(blackbox *b, leftv L, leftv R)
+BOOLEAN newstruct_CheckAssign(blackbox */*b*/, leftv L, leftv R)
 {
   int lt=L->Typ();
   int rt=R->Typ();
@@ -554,23 +577,57 @@ BOOLEAN newstruct_serialize(blackbox *b, void *d, si_link f)
   l.data=(void*)getBlackboxName(dd->id);
   f->m->Write(f, &l);
   lists ll=(lists)d;
-  memset(&l,0,sizeof(l));
-  l.rtyp=LIST_CMD;
-  l.data=ll;
+  int Ll=lSize(ll);
+  l.rtyp=INT_CMD;
+  l.data=(void*)(long)Ll;
   f->m->Write(f, &l);
-  return FALSE;
+  // set all entries corresponding to "real" mebers to 1 in rings
+  char *rings=(char*)omAlloc0(Ll+1);
+  newstruct_member elem=dd->member;
+  while (elem!=NULL)
+  {
+    rings[elem->pos]='\1';
+    elem=elem->next;
+  }
+  int i;
+  BOOLEAN ring_changed=FALSE;
+  ring save_ring=currRing;
+  for(i=0;i<=Ll;i++)
+  {
+    if (rings[i]=='\0') // ring entry for pos i+1
+    {
+      if (ll->m[i].data!=NULL)
+      {
+        ring_changed=TRUE;
+        f->m->SetRing(f,(ring)ll->m[i].data,TRUE);
+      }
+    }
+    f->m->Write(f,&(ll->m[i]));
+  }
+  if (ring_changed)
+    f->m->SetRing(f,save_ring,FALSE);
 }
 
 BOOLEAN newstruct_deserialize(blackbox **b, void **d, si_link f)
 {
-  // newstruct is serialiazed as a list,
+  // newstruct is serialiazed as analog to a list,
   // just read a list and take data,
   // rtyp must be set correctly (to the blackbox id) by routine calling
   // newstruct_deserialize
-  leftv l=f->m->Read(f);
+  leftv l=f->m->Read(f); // int: length of list
+  int Ll=(int)(long)(l->data);
+  omFree(l);
+  lists L=(lists)omAllocBin(slists_bin);
+  L->Init(Ll+1);
+  for(int i=0;i<=Ll;i++)
+  {
+    l=f->m->Read(f);
+    memcpy(&(L->m[i]),l,sizeof(sleftv));
+    omFree(l);
+  }
   //newstruct_desc n=(newstruct_desc)b->data;
   //TODO: check compatibility of list l->data with description in n
-  *d=l->data;
+  *d=L;
   return FALSE;
 }
 
@@ -582,7 +639,7 @@ void newstruct_Print(blackbox *b,void *d)
     p=p->next;
   if (p!=NULL)
   {
-    leftv sl;
+    BOOLEAN sl;
     sleftv tmp;
     memset(&tmp,0,sizeof(tmp));
     tmp.rtyp=dd->id;
@@ -593,6 +650,12 @@ void newstruct_Print(blackbox *b,void *d)
     hh.typ=PROC_CMD;
     hh.data.pinf=p->p;
     sl=iiMake_proc(&hh,NULL,&tmp);
+    if (!sl)
+    {
+      if (iiRETURNEXPR.Typ()!=NONE) Warn("ignoring return value (%s)",Tok2Cmdname(iiRETURNEXPR.Typ()));
+      iiRETURNEXPR.CleanUp();
+    }
+    iiRETURNEXPR.Init();
   }
   else
     blackbox_default_Print(b,d);
@@ -650,7 +713,7 @@ static newstruct_desc scanNewstructFromString(const char *s, newstruct_desc res)
       currRingHdl=save_ring;
       return NULL;
     }
-    if (RingDependend(t))
+    if (RingDependend(t) || (t==DEF_CMD)||(t==LIST_CMD))
       res->size++;    // one additional field for the ring (before the data)
     //Print("found type %s at real-pos %d",start,res->size);
     elem=(newstruct_member)omAlloc0(sizeof(*elem));
@@ -691,6 +754,7 @@ static newstruct_desc scanNewstructFromString(const char *s, newstruct_desc res)
   omFree(ss);
   currRingHdl=save_ring;
   //Print("new type with %d elements\n",res->size);
+  //newstructShow(res);
   return res;
 error_in_newstruct_def:
    omFree(elem);
@@ -740,8 +804,16 @@ void newstructShow(newstruct_desc d)
   elem=d->member;
   while (elem!=NULL)
   {
-    Print(">>%s<< at pos %d, type %d\n",elem->name,elem->pos,elem->typ);
+    Print(">>%s<< at pos %d, type %d (%s)\n",elem->name,elem->pos,elem->typ,Tok2Cmdname(elem->typ));
+    if (RingDependend(elem->typ)|| (elem->typ==DEF_CMD) ||(elem->typ==LIST_CMD))
+      Print(">>r_%s<< at pos %d, shadow ring\n",elem->name,elem->pos-1);
     elem=elem->next;
+  }
+  newstruct_proc p=d->procs;
+  while (p!=NULL)
+  {
+    Print("op:%d(%s) with %d args -> %s\n",p->t,iiTwoOps(p->t),p->args,p->p->procname);
+    p=p->next;
   }
 }
 
@@ -749,6 +821,11 @@ BOOLEAN newstruct_set_proc(const char *bbname,const char *func, int args,procinf
 {
   int id=0;
   blackboxIsCmd(bbname,id);
+  if (id<MAX_TOK)
+  {
+    Werror(">>%s<< is not a newstruct type",bbname);
+    return TRUE;
+  }
   blackbox *bb=getBlackboxStuff(id);
   newstruct_desc desc=(newstruct_desc)bb->data;
   newstruct_proc p=(newstruct_proc)omAlloc(sizeof(*p));

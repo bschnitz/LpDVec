@@ -7,7 +7,9 @@
 
 
 /* includes */
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
 #include <omalloc/omalloc.h>
@@ -17,7 +19,7 @@
 
 // #include <coeffs/longrat.h>
 #include "matpol.h"
- 
+
 #include "monomials/p_polys.h"
 #include "weight.h"
 #include "sbuckets.h"
@@ -76,16 +78,22 @@ void idShow(const ideal id, const ring lmRing, const ring tailRing, const int de
 }
 #endif
 
-/* index of generator with leading term in ground ring (if any);
-   otherwise -1 */
+/// index of generator with leading term in ground ring (if any); 
+/// otherwise -1
 int id_PosConstant(ideal id, const ring r)
 {
-  int k;
-  for (k = IDELEMS(id)-1; k>=0; k--)
+  id_Test(id, r);
+  const int N = IDELEMS(id) - 1; 
+  const poly * m = id->m + N; 
+ 
+  for (int k = N; k >= 0; --k, --m)
   {
-    if (p_LmIsConstantComp(id->m[k], r) == TRUE)
-      return k;
+    const poly p = *m;
+    if (p!=NULL)
+       if (p_LmIsConstantComp(p, r) == TRUE)
+	 return k;
   }
+   
   return -1;
 }
 
@@ -120,7 +128,9 @@ void id_Delete (ideal * h, ring r)
   {
     do
     {
-      p_Delete(&((*h)->m[--j]), r);
+      j--;
+      poly pp=((*h)->m[j]);
+      if (pp!=NULL) p_Delete(&pp, r);
     }
     while (j>0);
     omFreeSize((ADDRESS)((*h)->m),sizeof(poly)*elems);
@@ -261,7 +271,7 @@ void id_DelMultiples(ideal id, const ring r)
           }
 #else
           if (p_ComparePolys(id->m[i], id->m[j],r)) p_Delete(&id->m[j],r);
-#endif    
+#endif
         }
       }
     }
@@ -363,7 +373,7 @@ void id_DelDiv(ideal id, const ring r)
           }
 #ifdef HAVE_RINGS
           }
-#endif    
+#endif
         }
       }
     }
@@ -719,22 +729,19 @@ long id_RankFreeModule (ideal s, ring lmRing, ring tailRing)
 {
   if (s!=NULL)
   {
-    int  j=0;
+    long  j=0;
 
     if (rRing_has_Comp(tailRing) && rRing_has_Comp(lmRing))
     {
-      int  l=IDELEMS(s);
       poly *p=s->m;
-      int  k;
-      for (; l != 0; l--)
+      for (unsigned int l=IDELEMS(s); l != 0; --l, ++p)
       {
         if (*p!=NULL)
         {
           pp_Test(*p, lmRing, tailRing);
-          k = p_MaxComp(*p, lmRing, tailRing);
+          const long k = p_MaxComp(*p, lmRing, tailRing);
           if (k>j) j = k;
         }
-        p++;
       }
     }
     return j;
@@ -1205,7 +1212,7 @@ ideal id_Matrix2Module(matrix mat, const ring R)
 matrix id_Module2Matrix(ideal mod, const ring R)
 {
   matrix result = mpNew(mod->rank,IDELEMS(mod));
-  long i,cp;
+  long i; long cp;
   poly p,h;
 
   for(i=0;i<IDELEMS(mod);i++)
@@ -1608,11 +1615,11 @@ BOOLEAN id_IsZeroDim(ideal I, const ring r)
   return res;
 }
 
-void id_Normalize(ideal I,const ring r)
+void id_Normalize(ideal I,const ring r) /* for ideal/matrix */
 {
   if (rField_has_simple_inverse(r)) return; /* Z/p, GF(p,n), R, long R/C */
   int i;
-  for(i=IDELEMS(I)-1;i>=0;i--)
+  for(i=I->nrows*I->ncols-1;i>=0;i--)
   {
     p_Normalize(I->m[i],r);
   }
@@ -1761,4 +1768,32 @@ ideal id_TensorModuleMult(const int m, const ideal M, const ring rRing)
   id_Delete(&idTemp, rRing);
 
   return(idResult);
+}
+
+ideal id_ChineseRemainder(ideal *xx, number *q, int rl, const ring r)
+{
+  int cnt=IDELEMS(xx[0])*xx[0]->nrows;
+  ideal result=idInit(cnt,xx[0]->rank);
+  result->nrows=xx[0]->nrows; // for lifting matrices
+  result->ncols=xx[0]->ncols; // for lifting matrices
+  int i,j;
+  number *x=(number *)omAlloc(rl*sizeof(number));
+  poly *p=(poly *)omAlloc(rl*sizeof(poly));
+  for(i=cnt-1;i>=0;i--)
+  {
+    for(j=rl-1;j>=0;j--)
+    {
+      p[j]=xx[j]->m[i];
+    }
+    result->m[i]=p_ChineseRemainder(p,x,q,rl,r);
+    for(j=rl-1;j>=0;j--)
+    {
+      xx[j]->m[i]=p[j];
+    }
+  }
+  omFreeSize(p,rl*sizeof(poly));
+  omFreeSize(x,rl*sizeof(number));
+  for(i=rl-1;i>=0;i--) id_Delete(&(xx[i]),r);
+  omFreeSize(xx,rl*sizeof(ideal));
+  return result;
 }

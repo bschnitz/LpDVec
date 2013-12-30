@@ -6,11 +6,12 @@
 * ABSTRACT - instantiation of all templates
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 //#include <vector>
 //using namespace std;
-#ifdef HAVE_FACTORY
   #define SINGULAR 1
   #include <factory/factory.h>
   #include <factory/templates/ftmpl_list.cc>
@@ -23,7 +24,6 @@
 
   template class List<fglmDelem>;
   template class ListIterator<fglmDelem>;
-#endif
 
 // ----------------------------------------------------------------------------
 //  kmatrix.cc
@@ -118,9 +118,20 @@ template void noro_step<tgb_uint32>(poly*p,int &pn,slimgb_alg* c);
 #include <list>
 #include <Singular/Minor.h>
 #include <Singular/Cache.h>
+
 template class std::list<int>;
 template class std::list<MinorKey>;
 template class std::list<IntMinorValue>;
 template class std::list<PolyMinorValue>;
+
+
+/*
+template class std::_List_base<IntMinorValue, std::allocator<IntMinorValue> >;
+template class std::_List_base<int, std::allocator<int> >;
+template class std::_List_base<MinorKey, std::allocator<MinorKey> >;
+template class std::_List_base<PolyMinorValue, std::allocator<PolyMinorValue> >;
+*/
+
 template class Cache<MinorKey, IntMinorValue>;
 template class Cache<MinorKey, PolyMinorValue>;
+

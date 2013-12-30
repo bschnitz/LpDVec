@@ -1,16 +1,22 @@
-// include before anything to avoid clashes with stdio.h included elsewhere
-#include <cstdio>
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
+#include <kernel/mod2.h>
 
-#include <MinorInterface.h>
-#include <MinorProcessor.h>
+// include before anything to avoid clashes with stdio.h included elsewhere
+// #include <cstdio>
+
+#include "MinorInterface.h"
+#include "MinorProcessor.h"
+
+#include <polys/simpleideals.h>
 
 #include <kernel/polys.h>
 #include <kernel/structs.h>
-
-#include "config.h"
-#include <kernel/mod2.h>
-#include <kernel/ideals.h>
 #include <kernel/kstd1.h>
+#include <kernel/ideals.h>
+
+using namespace std;
 
 bool currRingIsOverIntegralDomain ()
 {
@@ -95,7 +101,7 @@ ideal getMinorIdeal_Int (const int* intMatrix, const int rowCount,
 
   /* containers for all upcoming results: */
   IntMinorValue theMinor;
-  int value = 0;
+  // int value = 0;
   int collectedMinors = 0;
   int characteristic = 0; if (currRing != 0) characteristic = rChar(currRing);
 
@@ -171,7 +177,7 @@ ideal getMinorIdeal_Poly (const poly* polyMatrix, const int rowCount,
     theMinor = mp.getNextMinor(algorithm, i);
 #if (defined COUNT_AND_PRINT_OPERATIONS) && (COUNT_AND_PRINT_OPERATIONS > 1)
     qqq++;
-    printf("after %d", qqq);
+    Print("after %d", qqq);
     printCounters ("-th minor", false);
 #endif
     f = theMinor.getResult();
@@ -185,13 +191,10 @@ ideal getMinorIdeal_Poly (const poly* polyMatrix, const int rowCount,
 
   /* before we return the result, let's omit zero generators
      in iii which come after the computed minors */
-  ideal jjj;
-  if (collectedMinors == 0) jjj = idInit(1);
-  else                      jjj = idCopyFirstK(iii, collectedMinors);
-  idDelete(&iii);
+  idKeepFirstK(iii, collectedMinors);
   delete[] myColumnIndices;
   delete[] myRowIndices;
-  return jjj;
+  return(iii);
 }
 
 ideal getMinorIdeal_toBeDone (const matrix mat, const int minorSize,
@@ -321,7 +324,7 @@ ideal getMinorIdealCache_Int(const int* intMatrix, const int rowCount,
 
   /* containers for all upcoming results: */
   IntMinorValue theMinor;
-  int value = 0;
+  // int value = 0;
   int collectedMinors = 0;
   int characteristic = 0; if (currRing != 0) characteristic = rChar(currRing);
 
@@ -400,7 +403,7 @@ ideal getMinorIdealCache_Poly(const poly* polyMatrix, const int rowCount,
     theMinor = mp.getNextMinor(cch, i);
 #if (defined COUNT_AND_PRINT_OPERATIONS) && (COUNT_AND_PRINT_OPERATIONS > 1)
     qqq++;
-    printf("after %d", qqq);
+    Print("after %d", qqq);
     printCounters ("-th minor", false);
 #endif
     f = theMinor.getResult();
@@ -523,7 +526,7 @@ ideal getMinorIdealHeuristic (const matrix mat, const int minorSize,
 
   bool b = false; /* Bareiss */
   bool l = false; /* Laplace without caching */
-  bool c = false; /* Laplace with caching */
+  // bool c = false; /* Laplace with caching */
   if (currRingIsOverIntegralDomain())
   { /* the field case or ring Z */
     if      (minorSize <= 2)                                     b = true;
@@ -537,20 +540,13 @@ ideal getMinorIdealHeuristic (const matrix mat, const int minorSize,
     if (k != 0) /* this means, not all minors are requested */   l = true;
     else
     { /* k == 0, i.e., all minors are requested */
-      int minorCount = 1;
-      for (int i = rowCount - minorSize + 1; i <= rowCount; i++)
-        minorCount = minorCount * i;
-      for (int i = 2; i <= minorSize; i++) minorCount = minorCount / i;
-      for (int i = columnCount - minorSize + 1; i <= columnCount; i++)
-        minorCount = minorCount * i;
-      for (int i = 2; i <= minorSize; i++) minorCount = minorCount / i;
-      /* now: minorCount =   (rowCount over minorSize)
-                           * (columnCount over minorSize) */
-      if      ((minorSize >= 3) && (vars <= 4)
-               && (minorCount >= 100))                           c = true;
-      else if ((minorSize >= 3) && (vars >= 5)
-               && (minorCount >= 40))                            c = true;
-      else                                                       l = true;
+      int minorCount = binom(rowCount, minorSize);
+      minorCount *= binom(columnCount, minorSize);
+      // if      ((minorSize >= 3) && (vars <= 4)
+      //          && (minorCount >= 100))                           c = true;
+      // else if ((minorSize >= 3) && (vars >= 5)
+      //          && (minorCount >= 40))                            c = true;
+      /*else*/                                                      l = true;
     }
   }
 

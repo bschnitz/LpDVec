@@ -7,12 +7,19 @@
 #ifndef INTVEC_CC
 #define INTVEC_CC
 
-#include "config.h"
+
+#ifdef HAVE_CONFIG_H
+#include "libpolysconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <misc/auxiliary.h>
 
-// #include <findexec/feFopen.h>
+// #include <resources/feFopen.h>
 #include <misc/intvec.h>
+#include <misc/options.h>
 #include <omalloc/omalloc.h>
+
+#pragma GCC push_options
+#pragma GCC optimize ("wrapv") 
 
 /*0 implementation*/
 
@@ -112,7 +119,7 @@ char * intvec::ivString(int not_mat,int spaces, int dim) const
       }
     }
   }
-  return StringAppendS("");
+  return StringEndS();
 }
 
 void intvec::resize(int new_length)
@@ -124,7 +131,7 @@ void intvec::resize(int new_length)
 
 char * intvec::String(int dim) const
 {
-  return omStrDup(ivString(1, 0, dim));
+  return ivString(1, 0, dim);
 }
 
 #ifndef NDEBUG
@@ -146,13 +153,17 @@ void intvec::view () const
 
 void intvec::show(int notmat,int spaces) const
 {
+  char *s=ivString(notmat,spaces);
   if (spaces>0)
   {
     PrintNSpaces(spaces);
-    PrintS(ivString(notmat,spaces));
+    PrintS(s);
   }
   else
-    PrintS(ivString(notmat,0));
+  {
+    PrintS(s);
+  }
+  omFree(s);
 }
 
 void intvec::operator+=(int intop)
@@ -522,6 +533,7 @@ static void ivReduce(intvec *imat, int rpiv, int colpos,
 
   for (j=all;j>ready;j--)
   {
+    ivRowContent(imat, j, 1);
     ce = IMATELEM(*imat,j,colpos);
     if (ce!=0)
     {
@@ -654,8 +666,8 @@ static intvec * ivOptimizeKern(intvec *kern)
   int i,l,j,c=kern->cols(),r=kern->rows();
   intvec *res=new intvec(c);
 
-  //if (TEST_OPT_PROT)
-  //  Warn(" %d linear independent solutions\n",r);
+  if (TEST_OPT_PROT)
+    Warn(" %d linear independent solutions\n",r);
   for (i=r;i>1;i--)
   {
     for (j=c;j>0;j--)
@@ -800,5 +812,28 @@ static void ivContent(intvec *w)
   for (i=w->rows()-1;i>=0;i--)
     (*w)[i] /= tgcd;
 }
+
+// columnwise concatination of two intvecs
+intvec * ivConcat(intvec * a, intvec * b)
+{
+  int ac=a->cols();
+  int c = ac + b->cols(); int r = si_max(a->rows(),b->rows());
+  intvec * ab = new intvec(r,c,0);
+
+  int i,j;
+  for (i=1; i<=a->rows(); i++)
+  {
+    for(j=1; j<=ac; j++)
+      IMATELEM(*ab,i,j) = IMATELEM(*a,i,j);
+  }
+  for (i=1; i<=b->rows(); i++)
+  {
+    for(j=1; j<=b->cols(); j++)
+      IMATELEM(*ab,i,j+ac) = IMATELEM(*b,i,j);
+  }
+  return ab;
+}
+
+#pragma GCC pop_options
 
 #endif

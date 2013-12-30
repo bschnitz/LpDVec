@@ -5,7 +5,9 @@
 * ABSTRACT: interpreter: printing
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <omalloc/omalloc.h>
 
@@ -78,14 +80,16 @@ static void ipPrint_MA0(matrix m, const char *name)
     /* convert all polys to string */
     i=MATCOLS(m)*MATROWS(m)-1;
     ss=pString(m->m[i]);
-    if ((int)strlen(ss)>colmax) s[i]=NULL;
-    else                        s[i]=omStrDup(ss);
+    if ((int)strlen(ss)>colmax) { s[i]=NULL; omFree(ss); }
+    else                        s[i]=ss;
     for(i--;i>=0;i--)
     {
-      pString(m->m[i]);
-      ss=StringAppendS(",");
+      StringSetS("");
+      pString0(m->m[i]);
+      StringAppendS(",");
+      ss=StringEndS();
       if ((int)strlen(ss)>colmax) s[i]=NULL;
-      else                        s[i]=omStrDup(ss);
+      else                        s[i]=ss;
     }
     /* look up the width of all columns, put it in l[col_nr] */
     /* insert names for very long entries */
@@ -236,15 +240,15 @@ BOOLEAN jjPRINT(leftv res, leftv u)
   {
       case INTVEC_CMD:
         bo=ipPrint_INTVEC(u);
-	break;
+        break;
 
       case INTMAT_CMD:
         bo=ipPrint_INTMAT(u);
-	break;
+        break;
 
       case MATRIX_CMD:
         bo=ipPrint_MA(u);
-	break;
+        break;
 
       case IDEAL_CMD:
       {
@@ -265,12 +269,12 @@ BOOLEAN jjPRINT(leftv res, leftv u)
 
       case VECTOR_CMD:
         bo=ipPrint_V(u);
-	break;
+        break;
 
       case RING_CMD:
       case QRING_CMD:
         bo=ipPrint_RING(u);
-	break;
+        break;
 
       default:
         u->Print();
@@ -300,7 +304,7 @@ BOOLEAN jjDBPRINT(leftv res, leftv u)
   }
   if (print)
   {
-    BOOLEAN r=FALSE;
+    // BOOLEAN r=FALSE;
     leftv h=u;
     leftv hh;
     while (h!=NULL)

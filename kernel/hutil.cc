@@ -5,7 +5,9 @@
 * ABSTRACT: Utilities for staircase operations
 */
 
-#include "config.h"
+#ifdef HAVE_CONFIG_H
+#include "singularconfig.h"
+#endif /* HAVE_CONFIG_H */
 #include <kernel/mod2.h>
 #include <kernel/structs.h>
 #include <kernel/febase.h>
@@ -1024,7 +1026,11 @@ scfmon hGetmem(int lm, scfmon old, monp monmem)
   int  lx = monmem->a;
   if ((x==NULL) || (lm > lx))
   {
-    if ((x!=NULL)&&(lx>0)) omFreeSize((ADDRESS)x, lx * sizeof(scmon));
+    /* according to http://www.singular.uni-kl.de:8002/trac/ticket/463#comment:4
+     * we need to work around a compiler bug:
+    * if ((x!=NULL)&&(lx>0)) omFreeSize((ADDRESS)x, lx * sizeof(scmon));
+    */
+    if (x!=NULL) if (lx>0) omFreeSize((ADDRESS)x, lx * sizeof(scmon));
     monmem->mo = x = (scfmon)omAlloc(lm * sizeof(scmon));
     monmem->a = lm;
   }

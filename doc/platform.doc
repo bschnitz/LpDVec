@@ -21,6 +21,7 @@
 
 @menu
 * News and changes::
+* Singular 3 and Singular 4::
 * Download instructions::
 * Unix installation instructions::
 * Windows installation instructions::
@@ -28,7 +29,7 @@
 @end menu
 
 @c ----------------------------------------------------------
-@node News and changes, Download instructions,,Release Notes
+@node News and changes, Singular 3 and Singular 4,,Release Notes
 @section News and changes
 @cindex news
 @cindex changes
@@ -36,27 +37,34 @@
 @include NEWS.texi
 
 @c ----------------------------------------------------------
-@node Download instructions, Unix installation instructions, News and changes, Release Notes
+@node Singular 3 and Singular 4, Download instructions,News and changes,Release Notes
+@section Singular 3 and Singular 4
+@cindex Singular 3 and Singular 4
+
+@include changes_in_singular4.texi
+
+@c ----------------------------------------------------------
+@node Download instructions, Unix installation instructions, Singular 3 and Singular 4, Release Notes
 @section Download instructions
 @cindex downloading
 @cindex instructions, downloading
 @cindex howto, download
 
-@sc{Singular} is available as binary program for most common hard-
+@sc{Singular} is available as source and binary program for most common hard-
 and software platforms.
 Instructions to download and install @sc{Singular} can be found
 at
 @display
-@uref{http://www.singular.uni-kl.de/download.html}.
+@uref{http://www.singular.uni-kl.de/index.php/singular-download.html}.
 @end display
 
 Release versions of @sc{Singular} are also available
 from our FTP site
 @display
-@uref{ftp://www.mathematik.uni-kl.de/pub/Math/Singular/}.
+@uref{ftp://www.mathematik.uni-kl.de/pub/Math/Singular/src/4-0-0/}.
 @end display
 
-@include README_download.texi
+@c @include README_download.texi
 
 @c ----------------------------------------------------------
 @node Unix installation instructions, Windows installation instructions, Download instructions, Release Notes
@@ -65,7 +73,45 @@ from our FTP site
 @cindex instructions, Unix installation
 @cindex howto, install on Unix
 
-@include INSTALL_unix.texi
+@itemize
+@item
+Install the necessary packages:
+  @itemize
+  @item
+  libtool
+  @item
+  gnu make
+  @item
+  gcc, g++
+  @item
+  libreadline
+  @item
+  gmp
+  @item
+  ntl
+  @item
+  libcdd
+  @end itemize
+@item
+Install flint 2.4:
+@code{./configure --with-gmp=/usr --prefix=$HOME/tmp --disable-shared}
+@*@code{make && make install}
+@item
+Install Singular
+@code{./configure --with-flint=$HOME/tmp --enable-gfanlib --prefix=$HOME/Singular4}
+@*@code{make && make install}
+@*(@code{$HOME/Singular4/bin/Singular} is the main execuatble)
+@item (optional)
+install 4ti2
+@item (optional)
+install surf/surfer
+@item (optional)
+install normaliz 2.7
+@end itemize
+
+See also
+@url{https://github.com/Singular/Sources/wiki/Step-by-Step-Installation-Instructions-for-Singular}
+which includes instructions adapted for debian and fedora based systems.
 
 @c ----------------------------------------------------------
 @node Windows installation instructions, Macintosh installation instructions, Unix installation instructions, Release Notes
@@ -74,7 +120,10 @@ from our FTP site
 @cindex instructions, Windows installation
 @cindex howto, install on Windows
 
-@include INSTALL_win.texi
+Singular relies on Cygwin as its environment under Windows.
+There is a 32bit and a 64bit version of Cygwin.
+
+@url{https://github.com/Singular/Sources/wiki/Step-by-Step-Installation-Instructions-for-Singular}
 
 @c ----------------------------------------------------------
 @node Macintosh installation instructions,,Windows installation instructions, Release Notes
@@ -84,55 +133,5 @@ from our FTP site
 @cindex howto, install on Macintosh
 
 @strong{Installation of the provided binaries}
-
-Do not use the Finder for the installation!
-
-After inserting the CD, open a terminal (under /Applications/Utilities) and
-type the following commands (you need an Admin Account):
-@*   sudo tar -xvzf /Volumes/CDROM/MAC/OSX/Singular-3-0-3-ppcMac-darwin.tar.gz
-@*   sudo tar -xvzf /Volumes/CDROM/MAC/OSX/Singular-3-0-3-share.tar.gz
-@*   sudo ln -sf /usr/local/Singular/3-0-3/ppcMac-darwin/Singular /usr/local/bin/Singular-3-0-3
-@*The first two commands unpack the tar.gz files and copy the Singular
-files (binaries and documentation, libs, etc) to /usr/local/Singular/3-0-3.
-
-The final command creates a link in /usr/local/bin so that you can just type
-Singular-3-0-3
-to run @sc{Singular} in any terminal.
-
-
-(The expert might wish to read the INSTALL_unix.html file in the UNIX
-directory for alternatives).
-
-Installation via fink
-
-Fink is a well-known package format for Mac OS X.
-(see http://fink.sf.net)
-
-There are two packages: singular-doc and singular.
-
-They are available for 10.3 and 10.4 (in fink called 10.4-transitional).
-
-If you have fink installed, choose one of the two possibilities:
-
-@itemize
-@item
-   type in a shell:
-     @code{fink selfupdate}
-     @*@code{fink install singular singular-doc}
-
-@item
-using the Fink Commander:
-
-   @itemize
-   @item
-   Start your Fink Commander
-   @item
-   After updating the package list,
-   there should appear "singular" and "singular-doc" as packages
-   @item
-   Install it from sources (Fink will do that for you automatically.)
-   @end itemize
-
-@end itemize
-
+@url{https://github.com/Singular/Sources/wiki/Step-by-Step-Installation-Instructions-for-Singular}
 
