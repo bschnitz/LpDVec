@@ -388,8 +388,11 @@ int ShiftDVec::Reduce::kFindDivisibleByInT
     if (j > tlen) {ret = -1; break;};
     shift = L->SD_Ext()->divisibleBy_Comp( &T[j], pp, r, lV,
                                            get_right_divisor );
-    int rvd = redViolatesDeg(L, &T[j], uptodeg, currRing);
-    if ( shift < UINT_MAX && (strat->homog || !rvd) )
+    // Note to myself after profiling:
+    // do not test redViolatesDeg first, this would slow us down
+    if( shift < UINT_MAX &&
+        ( strat->homog ||
+          !redViolatesDeg(L, &T[j], uptodeg, currRing) ) )
     { ret = j; break; }
     j++;
   }
